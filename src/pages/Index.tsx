@@ -29,7 +29,7 @@ const Index = () => {
     }
 
     try {
-      const response = await fetch(`http://10.24.65.23:3001/api/instalaciones/${dni}`);
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/instalaciones/${dni}`);
       const result = await response.json();
 
       if (result.success) {
