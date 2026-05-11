@@ -7,7 +7,9 @@ import { useToast } from "@/hooks/use-toast";
 import { motion } from "framer-motion";
 import { ModeToggle } from "@/components/ModeToggle";
 import { Phone } from "lucide-react";
-
+import homeBg from "../assets/home.png";
+import logoImg from "../assets/logo-1.png";
+import textBannerImg from "../assets/text-banner.png";
 
 const Index = () => {
   const [dni, setDni] = useState("");
