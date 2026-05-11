@@ -59,7 +59,7 @@ const Index = () => {
       <header className="absolute top-0 w-full z-50 pt-4 pb-12 bg-gradient-to-b from-primary via-primary/80 to-transparent">
         <div className="container mx-auto px-4 lg:px-8 flex justify-between items-center">
           <div className="flex items-center cursor-pointer" onClick={() => navigate('/')}>
-            <img src="/src/assets/logo-1.png" alt="Peru Fibra" className="h-6 md:h-8 lg:h-10 w-auto object-contain drop-shadow-lg transition-all" />
+            <img src={logoImg} alt="Peru Fibra" className="h-6 md:h-8 lg:h-10 w-auto object-contain drop-shadow-lg transition-all" />
           </div>
           
           <div className="flex items-center gap-6">
@@ -76,7 +76,7 @@ const Index = () => {
         {/* Imagen de fondo familiar full color */}
         <div 
           className="absolute inset-0 z-0 bg-cover bg-center bg-no-repeat"
-          style={{ backgroundImage: 'url("/src/assets/home.png")' }}
+          style={{ backgroundImage: `url(${homeBg})` }}
         >
           {/* Gradiente sutil solo a la izquierda para que el texto resalte */}
           <div className="absolute inset-0 bg-gradient-to-r from-black/60 via-black/20 to-transparent"></div>
@@ -98,7 +98,7 @@ const Index = () => {
             transition={{ duration: 0.8 }}
             className="flex-1 text-center lg:text-left pt-24"
           >
-            <img src="/src/assets/text-banner.png" alt="Conecta con fibra" className="max-w-full h-auto mx-auto lg:mx-0 mb-8 drop-shadow-[0_10px_10px_rgba(0,0,0,0.5)]" style={{ maxHeight: '270px' }} />
+            <img src={textBannerImg} alt="Conecta con fibra" className="max-w-full h-auto mx-auto lg:mx-0 mb-8 drop-shadow-[0_10px_10px_rgba(0,0,0,0.5)]" style={{ maxHeight: '270px' }} />
             
             {/* Texto de seguimiento */}
             <div className="bg-black/40 p-6 rounded-2xl backdrop-blur-sm border border-white/10 inline-block text-left">

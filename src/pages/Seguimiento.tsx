@@ -13,6 +13,7 @@ import Routing from "@/components/Routing";
 import AnimatedMarker from "@/components/AnimatedMarker";
 import { motion, AnimatePresence } from "framer-motion";
 import { ModeToggle } from "@/components/ModeToggle";
+import logoImg from "../assets/logo-1.png";
 
 delete (L.Icon.Default.prototype as any)._getIconUrl;
 L.Icon.Default.mergeOptions({
@@ -124,7 +125,7 @@ const Seguimiento = () => {
 
     // Lanzar Notificación Nativa del Sistema Operativo/Navegador
     if ("Notification" in window && Notification.permission === "granted") {
-      new Notification(title, { body, icon: "/src/assets/logo-1.png" });
+      new Notification(title, { body, icon: logoImg });
     }
   };
 
@@ -370,7 +371,7 @@ const Seguimiento = () => {
           <div className="flex justify-between items-center mb-12">
             <div className="flex items-center gap-6">
               <div className="flex items-center cursor-pointer" onClick={() => navigate('/')}>
-                <img src="/src/assets/logo-1.png" alt="Peru Fibra" className="h-6 md:h-8 lg:h-10 w-auto object-contain drop-shadow-lg transition-all" />
+                <img src={logoImg} alt="Peru Fibra" className="h-6 md:h-8 lg:h-10 w-auto object-contain drop-shadow-lg transition-all" />
               </div>
               <div className="hidden md:block pl-6 border-l-2 border-white/20">
                 <button onClick={() => navigate('/')} className="flex items-center text-sm font-bold text-white/80 hover:text-white transition-colors uppercase tracking-wider">
