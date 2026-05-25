@@ -1,10 +1,10 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
-import fetch from 'node-fetch';
+import pool from './db.ts';
+import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import mysql from 'mysql2/promise';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -13,18 +13,6 @@ dotenv.config();
 
 const app = express();
 const port = process.env.PORT || 3001;
-
-// Configuración de la Base de Datos MySQL
-const pool = mysql.createPool({
-  host: process.env.DB_HOST,
-  user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-  database: process.env.DB_NAME,
-  port: parseInt(process.env.DB_PORT || '3306'),
-  waitForConnections: true,
-  connectionLimit: 10,
-  queueLimit: 0
-});
 
 // URLs para los servicios internos
 const CAPA_INTERMEDIA_URL = 'http://localhost:4001';
@@ -89,7 +77,7 @@ app.post('/api/encuesta', async (req, res) => {
   }
 });
 
-// Endpoint para verificar si un DNI ya llenó la encuesta en BD
+// Endpoint para verificar si un token ya llenó la encuesta en BD
 app.get('/api/encuesta/verificar/:token', async (req, res) => {
   const { token } = req.params;
   try {
