@@ -7,9 +7,9 @@
     "dev": "vite --host",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
-    "api": "nodemon --exec ts-node server/index.ts",
-    "capa": "nodemon --exec ts-node capa_intermedia/index.ts",
-    "tercero": "nodemon --exec ts-node server_tercero/index.ts"
+    "api": "nodemon --exec npx tsx server/index.ts",
+    "capa": "nodemon --exec npx tsx capa_intermedia/index.ts",
+    "tercero": "nodemon --exec npx tsx server_tercero/index.ts"
   },
   "keywords": [],
   "author": "",
@@ -51,6 +51,7 @@
     "postcss": "^8.5.14",
     "tailwindcss": "^3.4.19",
     "ts-node": "^10.9.2",
+    "tsx": "^4.22.3",
     "typescript": "^6.0.3",
     "vite": "^8.0.11"
   }
