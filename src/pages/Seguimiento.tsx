@@ -80,7 +80,7 @@ const Seguimiento = () => {
  const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
  const [isReprogramModalOpen, setIsReprogramModalOpen] = useState(false);
  const [reprogramStep, setReprogramStep] = useState<'confirm_initial' | 'form' | 'success'>('confirm_initial');
- const [reprogramData, setReprogramData] = useState({ fecha: '', turno: '', motivo: '', motivoSeleccionado: '' });
+ const [reprogramData, setReprogramData] = useState({ fecha: '', turno: '', motivo: '', motivoSeleccionado: '', pin_confirmacion: '' });
  const [isSubmittingReprogram, setIsSubmittingReprogram] = useState(false);
  
  const [encuesta, setEncuesta] = useState({
@@ -147,6 +147,11 @@ const Seguimiento = () => {
  };
 
  const handleReprogramSubmit = async () => {
+ if (reprogramData.pin_confirmacion !== data?.token_inicio) {
+   alert("El PIN de seguridad ingresado es incorrecto.");
+   return;
+ }
+
  setIsSubmittingReprogram(true);
  try {
  const response = await fetch(`${import.meta.env.VITE_API_URL}/api/reprogramar`, {
@@ -443,10 +448,10 @@ return (
  
  {/* Top Banner Orange (Always visible if no map) */}
  {status !== 'en_camino' && (
- <div className="bg-[#E3001B] w-full pt-12 pb-6 px-6 text-white shrink-0 relative z-30">
- <div className="flex justify-between items-center mb-4">
+ <div className="bg-[#E3001B] w-full pt-8 pb-4 px-6 text-white shrink-0 relative z-30 shadow-sm">
+ <div className="flex justify-between items-center mb-2">
  <div className="flex items-center">
- <PeruFibraLogo white className="h-6 sm:h-7" />
+ <PeruFibraLogo white className="h-5 sm:h-6" />
  </div>
  <div className="relative">
  <button 
@@ -492,7 +497,7 @@ return (
  </AnimatePresence>
  </div>
  </div>
- <h1 className="text-2xl font-black mt-2">
+ <h1 className="text-xl font-black mt-1">
  Hola, {data.cliente_nombre ? data.cliente_nombre.split(' ')[0] : 'Cliente'}
  </h1>
  </div>
@@ -507,7 +512,7 @@ return (
  )}
 
  {/* Scrollable Content inside Sheet */}
- <div className="flex-1 overflow-y-auto px-5 pb-8 scrollbar-hide pt-0">
+ <div className="flex-1 overflow-y-auto px-5 pb-32 scrollbar-hide pt-0">
  
  {status === 'cerrada' && !encuestaEnviada && localStorage.getItem(`encuesta_completada_${token}`) !== 'true' ? (
  <div className="py-6">
@@ -975,6 +980,19 @@ return (
  rows={2} 
  placeholder="Ej: No estaré en casa, por favor venir por la tarde..."
  ></textarea>
+
+ <h3 className="font-bold text-[14px] text-gray-900 mb-3 mt-5">PIN de Seguridad</h3>
+ <p className="text-[11px] text-gray-500 mb-2 leading-tight">
+   Ingresa el PIN de 4 dígitos que te fue asignado para confirmar tu identidad.
+ </p>
+ <input 
+ type="text"
+ maxLength={4}
+ value={reprogramData.pin_confirmacion}
+ onChange={(e) => setReprogramData({...reprogramData, pin_confirmacion: e.target.value.replace(/\D/g, '')})}
+ className="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 text-center text-lg font-bold tracking-[0.5em] text-gray-900 focus:outline-none focus:border-[#E3001B] focus:ring-1 focus:ring-[#E3001B]"
+ placeholder="----"
+ />
  </div>
  )}
  </div>
@@ -982,7 +1000,7 @@ return (
  {/* Footer CTA */}
  <div className="bg-white p-4 shadow-[0_-10px_20px_rgba(0,0,0,0.05)] shrink-0">
  <button 
- disabled={!reprogramData.fecha || !reprogramData.turno}
+ disabled={!reprogramData.fecha || !reprogramData.turno || reprogramData.pin_confirmacion.length !== 4}
  onClick={handleReprogramSubmit}
  className="w-full bg-[#E3001B] disabled:bg-gray-300 disabled:text-gray-500 text-white font-bold h-12 rounded-full text-[14px] transition-colors shadow-lg shadow-[#E3001B]/20"
  >

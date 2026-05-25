@@ -88,9 +88,9 @@ app.get('/api/v1/terceros/instalaciones/:token', verificarTercero, async (req, r
       }
     } catch(e) {}
 
-    // Generar Token de Inicio si está en camino y no lo tiene
+    // Generar Token de Inicio si no lo tiene (para cualquier estado, ya que se exige al reprogramar)
     let tokenInicio = op.Token_inicio;
-    if (statusFront === 'en_camino' && !tokenInicio) {
+    if (!tokenInicio) {
       tokenInicio = Math.floor(1000 + Math.random() * 9000).toString();
       try {
         await pool.query('UPDATE OPERACION SET Token_inicio = ? WHERE idoperacion = ?', [tokenInicio, op.idoperacion]);
