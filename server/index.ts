@@ -194,6 +194,6 @@ app.post('/api/route', async (req, res) => {
   }
 });
 
-app.listen(port, () => {
-  console.log(`🚀 Servidor API corriendo en http://localhost:${port}`);
+app.listen(port, '0.0.0.0', () => {
+  console.log(`🚀 Servidor API corriendo en http://0.0.0.0:${port}`);
 });
