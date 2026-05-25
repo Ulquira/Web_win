@@ -1,0 +1,20 @@
+# Usa una imagen de Node.js oficial y ligera
+FROM node:20-alpine
+
+# Establece el directorio de trabajo dentro del contenedor
+WORKDIR /app
+
+# Copia solo los archivos de configuración de paquetes primero (para optimizar caché)
+COPY package*.json ./
+
+# Instala TODAS las dependencias (incluyendo devDependencies para poder compilar ts-node)
+RUN npm install
+
+# Copia todo el código fuente del proyecto al contenedor
+COPY . .
+
+# Expone el puerto que usará la Capa Intermedia
+EXPOSE 4001
+
+# Comando para ejecutar la Capa Intermedia usando ts-node sin nodemon (para producción)
+CMD ["npx", "ts-node", "capa_intermedia/index.ts"]

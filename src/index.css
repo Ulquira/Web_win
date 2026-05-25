@@ -57,12 +57,20 @@
     @apply border-border;
   }
   body {
-    @apply bg-background text-foreground transition-colors duration-300;
-    font-family: 'Corbel', 'Lucida Sans', 'Lucida Sans Regular', 'Lucida Grande', 'Lucida Sans Unicode', Geneva, Verdana, sans-serif;
+    @apply bg-background text-foreground transition-colors duration-300 font-sans;
   }
   h1, h2, h3, h4, h5, h6, .font-bold, .font-black, .font-semibold {
-    font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    font-family: 'Helvetica', Arial, sans-serif;
   }
+}
+
+/* Ocultar elementos intrusivos de Leaflet para look Nativo (Uber-style) */
+.leaflet-control-attribution,
+.leaflet-routing-container {
+  display: none !important;
+}
+.leaflet-control-container {
+  display: none !important;
 }
 
 @keyframes flow-line {

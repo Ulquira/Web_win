@@ -1,7 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
-import pool from './db.ts';
+import fetch from 'node-fetch';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -14,14 +14,18 @@ dotenv.config();
 const app = express();
 const port = process.env.PORT || 3001;
 
+// URLs para los servicios internos
+const CAPA_INTERMEDIA_URL = 'http://localhost:4001';
+const SECRET_API_KEY = process.env.SECRET_API_KEY || "LLAVE_SECRETA_DEL_TERCERO_123";
+
 app.use(cors({ origin: '*' }));
 app.use(express.json());
 
 // Endpoint para guardar reprogramaciones en un CSV
 app.post('/api/reprogramar', (req, res) => {
-  const { dni, fecha, turno, motivo } = req.body;
+  const { token, fecha, turno, motivo } = req.body;
 
-  if (!dni || !fecha || !turno) {
+  if (!token || !fecha || !turno) {
     return res.status(400).json({ success: false, message: 'Faltan datos obligatorios' });
   }
 
@@ -32,11 +36,11 @@ app.post('/api/reprogramar', (req, res) => {
 
     // Si el archivo no existe, le ponemos las cabeceras
     if (!fs.existsSync(csvPath)) {
-      fs.writeFileSync(csvPath, 'FECHA_REGISTRO,DNI,NUEVA_FECHA_SOLICITADA,TURNO,MOTIVO\n', 'utf8');
+      fs.writeFileSync(csvPath, 'FECHA_REGISTRO,TOKEN,NUEVA_FECHA_SOLICITADA,TURNO,MOTIVO\n', 'utf8');
     }
 
     // Agregar la nueva línea
-    const csvLine = `${timestamp},${dni},${fecha},${turno},${cleanMotivo}\n`;
+    const csvLine = `${timestamp},${token},${fecha},${turno},${cleanMotivo}\n`;
     fs.appendFileSync(csvPath, csvLine, 'utf8');
 
     res.json({ success: true, message: 'Reprogramación guardada con éxito' });
@@ -47,13 +51,13 @@ app.post('/api/reprogramar', (req, res) => {
 });
 
 // Endpoint para guardar Encuestas en un CSV
-app.post('/api/encuesta', (req, res) => {
+app.post('/api/encuesta', async (req, res) => {
   const { 
-    dni, llego_horario, calificacion_tecnico, explicacion_clara, 
+    token, llego_horario, calificacion_tecnico, explicacion_clara, 
     tiempo_adecuado, informacion_clara, probabilidad_recomendar, comentarios 
   } = req.body;
 
-  if (!dni || !probabilidad_recomendar) {
+  if (!token || !probabilidad_recomendar) {
     return res.status(400).json({ success: false, message: 'Faltan datos obligatorios' });
   }
 
@@ -63,10 +67,10 @@ app.post('/api/encuesta', (req, res) => {
     const cleanComments = (comentarios || '').replace(/,/g, ' ');
 
     if (!fs.existsSync(csvPath)) {
-      fs.writeFileSync(csvPath, 'FECHA_REGISTRO,DNI,LLEGO_A_TIEMPO,CALIFICACION_TECNICO,EXPLICACION_CLARA,TIEMPO_INSTALACION,INFO_CLARA,NPS,COMENTARIOS\n', 'utf8');
+      fs.writeFileSync(csvPath, 'FECHA_REGISTRO,TOKEN,LLEGO_A_TIEMPO,CALIFICACION_TECNICO,EXPLICACION_CLARA,TIEMPO_INSTALACION,INFO_CLARA,NPS,COMENTARIOS\n', 'utf8');
     }
 
-    const csvLine = `${timestamp},${dni},${llego_horario},${calificacion_tecnico},${explicacion_clara},${tiempo_adecuado},${informacion_clara},${probabilidad_recomendar},${cleanComments}\n`;
+    const csvLine = `${timestamp},${token},${llego_horario},${calificacion_tecnico},${explicacion_clara},${tiempo_adecuado},${informacion_clara},${probabilidad_recomendar},${cleanComments}\n`;
     fs.appendFileSync(csvPath, csvLine, 'utf8');
 
     res.json({ success: true, message: 'Encuesta guardada con éxito' });
@@ -77,18 +81,20 @@ app.post('/api/encuesta', (req, res) => {
 });
 
 // Endpoint para verificar si un DNI ya llenó la encuesta
-app.get('/api/encuesta/verificar/:dni', (req, res) => {
-  const { dni } = req.params;
+app.get('/api/encuesta/verificar/:token', async (req, res) => {
+  const { token } = req.params;
   try {
     const csvPath = path.join(__dirname, 'encuestas.csv');
-    if (!fs.existsSync(csvPath)) {
+    try {
+      await fs.promises.access(csvPath);
+    } catch {
       return res.json({ success: true, completada: false });
     }
 
-    const content = fs.readFileSync(csvPath, 'utf8');
+    const content = await fs.promises.readFile(csvPath, 'utf8');
     // Buscamos si el DNI existe en alguna línea (usando comas para asegurar coincidencia exacta de columna)
     const lineas = content.split('\n');
-    const completada = lineas.some(linea => linea.includes(`,${dni},`));
+    const completada = lineas.some(linea => linea.includes(`,${token},`));
 
     res.json({ success: true, completada });
   } catch (error) {
@@ -97,95 +103,28 @@ app.get('/api/encuesta/verificar/:dni', (req, res) => {
   }
 });
 
-// Obtener detalles de una instalación por DNI
-app.get('/api/instalaciones/:dni', async (req, res) => {
-  const { dni } = req.params;
+// Obtener detalles de una instalación por token
+app.get('/api/instalaciones/:token', async (req, res) => {
+  const { token } = req.params;
 
   try {
-    const [rows] = await pool.query(
-      `SELECT Estado, SubEstado, Cuadrilla, coordenadas_direccion, Ubi_TEC, telefono, fecha_programacion, Tramo_Atencio 
-       FROM OPERACION 
-       WHERE dni_cliente = ? 
-       ORDER BY fecha_programacion DESC LIMIT 1`, 
-      [dni]
-    );
-
-    const instalaciones = rows as any[];
-
-    if (instalaciones.length === 0) {
-      return res.status(404).json({ success: false, message: 'Instalación no encontrada' });
-    }
-
-    const op = instalaciones[0];
-
-    // Mapeamos el estado real de tu BBDD a los estados que entiende el frontend
-    // Esto es un ejemplo, puedes ajustar las palabras según lo que guardes en 'Estado'
-    let statusFront = 'programada';
-    const estadoDB = (op.Estado || '').toUpperCase();
-    
-    // Mapeo real de los estados de tu BBDD a los del Front
-    if (estadoDB === 'PENDIENTE') {
-      // Pendiente en la BD ahora significa Programada visualmente (el primer paso)
-      statusFront = 'programada';
-    } else if (estadoDB === 'PROGRAMADO') {
-      // Si está programado pero YA tiene cuadrilla asignada pasa al 2do paso visual
-      if (op.Cuadrilla && op.Cuadrilla.trim() !== '') {
-        statusFront = 'asignado';
-      } else {
-        statusFront = 'programada';
+    // Este servidor ahora llama a la capa intermedia segura
+    const response = await fetch(`${CAPA_INTERMEDIA_URL}/api/v1/terceros/instalaciones/${token}`, {
+      headers: {
+        'Authorization': `Bearer ${SECRET_API_KEY}`
       }
-    } else if (estadoDB === 'EN CAMINO') {
-      statusFront = 'en_camino';
-    } else if (estadoDB === 'EN PROCESO') {
-      statusFront = 'en_proceso';
-    } else if (estadoDB === 'FINALIZADO') {
-      statusFront = 'finalizada';
-    } else if (['AUSENTE', 'CANCELADO', 'DULPLICADO', 'INASISTENCIA', 'PEXT', 'REPROGRAMA'].includes(estadoDB)) {
-      statusFront = 'cerrada';
-    }
-
-    // Extraemos la latitud y longitud si existen
-    let coordsCliente = null;
-    let coordsTecnico = null;
-
-    try {
-      if (op.coordenadas_direccion) {
-        const parts = op.coordenadas_direccion.split(',');
-        if (parts.length === 2) coordsCliente = [parseFloat(parts[0]), parseFloat(parts[1])];
-      }
-      if (op.Ubi_TEC) {
-        const parts = op.Ubi_TEC.split(',');
-        if (parts.length === 2) coordsTecnico = [parseFloat(parts[0]), parseFloat(parts[1])];
-      }
-    } catch(e) {}
-
-    const responseData: any = {
-      status: statusFront,
-      eta: op.SubEstado ? op.SubEstado : null, 
-      trafico: null,
-      coordenadas_cliente: coordsCliente,
-      coordenadas_tecnico: coordsTecnico,
-      fecha_programacion: op.fecha_programacion,
-      tramo: op.Tramo_Atencio
-    };
-
-    // Agregar datos del técnico (Cuadrilla en tu caso)
-    if (op.Cuadrilla) {
-      responseData.tecnico = {
-        nombre: op.Cuadrilla, // Usamos cuadrilla como nombre ya que no hay 'nombre_tecnico'
-        cuadrilla: op.Cuadrilla,
-        telefono: op.telefono || 'Central'
-      };
-    }
-
-    res.json({
-      success: true,
-      data: responseData,
-      raw_db: op // Enviamos los datos crudos para depuración
     });
 
+    if (!response.ok) {
+      const errorData = await response.json();
+      return res.status(response.status).json(errorData);
+    }
+
+    const data = await response.json();
+    res.json(data);
+
   } catch (error) {
-    console.error('Error al consultar la base de datos:', error);
+    console.error('Error al conectar con la capa intermedia:', error);
     res.status(500).json({ success: false, message: 'Error interno del servidor', error });
   }
 });
@@ -247,7 +186,7 @@ app.post('/api/route', async (req, res) => {
       body: JSON.stringify(requestBody)
     });
 
-    const data = await response.json();
+    const data: any = await response.json();
 
     if (response.ok && data.routes && data.routes.length > 0) {
       const route = data.routes[0];
