@@ -43,11 +43,12 @@ export default function Routing({ start, end, onRouteCalculated }: RoutingProps)
   const map = useMap();
   const [routePath, setRoutePath] = useState<[number, number][]>([]);
 
-  const startStr = start?.join(',');
-  const endStr = end?.join(',');
+  // Convertimos a string para usarlos de forma segura en las dependencias del useEffect
+  const startStr = start ? start.join(',') : '';
+  const endStr = end ? end.join(',') : '';
 
   useEffect(() => {
-    if (!startStr || !endStr) return;
+    if (!start || !end) return;
 
     let isMounted = true;
 
@@ -70,27 +71,11 @@ export default function Routing({ start, end, onRouteCalculated }: RoutingProps)
           }
 
           // Ajustar el zoom del mapa para mostrar toda la ruta
-          // El padding inferior (bottom) es más grande para evitar que la ruta se esconda detrás del panel desplegable
           const bounds = L.latLngBounds(decodedPath);
-          map.fitBounds(bounds, { 
-            paddingTopLeft: [50, 50],
-            paddingBottomRight: [50, 300]
-          });
+          map.fitBounds(bounds, { padding: [50, 50] });
         } else {
-          // Fallback a ruta directa si falla Google Maps
+          // Fallback a OSRM/Ruta directa si falla o no hay API key
           console.warn("Fallo el cálculo de ruta con Google Maps, usando fallback directo", data.message);
-          if (isMounted) {
-            const fallbackPath: [number, number][] = [start, end];
-            setRoutePath(fallbackPath);
-            if (onRouteCalculated) {
-              onRouteCalculated(fallbackPath, 0);
-            }
-            const bounds = L.latLngBounds(fallbackPath);
-            map.fitBounds(bounds, { 
-              paddingTopLeft: [50, 50],
-              paddingBottomRight: [50, 300]
-            });
-          }
         }
       } catch (err) {
         console.error("Error fetching route from backend:", err);

@@ -1,51 +1,25 @@
-import { useState, useEffect, useRef } from "react";
-import { useParams, useNavigate } from "react-router-dom";
-import { Button } from "@/components/ui/button";
+const fs = require('fs');
+const path = require('path');
+const file = path.join(__dirname, 'src/pages/Seguimiento.tsx');
 
-import { Phone, CheckCircle2, User, XCircle, Star, Bell, Check, MapPin, AlertTriangle, ArrowLeft } from "lucide-react";
-import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
-import 'leaflet/dist/leaflet.css';
-import 'leaflet-routing-machine/dist/leaflet-routing-machine.css';
-import L from 'leaflet';
-import { format } from "date-fns";
+let content = fs.readFileSync(file, 'utf8');
 
-import Routing from "@/components/Routing";
-import AnimatedMarker from "@/components/AnimatedMarker";
-import { motion, AnimatePresence } from "framer-motion";
-import { PeruFibraLogo } from "@/components/PeruFibraLogo";
+// Aplicamos reemplazos para llegar directo al estado final minimalista en un solo paso
 
+// 1. Quitar dependencias innecesarias y arreglar importaciones
+content = content.replace('import { ArrowLeft, Phone, CheckCircle2, Calendar, User, Navigation, Wrench, Clock, MapPin, CalendarDays, XCircle, Star, BellRing } from "lucide-react";', 'import { Phone, CheckCircle2, User, XCircle, Star, Bell, Check, MapPin, AlertTriangle, ArrowLeft } from "lucide-react";');
+content = content.replace('import { MapContainer, TileLayer, Marker, Popup } from \'react-leaflet\';', 'import { MapContainer, TileLayer, Marker, Popup, useMap } from \'react-leaflet\';');
+content = content.replace('import { ModeToggle } from "@/components/ModeToggle";', 'import { PeruFibraLogo } from "@/components/PeruFibraLogo";');
+content = content.replace('import { es } from "date-fns/locale";', '');
+content = content.replace('import { Card } from "@/components/ui/card";', '');
 
-delete (L.Icon.Default.prototype as any)._getIconUrl;
-L.Icon.Default.mergeOptions({
- iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
- iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
- shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
-});
+// 2. Colores y diseño del Marker
+content = content.replace(/background-color: #ff5a1f/g, 'background-color: #E3001B');
+content = content.replace(/rgba\(255, 90, 31, 0.4\)/g, 'rgba(227, 0, 27, 0.4)');
 
-const vehicleIcon = L.divIcon({
- className: 'custom-vehicle-icon',
- html: `<div style="background-color: #E3001B; border-radius: 50%; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; border: 3px solid white; box-shadow: 0 4px 12px rgba(227, 0, 27, 0.4); transition: transform 0.3s ease;">
- <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2"/><path d="M15 18H9"/><path d="M19 18h2a1 1 0 0 0 1-1v-3.65a1 1 0 0 0-.22-.624l-3.48-4.35A1 1 0 0 0 17.52 8H14"/><circle cx="17" cy="18" r="2"/><circle cx="7" cy="18" r="2"/></svg>
- </div>`,
- iconSize: [44, 44],
- iconAnchor: [22, 22],
- popupAnchor: [0, -22],
-});
-
-const destIcon = L.divIcon({
- className: 'custom-dest-icon',
- html: `<div style="background-color: #111827; border-radius: 50%; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; border: 3px solid white; box-shadow: 0 4px 12px rgba(0,0,0,0.3);">
- <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
- </div>`,
- iconSize: [40, 40],
- iconAnchor: [20, 40],
- popupAnchor: [0, -40],
-});
-
-// Componente para animar elementos al entrar
+// 3. Añadir AutoFitMap
+const autoFitMapCode = `
 export interface InstalacionData {
- cliente_nombre?: string;
- direccion?: string;
  idoperacion?: string | number;
  status: 'programada' | 'asignado' | 'en_camino' | 'en_proceso' | 'finalizada' | 'cerrada' | string;
  tecnico?: {
@@ -59,12 +33,39 @@ export interface InstalacionData {
  coordenadas_tecnico?: [number, number];
  fecha_programacion?: string;
  tramo?: string;
- token_inicio?: string;
+ cliente_nombre?: string;
+ direccion?: string;
  campana?: string;
 }
 
-const Seguimiento = () => {
- const { token } = useParams<{ token: string }>();
+const AutoFitMap = ({ routePoints, position, vehiclePosition }: { routePoints: [number, number][], position: [number, number], vehiclePosition: [number, number] }) => {
+  const map = useMap();
+  const fitted = useRef(false);
+
+  useEffect(() => {
+    let points = routePoints;
+    if (points.length === 0) {
+      points = [position, vehiclePosition];
+    }
+    if (points.length > 0 && !fitted.current) {
+      const bounds = L.latLngBounds(points);
+      map.fitBounds(bounds, { paddingBottomRight: [0, 20], paddingTopLeft: [20, 20], animate: false });
+      fitted.current = true;
+    }
+  }, [map, routePoints, position, vehiclePosition]);
+  return null;
+};
+`;
+
+content = content.replace(/export interface InstalacionData [\s\S]*?\}\n/, autoFitMapCode);
+
+// 4. Actualizar toda la función Seguimiento con la versión final que funcionaba (sin bugs de jsx)
+
+const seguimientoFuncStart = content.indexOf('const Seguimiento = () => {');
+const lastBrace = content.lastIndexOf('export default Seguimiento;');
+
+const newSeguimientoCode = `const Seguimiento = () => {
+ const { token } = useParams();
  const navigate = useNavigate();
  
  const [data, setData] = useState<InstalacionData | null>(null);
@@ -74,13 +75,10 @@ const Seguimiento = () => {
  const [routePoints, setRoutePoints] = useState<[number, number][]>([]);
  const [calculatedEta, setCalculatedEta] = useState<string | null>(null);
  const [calculatedDurationSec, setCalculatedDurationSec] = useState<number>(0);
- // Estado para manejar el tiempo restante actual en segundos
- const [remainingSeconds, setRemainingSeconds] = useState<number | null>(null);
- 
  const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
  const [isReprogramModalOpen, setIsReprogramModalOpen] = useState(false);
  const [reprogramStep, setReprogramStep] = useState<'confirm_initial' | 'form' | 'success'>('confirm_initial');
- const [reprogramData, setReprogramData] = useState({ fecha: '', turno: '', motivo: '', motivoSeleccionado: '' });
+ const [reprogramData, setReprogramData] = useState({ fecha: '', turno: '', motivo: '' });
  const [isSubmittingReprogram, setIsSubmittingReprogram] = useState(false);
  
  const [encuesta, setEncuesta] = useState({
@@ -96,10 +94,9 @@ const Seguimiento = () => {
  const [encuestaEnviada, setEncuestaEnviada] = useState(false);
 
  const previousStatus = useRef<string | null>(null);
- const etaReferenceTime = useRef<number | null>(null);
  const [notifications, setNotifications] = useState<{title: string, body: string, time: Date, read: boolean}[]>([]);
  const [showNotifications, setShowNotifications] = useState(false);
- const [sheetHeight, setSheetHeight] = useState(25);
+ const [sheetHeight, setSheetHeight] = useState(40);
 
  useEffect(() => {
  if ("Notification" in window && Notification.permission === "default") {
@@ -112,7 +109,7 @@ const Seguimiento = () => {
  let body = "";
  
  switch(newStatus) {
- case 'asignado': body = `El técnico ${tecnicoData?.nombre || ''} ha sido asignado a tu instalación.`; break;
+ case 'asignado': body = \`El técnico \${tecnicoData?.nombre || ''} ha sido asignado a tu instalación.\`; break;
  case 'en_camino': body = "Tu técnico ya está en camino a tu domicilio. Revisa el mapa."; break;
  case 'en_proceso': body = "La instalación está en proceso en este momento."; break;
  case 'finalizada': body = "Instalación completada. Por favor evalúa nuestro servicio."; break;
@@ -122,34 +119,20 @@ const Seguimiento = () => {
  setNotifications(prev => [{ title, body, time: new Date(), read: false }, ...prev]);
 
  if ("Notification" in window && Notification.permission === "granted") {
-   if ('serviceWorker' in navigator) {
-     navigator.serviceWorker.ready.then(registration => {
-       registration.showNotification(title, { 
-         body,
-         icon: '/favicon.ico',
-         vibrate: [200, 100, 200]
-       } as NotificationOptions);
-     }).catch(() => {
-       // Fallback for non-sw environments
-       new Notification(title, { body });
-     });
-   } else {
-     new Notification(title, { body });
-   }
+ new Notification(title, { body });
  }
  };
 
- const getTomorrowLocal = () => {
- const tomorrow = new Date();
- tomorrow.setDate(tomorrow.getDate() + 1);
- const localDate = new Date(tomorrow.getTime() - (tomorrow.getTimezoneOffset() * 60000));
+ const getTodayLocal = () => {
+ const today = new Date();
+ const localDate = new Date(today.getTime() - (today.getTimezoneOffset() * 60000));
  return localDate.toISOString().split('T')[0];
  };
 
  const handleReprogramSubmit = async () => {
  setIsSubmittingReprogram(true);
  try {
- const response = await fetch(`${import.meta.env.VITE_API_URL}/api/reprogramar`, {
+ const response = await fetch(\`\${import.meta.env.VITE_API_URL}/api/reprogramar\`, {
  method: 'POST',
  headers: { 'Content-Type': 'application/json' },
  body: JSON.stringify({
@@ -179,7 +162,7 @@ const Seguimiento = () => {
 
  setIsSubmittingEncuesta(true);
  try {
- const response = await fetch(`${import.meta.env.VITE_API_URL}/api/encuesta`, {
+ const response = await fetch(\`\${import.meta.env.VITE_API_URL}/api/encuesta\`, {
  method: 'POST',
  headers: { 'Content-Type': 'application/json' },
  body: JSON.stringify({
@@ -191,7 +174,7 @@ const Seguimiento = () => {
  const result = await response.json();
  if (result.success) {
  setEncuestaEnviada(true);
- localStorage.setItem(`encuesta_completada_${token}`, 'true');
+ localStorage.setItem(\`encuesta_completada_\${token}\`, 'true');
  setData(prev => prev ? { ...prev, status: 'cerrada' } : null);
  } else {
  alert("Ocurrió un error. Por favor intenta de nuevo más tarde.");
@@ -203,68 +186,28 @@ const Seguimiento = () => {
  }
  };
 
- // Efecto para el contador regresivo local del ETA
- useEffect(() => {
-   if (remainingSeconds === null || remainingSeconds <= 0) return;
-
-   const interval = setInterval(() => {
-     setRemainingSeconds(prev => {
-       if (prev === null || prev <= 0) {
-         clearInterval(interval);
-         return 0;
-       }
-       return prev - 1;
-     });
-   }, 1000);
-
-   return () => clearInterval(interval);
- }, [remainingSeconds]);
-
- // Formatear el ETA calculado cada vez que cambian los segundos restantes
- useEffect(() => {
-   if (remainingSeconds === null) return;
-   
-   const totalSecsWithBuffer = remainingSeconds + (15 * 60); // Agregamos los 15 minutos extra
-   const minutes = Math.ceil(totalSecsWithBuffer / 60);
-   
-   let durationStr = `${minutes} min`;
-   if (minutes >= 60) {
-     const h = Math.floor(minutes / 60);
-     const m = minutes % 60;
-     durationStr = m > 0 ? `${h}h ${m}min` : `${h}h`;
-   }
-   
-   if (etaReferenceTime.current) {
-     const arrivalTime = new Date(etaReferenceTime.current + (totalSecsWithBuffer * 1000));
-     const timeFormat = arrivalTime.toLocaleTimeString('es-PE', { hour: 'numeric', minute: '2-digit', hour12: true }).toLowerCase();
-     setCalculatedEta(`${durationStr} (${timeFormat})`);
-   } else {
-     setCalculatedEta(`${durationStr}`);
-   }
- }, [remainingSeconds]);
-
  useEffect(() => {
     let intervalId: ReturnType<typeof setInterval>;
 
     const fetchInstalacion = async () => {
       try {
-        const response = await fetch(`${import.meta.env.VITE_API_URL}/api/instalaciones/${token}`);
+        const response = await fetch(\`\${import.meta.env.VITE_API_URL}/api/instalaciones/\${token}\`);
         const result = await response.json();
         
         if (result.success) {
           const fetchedData = result.data;
 
-          const hasCompletedSurveyLocal = localStorage.getItem(`encuesta_completada_${token}`);
+          const hasCompletedSurveyLocal = localStorage.getItem(\`encuesta_completada_\${token}\`);
           
           if (hasCompletedSurveyLocal === 'true') {
             fetchedData.status = 'cerrada';
           } else {
             try {
-              const checkResponse = await fetch(`${import.meta.env.VITE_API_URL}/api/encuesta/verificar/${token}`);
+              const checkResponse = await fetch(\`\${import.meta.env.VITE_API_URL}/api/encuesta/verificar/\${token}\`);
               const checkResult = await checkResponse.json();
               
               if (checkResult.success && checkResult.completada) {
-                localStorage.setItem(`encuesta_completada_${token}`, 'true');
+                localStorage.setItem(\`encuesta_completada_\${token}\`, 'true');
                 fetchedData.status = 'cerrada';
               }
             } catch (e) {
@@ -337,21 +280,7 @@ return (
 
  const statusIndex = ['programada', 'asignado', 'en_camino', 'en_proceso', 'finalizada', 'cerrada'].indexOf(status);
 
- const formatTramoToRange = (tramoStr?: string) => {
-   if (!tramoStr) return '08:00 - 12:00';
-   
-   // Si el string ya tiene el formato de rango (contiene un guion o la palabra " a ") lo dejamos tal cual
-   if (tramoStr.includes('-') || tramoStr.toLowerCase().includes(' a ')) return tramoStr;
-   
-   const t = tramoStr.toLowerCase();
-   if (t.includes('8') || t.includes('08')) return '08:00 - 12:00';
-   if (t.includes('12')) return '12:00 - 16:00';
-   if (t.includes('16') || t.includes('4')) return '16:00 - 20:00';
-   
-   return tramoStr; // Por defecto retorna lo que venga si no coincide con los 3 tramos
- };
-
- const handleDragEnd = (_e: any, info: any) => {
+ const handleDragEnd = (e: any, info: any) => {
    if (info.offset.y < -50) {
      setSheetHeight(85);
    } else if (info.offset.y > 50) {
@@ -359,14 +288,29 @@ return (
    }
  };
 
+ const getMessage = () => {
+ if (status === 'cerrada' && (encuestaEnviada || localStorage.getItem(\`encuesta_completada_\${token}\`) === 'true')) {
+ return '¡Muchas gracias por tus comentarios!';
+ }
+ switch (status) {
+ case 'programada': return 'Tu instalación está programada.';
+ case 'asignado': return '¡Excelente! Tenemos un técnico asignado.';
+ case 'en_camino': return '¡Tu técnico está en camino!';
+ case 'en_proceso': return 'Instalación en progreso.';
+ case 'finalizada': return '¡Tu instalación ha sido completada!';
+ case 'cerrada': return 'Tu atención ha sido cerrada.';
+ default: return '';
+ }
+ };
+
  return (
  <div className="h-[100dvh] w-full bg-[#f3f4f6] relative overflow-hidden font-sans">
  
  {/* Floating Header (Only for map view to go back) */}
- {status === 'en_camino' && (
+ {(status === 'en_camino' || status === 'en_proceso') && (
  <div className="absolute top-0 left-0 w-full p-4 z-20 flex justify-between items-start pointer-events-none mt-2">
  <button 
- onClick={() => navigate(`/`)} 
+ onClick={() => navigate(\`/\`)} 
  className="w-12 h-12 bg-white/90 backdrop-blur-md rounded-full flex items-center justify-center shadow-lg pointer-events-auto transition-transform active:scale-95"
  >
  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-gray-800"><path d="m15 18-6-6 6-6"/></svg>
@@ -375,33 +319,28 @@ return (
  )}
 
  {/* Map Layer (Background) */}
- {status === 'en_camino' && (
- <div className="absolute top-0 left-0 w-full h-full z-0 bg-muted">
+ {(status === 'en_camino' || status === 'en_proceso') && (
+ <div className="absolute top-0 left-0 w-full h-[65vh] z-0 bg-muted">
  <MapContainer center={position} zoom={15} zoomControl={false} scrollWheelZoom={false} className="h-full w-full">
  <TileLayer url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png" />
  <Marker position={position} icon={destIcon}><Popup>Tu dirección</Popup></Marker>
  
- 
+ <AutoFitMap routePoints={routePoints} position={position} vehiclePosition={vehiclePosition} />
 
- {status === 'en_camino' && (
  <Routing 
  start={vehiclePosition} 
  end={position} 
  onRouteCalculated={(coords, timeInSeconds) => {
  setRoutePoints(coords);
  setCalculatedDurationSec(timeInSeconds);
- 
- // Solo seteamos el tiempo restante si es la primera vez o si la nueva estimación de Google
- // difiere por más de 5 minutos (300 segundos) de lo que nos queda, para evitar resetear el 
- // contador por pequeñas fluctuaciones del GPS.
- if (remainingSeconds === null || Math.abs(remainingSeconds - timeInSeconds) > 300) {
-   setRemainingSeconds(timeInSeconds);
-   etaReferenceTime.current = Date.now();
- }
+ const minutes = Math.ceil(timeInSeconds / 60);
+ const arrivalTime = new Date();
+ arrivalTime.setMinutes(arrivalTime.getMinutes() + minutes);
+ const timeFormat = arrivalTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+ setCalculatedEta(\`\${minutes} min (\${timeFormat})\`);
  }} 
  />
- )}
- {routePoints.length > 0 && status === 'en_camino' ? (
+ {routePoints.length > 0 ? (
  <AnimatedMarker 
  routePoints={routePoints} 
  durationSeconds={calculatedDurationSec}
@@ -409,40 +348,28 @@ return (
  popupText="El técnico está en camino" 
  />
  ) : (
- <Marker position={status === 'en_camino' ? vehiclePosition : position} icon={status === 'en_camino' ? vehicleIcon : destIcon}>
-   <Popup>{status === 'en_camino' ? 'El técnico' : 'Tu dirección'}</Popup>
- </Marker>
+ <Marker position={vehiclePosition} icon={vehicleIcon}><Popup>El técnico</Popup></Marker>
  )}
  </MapContainer>
-
- {/* Mensaje Referencial superpuesto en el mapa */}
- <div className="absolute bottom-[28vh] left-4 z-[400] bg-white/90 backdrop-blur-sm px-3.5 py-2.5 rounded-xl shadow-md border border-gray-100 max-w-[170px]">
-   <div className="flex items-center gap-1.5">
-     <AlertTriangle className="w-5 h-5 text-[#E3001B] shrink-0" />
-     <p className="text-[11px] text-gray-600 font-medium leading-tight">
-       El tiempo de llegada es <span className="font-bold text-gray-800">referencial</span>
-     </p>
-   </div>
- </div>
  </div>
  )}
 
  {/* Dynamic Content Container */}
  <motion.div 
   animate={{ 
-    height: status === 'en_camino' ? `${sheetHeight}vh` : '100vh' 
+    height: (status === 'en_camino' || status === 'en_proceso') ? \`\${sheetHeight}vh\` : '100vh' 
   }}
   transition={{ type: "spring", stiffness: 300, damping: 30 }}
-  drag={status === 'en_camino' ? "y" : false}
+  drag={(status === 'en_camino' || status === 'en_proceso') ? "y" : false}
   dragConstraints={{ top: 0, bottom: 0 }}
   dragElastic={0.2}
   onDragEnd={handleDragEnd}
-  className={`absolute left-0 bottom-0 w-full bg-white shadow-[0_-15px_40px_rgba(0,0,0,0.15)] z-20 flex flex-col ${
-    status === 'en_camino' ? 'rounded-t-[2.5rem]' : 'rounded-none top-0 pt-0'
- }`}>
+  className={\`absolute left-0 bottom-0 w-full bg-white shadow-[0_-15px_40px_rgba(0,0,0,0.15)] z-20 flex flex-col \${
+    status === 'en_camino' || status === 'en_proceso' ? 'rounded-t-[2.5rem]' : 'rounded-none top-0 pt-0'
+ }\`}>
  
  {/* Top Banner Orange (Always visible if no map) */}
- {status !== 'en_camino' && (
+ {!(status === 'en_camino' || status === 'en_proceso') && (
  <div className="bg-[#E3001B] w-full pt-12 pb-6 px-6 text-white shrink-0 relative z-30">
  <div className="flex justify-between items-center mb-4">
  <div className="flex items-center">
@@ -499,35 +426,33 @@ return (
  )}
 
  {/* Drag Handle (Only when map is visible) */}
- {status === 'en_camino' && (
- <div className="w-full flex flex-col items-center justify-center pt-3 pb-1 shrink-0 cursor-grab active:cursor-grabbing hover:bg-gray-50 rounded-t-[2.5rem] transition-colors">
- <div className="w-10 h-1 bg-gray-300 rounded-full mb-1"></div>
- {sheetHeight === 25 && <p className="text-[9px] text-gray-400 font-bold tracking-widest uppercase mb-1">Desliza para más detalles</p>}
+ {(status === 'en_camino' || status === 'en_proceso') && (
+ <div className="w-full flex flex-col items-center justify-center pt-3 pb-2 shrink-0 cursor-grab active:cursor-grabbing hover:bg-gray-50 rounded-t-[2.5rem] transition-colors">
+ <div className="w-12 h-1.5 bg-gray-300 rounded-full mb-1"></div>
+ {sheetHeight === 25 && <p className="text-[10px] text-gray-400 font-bold tracking-widest uppercase">Desliza para más detalles</p>}
  </div>
  )}
 
  {/* Scrollable Content inside Sheet */}
- <div className="flex-1 overflow-y-auto px-5 pb-8 scrollbar-hide pt-0">
+ <div className="flex-1 overflow-y-auto px-6 pb-10 scrollbar-hide pt-1">
  
- {status === 'cerrada' && !encuestaEnviada && localStorage.getItem(`encuesta_completada_${token}`) !== 'true' ? (
- <div className="py-6">
- <div className="bg-white border border-gray-200 rounded-[24px] p-6 sm:p-8 shadow-sm text-center">
- <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-5 border border-gray-100">
- <AlertTriangle className="w-8 h-8 text-gray-400" />
+ {status === 'cerrada' && !encuestaEnviada && localStorage.getItem(\`encuesta_completada_\${token}\`) !== 'true' ? (
+ <div className="text-center py-8">
+ <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-6">
+ <XCircle className="w-10 h-10 text-primary" />
  </div>
- <h2 className="text-2xl font-black text-gray-900 mb-3">Atención Cerrada</h2>
- <p className="text-[15px] text-gray-500 mb-8 font-medium leading-relaxed px-2">
- Tu visita ha sido cerrada. Si no reconoces esta cancelación, comunícate con nosotros, con gusto te atenderemos.
+ <h2 className="text-3xl font-black text-foreground mb-4">Atención Cerrada</h2>
+ <p className="text-lg text-muted-foreground mb-8 font-medium">
+ {getMessage()}
  </p>
- <button 
+ <Button 
  onClick={() => window.open('tel:017546000')} 
- className="w-full bg-[#E3001B] text-white font-bold rounded-2xl h-14 shadow-lg text-[15px] flex items-center justify-center gap-2 transition-transform active:scale-95"
+ className="w-full bg-secondary hover:bg-yellow-500 text-black font-bold rounded-2xl h-14 shadow-lg text-lg"
  >
- <Phone className="w-5 h-5" /> Llamar a ATC
- </button>
+ <Phone className="w-5 h-5 mr-2" /> Llamar a ATC
+ </Button>
  </div>
- </div>
- ) : status === 'finalizada' && !encuestaEnviada && localStorage.getItem(`encuesta_completada_${token}`) !== 'true' ? (
+ ) : status === 'finalizada' && !encuestaEnviada && localStorage.getItem(\`encuesta_completada_\${token}\`) !== 'true' ? (
  <div className="py-2">
  <div className="flex items-center gap-3 mb-6">
  <div className="w-12 h-12 bg-yellow-100 rounded-full flex items-center justify-center">
@@ -536,92 +461,28 @@ return (
  <h2 className="text-2xl font-black text-foreground leading-tight">Cuéntanos sobre<br/>tu experiencia</h2>
  </div>
  
- <div className="space-y-4">
- {/* Pregunta 1 */}
- <div className="bg-white border border-gray-100 shadow-sm rounded-2xl p-5">
- <p className="font-bold text-[14px] mb-3 text-gray-900">¿El técnico llegó dentro del horario acordado?</p>
- <div className="flex gap-3">
- <label className="flex items-center justify-center gap-2 cursor-pointer bg-gray-50 px-4 py-2.5 rounded-xl border border-gray-100 flex-1 hover:bg-gray-100 transition-colors has-[:checked]:border-[#E3001B] has-[:checked]:bg-[#E3001B]/5">
+ <div className="space-y-6">
+ <div className="bg-gray-50 rounded-3xl p-5 border border-gray-100 ">
+ <p className="font-bold mb-4 text-foreground">¿El técnico llegó dentro del horario acordado?</p>
+ <div className="flex gap-4">
+ <label className="flex items-center gap-2 cursor-pointer bg-white px-4 py-2 rounded-xl border flex-1">
  <input type="radio" name="q1" value="Sí" onChange={(e) => setEncuesta({...encuesta, llego_horario: e.target.value})} className="accent-[#E3001B] w-4 h-4" /> 
- <span className="font-bold text-[13px] text-gray-800">Sí</span>
+ <span className="font-medium text-sm">Sí</span>
  </label>
- <label className="flex items-center justify-center gap-2 cursor-pointer bg-gray-50 px-4 py-2.5 rounded-xl border border-gray-100 flex-1 hover:bg-gray-100 transition-colors has-[:checked]:border-[#E3001B] has-[:checked]:bg-[#E3001B]/5">
+ <label className="flex items-center gap-2 cursor-pointer bg-white px-4 py-2 rounded-xl border flex-1">
  <input type="radio" name="q1" value="No" onChange={(e) => setEncuesta({...encuesta, llego_horario: e.target.value})} className="accent-[#E3001B] w-4 h-4" /> 
- <span className="font-bold text-[13px] text-gray-800">No</span>
+ <span className="font-medium text-sm">No</span>
  </label>
  </div>
  </div>
 
- {/* Pregunta 2 */}
- <div className="bg-white border border-gray-100 shadow-sm rounded-2xl p-5">
- <p className="font-bold text-[14px] mb-3 text-gray-900">¿Cómo calificarías la amabilidad y atención del técnico?</p>
- <div className="flex justify-between gap-1">
- {[1,2,3,4,5].map(num => (
- <label key={`cal_${num}`} className="flex-1">
- <input type="radio" name="calificacion" value={num} onChange={(e) => setEncuesta({...encuesta, calificacion_tecnico: e.target.value})} className="peer hidden" />
- <div className="border border-gray-100 bg-gray-50 rounded-xl flex flex-col items-center justify-center py-2 cursor-pointer hover:bg-gray-100 peer-checked:border-yellow-400 peer-checked:bg-yellow-50 transition-all">
- <Star className={`w-6 h-6 mb-1 ${encuesta.calificacion_tecnico >= num.toString() ? 'text-yellow-400 fill-yellow-400' : 'text-gray-300 fill-gray-200'}`} />
- <span className="text-[10px] font-bold text-gray-500 peer-checked:text-yellow-700">{num}</span>
- </div>
- </label>
- ))}
- </div>
- </div>
-
- {/* Pregunta 3 */}
- <div className="bg-white border border-gray-100 shadow-sm rounded-2xl p-5">
- <p className="font-bold text-[14px] mb-3 text-gray-900">¿El técnico te explicó claramente cómo usar el servicio?</p>
- <div className="flex gap-3">
- <label className="flex items-center justify-center gap-2 cursor-pointer bg-gray-50 px-4 py-2.5 rounded-xl border border-gray-100 flex-1 hover:bg-gray-100 transition-colors has-[:checked]:border-[#E3001B] has-[:checked]:bg-[#E3001B]/5">
- <input type="radio" name="q3" value="Sí" onChange={(e) => setEncuesta({...encuesta, explicacion_clara: e.target.value})} className="accent-[#E3001B] w-4 h-4" /> 
- <span className="font-bold text-[13px] text-gray-800">Sí</span>
- </label>
- <label className="flex items-center justify-center gap-2 cursor-pointer bg-gray-50 px-4 py-2.5 rounded-xl border border-gray-100 flex-1 hover:bg-gray-100 transition-colors has-[:checked]:border-[#E3001B] has-[:checked]:bg-[#E3001B]/5">
- <input type="radio" name="q3" value="No" onChange={(e) => setEncuesta({...encuesta, explicacion_clara: e.target.value})} className="accent-[#E3001B] w-4 h-4" /> 
- <span className="font-bold text-[13px] text-gray-800">No</span>
- </label>
- </div>
- </div>
-
- {/* Pregunta 4 */}
- <div className="bg-white border border-gray-100 shadow-sm rounded-2xl p-5">
- <p className="font-bold text-[14px] mb-3 text-gray-900">¿El tiempo que demoró la instalación fue adecuado?</p>
- <div className="flex gap-3">
- <label className="flex items-center justify-center gap-2 cursor-pointer bg-gray-50 px-4 py-2.5 rounded-xl border border-gray-100 flex-1 hover:bg-gray-100 transition-colors has-[:checked]:border-[#E3001B] has-[:checked]:bg-[#E3001B]/5">
- <input type="radio" name="q4" value="Sí" onChange={(e) => setEncuesta({...encuesta, tiempo_adecuado: e.target.value})} className="accent-[#E3001B] w-4 h-4" /> 
- <span className="font-bold text-[13px] text-gray-800">Sí</span>
- </label>
- <label className="flex items-center justify-center gap-2 cursor-pointer bg-gray-50 px-4 py-2.5 rounded-xl border border-gray-100 flex-1 hover:bg-gray-100 transition-colors has-[:checked]:border-[#E3001B] has-[:checked]:bg-[#E3001B]/5">
- <input type="radio" name="q4" value="No" onChange={(e) => setEncuesta({...encuesta, tiempo_adecuado: e.target.value})} className="accent-[#E3001B] w-4 h-4" /> 
- <span className="font-bold text-[13px] text-gray-800">No</span>
- </label>
- </div>
- </div>
-
- {/* Pregunta 5 */}
- <div className="bg-white border border-gray-100 shadow-sm rounded-2xl p-5">
- <p className="font-bold text-[14px] mb-3 text-gray-900">¿La información del tracking fue útil y clara?</p>
- <div className="flex gap-3">
- <label className="flex items-center justify-center gap-2 cursor-pointer bg-gray-50 px-4 py-2.5 rounded-xl border border-gray-100 flex-1 hover:bg-gray-100 transition-colors has-[:checked]:border-[#E3001B] has-[:checked]:bg-[#E3001B]/5">
- <input type="radio" name="q5" value="Sí" onChange={(e) => setEncuesta({...encuesta, informacion_clara: e.target.value})} className="accent-[#E3001B] w-4 h-4" /> 
- <span className="font-bold text-[13px] text-gray-800">Sí</span>
- </label>
- <label className="flex items-center justify-center gap-2 cursor-pointer bg-gray-50 px-4 py-2.5 rounded-xl border border-gray-100 flex-1 hover:bg-gray-100 transition-colors has-[:checked]:border-[#E3001B] has-[:checked]:bg-[#E3001B]/5">
- <input type="radio" name="q5" value="No" onChange={(e) => setEncuesta({...encuesta, informacion_clara: e.target.value})} className="accent-[#E3001B] w-4 h-4" /> 
- <span className="font-bold text-[13px] text-gray-800">No</span>
- </label>
- </div>
- </div>
-
- {/* Pregunta NPS */}
- <div className="bg-white border border-gray-100 shadow-sm rounded-2xl p-5">
- <p className="font-bold text-[14px] mb-1 text-gray-900">Del 1 al 10, ¿qué tan probable es que nos recomiende?</p>
- <p className="text-[11px] text-gray-400 mb-4 font-medium">1 = Nada probable, 10 = Muy probable</p>
- <div className="flex flex-wrap gap-1.5">
+ <div className="bg-gray-50 rounded-3xl p-5 border border-gray-100 ">
+ <p className="font-bold mb-3 text-foreground">Del 1 al 10, ¿qué tan probable es que nos recomiende?</p>
+ <div className="flex flex-wrap gap-2">
  {[1,2,3,4,5,6,7,8,9,10].map(num => (
- <label key={`nps_${num}`} className="flex-1 min-w-[28px]">
+ <label key={num} className="flex-1 min-w-[30px]">
  <input type="radio" name="nps" value={num} onChange={(e) => setEncuesta({...encuesta, probabilidad_recomendar: e.target.value})} className="peer hidden" />
- <div className="bg-gray-50 border border-gray-100 rounded-lg text-center py-2 text-[13px] font-bold text-gray-600 peer-checked:border-[#E3001B] peer-checked:bg-[#E3001B] peer-checked:text-white hover:bg-gray-100 transition-all cursor-pointer">
+ <div className="border border-gray-200 bg-white rounded-lg text-center py-2 text-sm font-bold text-gray-500 peer-checked:border-[#E3001B] peer-checked:bg-[#E3001B] peer-checked:text-white transition-all shadow-sm">
  {num}
  </div>
  </label>
@@ -629,83 +490,29 @@ return (
  </div>
  </div>
 
- {/* Comentarios Libres */}
- <div className="bg-white border border-gray-100 shadow-sm rounded-2xl p-5">
- <p className="font-bold text-[14px] mb-3 text-gray-900">¿Tienes algún comentario o sugerencia? (Opcional)</p>
- <textarea 
- value={encuesta.comentarios}
- onChange={(e) => setEncuesta({...encuesta, comentarios: e.target.value})}
- className="w-full bg-gray-50 border border-gray-100 rounded-xl p-3 text-[13px] font-medium text-gray-800 focus:outline-none focus:border-[#E3001B] focus:ring-1 focus:ring-[#E3001B] resize-none" 
- rows={3} 
- placeholder="Escribe aquí tus comentarios..."
- ></textarea>
- </div>
-
  <Button 
  onClick={handleEncuestaSubmit}
  disabled={isSubmittingEncuesta}
- className="w-full bg-[#E3001B] hover:bg-[#c90018] text-white h-14 text-[15px] rounded-full shadow-[0_8px_20px_rgba(227,0,27,0.2)] transition-transform active:scale-95 font-bold mt-2">
+ className="w-full bg-[#E3001B] hover:bg-[#c90018] text-white h-14 text-lg rounded-2xl shadow-lg transition-transform hover:-translate-y-1 font-bold">
  {isSubmittingEncuesta ? "Enviando..." : "Enviar encuesta"}
  </Button>
  </div>
  </div>
- ) : (encuestaEnviada || localStorage.getItem(`encuesta_completada_${token}`) === 'true') && (status === 'finalizada' || status === 'cerrada') ? (
- <div className="py-6">
- <div className="bg-white border border-gray-200 rounded-[24px] p-8 shadow-sm text-center">
- <div className="w-20 h-20 bg-green-50 rounded-full flex items-center justify-center mx-auto mb-6 border border-green-100">
- <CheckCircle2 className="w-10 h-10 text-green-500" strokeWidth={2.5} />
+ ) : (encuestaEnviada || localStorage.getItem(\`encuesta_completada_\${token}\`) === 'true') && (status === 'finalizada' || status === 'cerrada') ? (
+ <div className="text-center py-10">
+ <div className="w-24 h-24 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
+ <CheckCircle2 className="w-12 h-12 text-green-500" />
  </div>
- <h2 className="text-2xl font-black text-gray-900 mb-3">¡Encuesta enviada!</h2>
- <p className="text-[15px] text-gray-500 mb-6 font-medium leading-relaxed px-2">
- Muchas gracias por tomarte el tiempo de responder. Tu opinión es súper valiosa y nos ayuda a seguir mejorando el servicio de PerúFibra para ti.
+ <h2 className="text-3xl font-black text-foreground mb-4">¡Gracias!</h2>
+ <p className="text-lg text-muted-foreground font-medium px-4">
+ {getMessage()}
  </p>
- <div className="inline-flex items-center justify-center px-6 py-3 bg-gray-50 rounded-xl border border-gray-100">
- <span className="text-[13px] font-bold text-gray-700">¡Que disfrutes tu conexión! 🚀</span>
- </div>
- </div>
  </div>
  ) : (
  <>
- {/* Token de Inicio (Si está en camino) */}
- {status === 'en_camino' && data.token_inicio && (
- <div className="bg-gray-900 rounded-3xl p-4 mb-3 shadow-[0_8px_30px_rgb(0,0,0,0.12)] mt-2 flex items-center justify-between mx-0 overflow-hidden relative">
-   {/* Elemento decorativo de fondo */}
-   <div className="absolute top-0 right-0 w-32 h-32 bg-[#E3001B] rounded-full blur-[50px] opacity-20 -mr-10 -mt-10"></div>
-   
-   <div className="flex flex-col relative z-10 w-2/3 pr-2">
-     <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-0.5">Código de seguridad</p>
-     <p className="text-[12px] text-gray-300 font-medium leading-snug">
-       Brinda este PIN al técnico para iniciar.
-     </p>
-   </div>
-   
-   <div className="relative z-10 flex gap-1.5 shrink-0 bg-black/40 p-2 rounded-2xl border border-gray-700/50 backdrop-blur-md">
-     {data.token_inicio.split('').map((digit, i) => (
-       <div key={i} className="w-8 h-10 bg-gray-800 rounded-lg flex items-center justify-center text-xl font-bold text-white shadow-inner border border-gray-700/50">
-         {digit}
-       </div>
-     ))}
-   </div>
- </div>
- )}
-
- {/* Llegada del técnico separada del Info Card */}
- {status === 'en_camino' && (eta || calculatedEta) && (
- <div className="flex justify-between items-center mb-3 bg-[#E3001B]/10 px-4 py-3 rounded-2xl">
- <span className="text-[#E3001B] text-[14px] font-bold flex items-center gap-2">
-    <span className="relative flex h-2.5 w-2.5">
-      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#E3001B] opacity-75"></span>
-      <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-[#E3001B]"></span>
-    </span>
-    Llegada del técnico
- </span>
- <span className="font-black text-[#E3001B] text-[15px]">{calculatedEta || eta}</span>
- </div>
- )}
-
  {/* Info Card Minimalista */}
- <div className={`border border-gray-200 rounded-[20px] p-4 mb-6 bg-white shadow-sm ${status === 'en_camino' && (data.token_inicio || eta || calculatedEta) ? '' : 'mt-4'}`}>
- <div className="flex justify-between items-center mb-3">
+ <div className="border border-gray-200 rounded-[20px] p-5 mb-8 bg-white shadow-sm mt-4">
+ <div className="flex justify-between items-center mb-4">
  <span className="text-gray-500 text-[13px] font-medium">Día</span>
  <span className="font-bold text-gray-900 text-sm">
  {data.fecha_programacion ? format(new Date(data.fecha_programacion), "dd/MM/yyyy") : 'Por definir'}
@@ -714,15 +521,21 @@ return (
  <div className="flex justify-between items-center mb-4">
  <span className="text-gray-500 text-[13px] font-medium">Hora estimada</span>
  <span className="font-bold text-gray-900 text-sm">
- {formatTramoToRange(data.tramo)}
+ {data.tramo || 'De 8:00 am. a 12:00 pm'}
  </span>
  </div>
- <div className="flex justify-between items-start mb-4">
- <span className="text-gray-500 text-[13px] font-medium whitespace-nowrap mr-4">Plan</span>
- <span className="font-bold text-gray-900 text-sm text-right uppercase">
- {data.campana || 'No especificado'}
+ {(status === 'en_camino' || status === 'en_proceso') && (eta || calculatedEta) && (
+ <div className="flex justify-between items-center mb-4 bg-[#E3001B]/10 px-3 py-2 rounded-lg">
+ <span className="text-[#E3001B] text-[13px] font-bold flex items-center gap-2">
+    <span className="relative flex h-2.5 w-2.5">
+      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#E3001B] opacity-75"></span>
+      <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-[#E3001B]"></span>
+    </span>
+    Llegada del técnico
  </span>
+ <span className="font-black text-[#E3001B] text-sm">{calculatedEta || eta}</span>
  </div>
+ )}
  <div className="flex justify-between items-start">
  <span className="text-gray-500 text-[13px] font-medium mt-0.5">Dirección</span>
  <span className="font-bold text-gray-900 text-sm text-right w-2/3 leading-snug">
@@ -739,22 +552,27 @@ return (
  return (
  <div key={step.id} className="relative pb-8 last:pb-0">
  {/* Timeline Dot */}
- <div className={`absolute -left-[35px] top-0 w-[20px] h-[20px] rounded-full flex items-center justify-center border-[2px] border-white shadow-sm ${isCompleted ? 'bg-[#E3001B]' : 'bg-gray-300 '}`}>
+ <div className={\`absolute -left-[35px] top-0 w-[20px] h-[20px] rounded-full flex items-center justify-center border-[2px] border-white shadow-sm \${isCompleted ? 'bg-[#E3001B]' : 'bg-gray-300 '}\`}>
  {isCompleted && <Check className="w-[11px] h-[11px] text-white" strokeWidth={4} />}
  </div>
  
  {/* Content */}
  <div className="flex flex-col justify-start">
- <h4 className={`font-bold text-[15px] leading-tight ${isCompleted ? 'text-gray-900 ' : 'text-gray-400 '}`}>
+ <h4 className={\`font-bold text-[15px] leading-tight \${isCompleted ? 'text-gray-900 ' : 'text-gray-400 '}\`}>
  {step.label}
  </h4>
  
- {/* Solo mostramos subtítulos si ya se completó o es el estado actual */}
+ {/* Solo mostramos subtítulos y fecha si ya se completó o es el estado actual */}
  {isCompleted && (
  <>
- <p className={`text-[12px] leading-tight mt-1 ${isCurrent ? 'text-gray-500 ' : 'text-gray-400'}`}>
+ <p className={\`text-[12px] leading-tight mt-1 \${isCurrent ? 'text-gray-500 ' : 'text-gray-400'}\`}>
  {step.sub}
  </p>
+ {step.date && i === 0 && (
+ <p className="text-[12px] text-gray-500 mt-1">
+ {format(new Date(step.date), "dd-MM-yyyy, hh:mma a")}
+ </p>
+ )}
  </>
  )}
 
@@ -799,13 +617,6 @@ return (
  >
  Comunícate con nosotros
  <Phone className="w-4 h-4" />
- </button>
- <button 
- onClick={() => window.open(`https://wa.me/51999999999?text=Hola,%20quiero%20reportar%20un%20incidente%20con%20mi%20instalaci%C3%B3n%20(Token:%20${token})`)}
- className="w-full flex items-center justify-center gap-2 bg-gray-100 text-gray-800 h-12 rounded-full text-[14px] font-bold hover:bg-gray-200 active:scale-95 transition-all"
- >
- Reportar un incidente
- <AlertTriangle className="w-4 h-4" />
  </button>
  {status !== 'finalizada' && status !== 'cerrada' && (
  <button 
@@ -911,10 +722,10 @@ return (
  <p className="text-[11px] text-[#E3001B] leading-tight font-medium">Ten en cuenta que depende de la disponibilidad de cupos.</p>
  </div>
  <div className="bg-gray-50 rounded-xl px-4 py-2 border border-gray-100">
- <p className="text-[10px] text-gray-400 mb-0.5">Fecha de Programación</p>
+ <p className="text-[10px] text-gray-400 mb-0.5">Fin de la suspensión</p>
  <input 
  type="date"
- min={getTomorrowLocal()}
+ min={getTodayLocal()}
  value={reprogramData.fecha}
  onChange={(e) => setReprogramData({...reprogramData, fecha: e.target.value})}
  className="w-full bg-transparent text-[14px] font-medium text-gray-900 focus:outline-none"
@@ -949,31 +760,13 @@ return (
  {/* Comments Box */}
  {reprogramData.turno && (
  <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
- <h3 className="font-bold text-[15px] text-gray-900 mb-4">Motivo de Reprogramación</h3>
- 
- <div className="mb-4">
- <select
- value={reprogramData.motivoSeleccionado}
- onChange={(e) => setReprogramData({...reprogramData, motivoSeleccionado: e.target.value})}
- className="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 text-sm text-gray-700 focus:outline-none focus:border-[#E3001B] focus:ring-1 focus:ring-[#E3001B]"
- >
- <option value="" disabled>Selecciona un motivo...</option>
- <option value="emergencia_personal">Emergencia personal / familiar</option>
- <option value="problemas_salud">Problemas de salud</option>
- <option value="viaje_inesperado">Viaje de último minuto</option>
- <option value="choque_horarios">Cruce de horarios con el trabajo / estudios</option>
- <option value="olvido">Olvidé la cita original</option>
- <option value="otro">Otro motivo</option>
- </select>
- </div>
-
- <h3 className="font-bold text-[14px] text-gray-900 mb-3">Detalle adicional (Opcional)</h3>
+ <h3 className="font-bold text-[15px] text-gray-900 mb-4">Motivo (Opcional)</h3>
  <textarea 
  value={reprogramData.motivo}
  onChange={(e) => setReprogramData({...reprogramData, motivo: e.target.value})}
  className="w-full bg-gray-50 border border-gray-200 rounded-xl p-4 text-sm focus:outline-none focus:border-[#E3001B] focus:ring-1 focus:ring-[#E3001B] resize-none" 
  rows={2} 
- placeholder="Ej: No estaré en casa, por favor venir por la tarde..."
+ placeholder="Ej: No estaré en casa..."
  ></textarea>
  </div>
  )}
@@ -1062,6 +855,13 @@ return (
  </AnimatePresence>
 
  </div>
-  );
+ );
 };
+
 export default Seguimiento;
+`;
+
+content = content.replace(content.substring(seguimientoFuncStart, lastBrace), newSeguimientoCode);
+
+fs.writeFileSync(file, content);
+console.log("Restauración a estado final lista");

@@ -8,8 +8,7 @@
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "api": "nodemon --exec ts-node server/index.ts",
-    "capa": "nodemon --exec ts-node capa_intermedia/index.ts",
-    "tercero": "nodemon --exec ts-node server_tercero/index.ts"
+    "capa": "nodemon --exec ts-node capa_intermedia/index.ts"
   },
   "keywords": [],
   "author": "",
