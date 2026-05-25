@@ -15,7 +15,7 @@ const app = express();
 const port = process.env.PORT || 3001;
 
 // URLs para los servicios internos
-const CAPA_INTERMEDIA_URL = 'http://localhost:4001';
+const CAPA_INTERMEDIA_URL = process.env.CAPA_INTERMEDIA_URL || 'http://localhost:4001';
 const SECRET_API_KEY = process.env.SECRET_API_KEY || "LLAVE_SECRETA_DEL_TERCERO_123";
 
 app.use(cors({ origin: '*' }));
