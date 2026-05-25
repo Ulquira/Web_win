@@ -17,4 +17,4 @@ COPY . .
 EXPOSE 3001
 
 # Comando para ejecutar la API usando ts-node sin nodemon (para producción)
-CMD ["npx", "ts-node", "server/index.ts"]
+CMD ["npx", "ts-node-esm", "server/index.ts"]
