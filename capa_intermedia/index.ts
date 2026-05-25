@@ -12,7 +12,7 @@ const __dirname = path.dirname(__filename);
 dotenv.config();
 
 const app = express();
-const port = process.env.PORT || 4001; // Corre en un puerto distinto, oculto del mundo exterior
+const port = parseInt(process.env.PORT || '4001', 10); // Corre en un puerto distinto, oculto del mundo exterior
 
 app.use(cors());
 app.use(express.json());
