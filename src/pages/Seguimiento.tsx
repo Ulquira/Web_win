@@ -230,21 +230,16 @@ const Seguimiento = () => {
    if (remainingSeconds === null) return;
    
    const totalSecsWithBuffer = remainingSeconds + (15 * 60); // Agregamos los 15 minutos extra
-   const minutes = Math.ceil(totalSecsWithBuffer / 60);
-   
-   let durationStr = `${minutes} min`;
-   if (minutes >= 60) {
-     const h = Math.floor(minutes / 60);
-     const m = minutes % 60;
-     durationStr = m > 0 ? `${h}h ${m}min` : `${h}h`;
-   }
    
    if (etaReferenceTime.current) {
-     const arrivalTime = new Date(etaReferenceTime.current + (totalSecsWithBuffer * 1000));
-     const timeFormat = arrivalTime.toLocaleTimeString('es-PE', { hour: 'numeric', minute: '2-digit', hour12: true }).toLowerCase();
-     setCalculatedEta(`${durationStr} (${timeFormat})`);
-   } else {
-     setCalculatedEta(`${durationStr}`);
+     const arrivalTimeMin = new Date(etaReferenceTime.current + (totalSecsWithBuffer * 1000));
+     // Damos un margen de 20 minutos para el límite superior del rango
+     const arrivalTimeMax = new Date(arrivalTimeMin.getTime() + (20 * 60 * 1000)); 
+     
+     const timeFormatMin = arrivalTimeMin.toLocaleTimeString('es-PE', { hour: 'numeric', minute: '2-digit', hour12: true }).toLowerCase();
+     const timeFormatMax = arrivalTimeMax.toLocaleTimeString('es-PE', { hour: 'numeric', minute: '2-digit', hour12: true }).toLowerCase();
+     
+     setCalculatedEta(`${timeFormatMin} - ${timeFormatMax}`);
    }
  }, [remainingSeconds]);
 
@@ -718,20 +713,9 @@ return (
       <span className="text-[#E3001B] text-[15px] font-bold">Llegada estimada del técnico</span>
    </div>
    <div className="flex justify-between items-end">
-      {calculatedEta ? (
-        <>
-          <span className="font-bold text-[#E3001B] text-[18px] leading-none">
-            {calculatedEta.split(' (')[0].replace('min', 'min - ')} {parseInt(calculatedEta.split(' (')[0]) + 10} min
-          </span>
-          <span className="font-bold text-[#E3001B] text-[15px] leading-none">
-            {calculatedEta.split('(')[1]?.replace(')', '')} - {
-              new Date(new Date().setMinutes(new Date().getMinutes() + parseInt(calculatedEta.split(' (')[0]) + 10)).toLocaleTimeString('es-PE', { hour: 'numeric', minute: '2-digit', hour12: true }).toLowerCase()
-            }
-          </span>
-        </>
-      ) : (
-        <span className="font-bold text-[#E3001B] text-[18px]">{eta}</span>
-      )}
+      <span className="font-bold text-[#E3001B] text-[18px]">
+        {calculatedEta || eta}
+      </span>
    </div>
  </div>
  )}
