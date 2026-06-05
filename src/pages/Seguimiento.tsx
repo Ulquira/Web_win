@@ -732,12 +732,14 @@ return (
      {data.fecha_programacion ? format(new Date(data.fecha_programacion), "dd/MM/yyyy") : 'Por definir'}
      </span>
    </div>
-   <div className="flex justify-between items-center">
-     <span className="text-gray-500 text-[14px] font-normal">Hora estimada</span>
-     <span className="font-bold text-gray-900 text-[14px]">
-     {formatTramoToRange(data.tramo)}
-     </span>
-   </div>
+   {status !== 'en_camino' && (
+     <div className="flex justify-between items-center">
+       <span className="text-gray-500 text-[14px] font-normal">Horario programado</span>
+       <span className="font-bold text-gray-900 text-[14px]">
+       {formatTramoToRange(data.tramo)}
+       </span>
+     </div>
+   )}
    <div className="flex justify-between items-start">
      <span className="text-gray-500 text-[14px] font-normal mr-4">Plan</span>
      <span className="font-bold text-gray-900 text-[14px] text-right">
