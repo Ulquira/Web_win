@@ -544,12 +544,11 @@ return (
  </div>
  </div>
  ) : status === 'finalizada' && !encuestaEnviada && localStorage.getItem(`encuesta_completada_${token}`) !== 'true' ? (
- <div className="py-2">
- <div className="flex items-center gap-3 mb-6">
- <div className="w-12 h-12 bg-yellow-100 rounded-full flex items-center justify-center">
- <Star className="w-6 h-6 text-yellow-600 fill-yellow-500" />
- </div>
- <h2 className="text-2xl font-bold text-foreground leading-tight">Cuéntanos sobre<br/>tu experiencia</h2>
+ <div className="py-4">
+ <div className="mb-6">
+ <h2 className="text-[22px] font-black text-gray-900 leading-tight">
+   Cuéntanos sobre<br/>tu experiencia
+ </h2>
  </div>
  
  <div className="space-y-4">
