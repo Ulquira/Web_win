@@ -99,7 +99,7 @@ const Seguimiento = () => {
  const etaReferenceTime = useRef<number | null>(null);
  const [notifications, setNotifications] = useState<{title: string, body: string, time: Date, read: boolean}[]>([]);
  const [showNotifications, setShowNotifications] = useState(false);
- const [sheetHeight, setSheetHeight] = useState(38);
+ const [sheetHeight, setSheetHeight] = useState(31);
 
  useEffect(() => {
  if ("Notification" in window && Notification.permission === "default") {
@@ -369,7 +369,7 @@ return (
    if (info.offset.y < -50) {
      setSheetHeight(85);
    } else if (info.offset.y > 50) {
-     setSheetHeight(38);
+     setSheetHeight(31);
    }
  };
 
