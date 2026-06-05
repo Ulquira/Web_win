@@ -58,9 +58,19 @@
   }
   body {
     @apply bg-background text-foreground transition-colors duration-300 font-sans;
+    font-weight: 400; /* Regular fallback */
   }
-  h1, h2, h3, h4, h5, h6, .font-bold, .font-black, .font-semibold {
+  /* Solo se admiten fuentes homologadas: Helvetica Regular, Helvetica Bold y Corbel Regular */
+  h1, h2, h3, h4, h5, h6, .font-bold {
     font-family: 'Helvetica', Arial, sans-serif;
+    font-weight: 700 !important; /* Forzar Bold */
+  }
+  p, span, div, .font-normal {
+    font-weight: 400 !important; /* Forzar Regular */
+  }
+  .font-corbel {
+    font-family: 'Corbel', sans-serif;
+    font-weight: 400 !important; /* Corbel solo regular */
   }
 }
 

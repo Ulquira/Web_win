@@ -55,10 +55,10 @@ const Index = () => {
  
  {/* Texto de seguimiento */}
  <div className="bg-black/40 p-6 rounded-2xl backdrop-blur-sm border border-white/10 inline-block text-left">
- <h2 className="text-3xl md:text-4xl font-black mb-2 text-white leading-tight" style={{ fontFamily: '"Helvetica Neue", Helvetica, Arial, sans-serif' }}>
+ <h2 className="text-3xl md:text-4xl font-bold mb-2 text-white leading-tight" style={{ fontFamily: '"Helvetica Neue", Helvetica, Arial, sans-serif' }}>
  Sigue tu <span className="text-secondary">instalación</span>
  </h2>
- <p className="text-lg text-gray-200 font-medium max-w-sm">
+ <p className="text-lg text-gray-200 font-normal max-w-sm">
  Conoce el estado exacto de tu instalación y sigue al técnico en tiempo real.
  </p>
  </div>
@@ -73,8 +73,8 @@ const Index = () => {
  >
  <Card className="p-8 shadow-[0_20px_50px_rgba(0,0,0,0.3)] border-0 rounded-3xl bg-white">
  <div className="text-center space-y-4">
- <h3 className="text-2xl font-black text-gray-900" style={{ fontFamily: '"Helvetica Neue", Helvetica, Arial, sans-serif' }}>Acceso Seguro</h3>
- <p className="text-gray-600 font-medium text-lg leading-relaxed">
+ <h3 className="text-2xl font-bold text-gray-900" style={{ fontFamily: '"Helvetica Neue", Helvetica, Arial, sans-serif' }}>Acceso Seguro</h3>
+ <p className="text-gray-600 font-normal text-lg leading-relaxed">
  Para ver el estado de tu instalación en tiempo real, por favor utiliza el <br/>
  <span className="font-bold text-primary"> enlace único y seguro </span> <br/>
  que te enviamos por WhatsApp o SMS.
