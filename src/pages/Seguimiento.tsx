@@ -356,6 +356,20 @@ return (
    return tramoStr; // Por defecto retorna lo que venga si no coincide con los 3 tramos
  };
 
+ const toTitleCase = (text?: string) => {
+   if (!text) return '';
+   return text.toLowerCase().replace(/(?:^|\s)\S/g, (a) => a.toUpperCase());
+ };
+
+ const formatAddress = (address?: string) => {
+   if (!address) return 'Cargando...';
+   // Limpiar campos vacíos al final como "DPTO/INTERIOR -"
+   let clean = address.replace(/PISO\s*-?\s*$/i, '').replace(/DPTO\/INTERIOR\s*-?\s*$/i, '').trim();
+   // Remover la doble coma o coma al final
+   clean = clean.replace(/,\s*$/, '').trim();
+   return toTitleCase(clean);
+ };
+
  const handleDragEnd = (_e: any, info: any) => {
    if (info.offset.y < -50) {
      setSheetHeight(85);
@@ -498,7 +512,7 @@ return (
  </div>
  </div>
  <h1 className="text-xl font-black mt-1">
- Hola, {data.cliente_nombre ? data.cliente_nombre.split(' ')[0] : 'Cliente'}
+ Detalle de visita
  </h1>
  </div>
  )}
@@ -709,30 +723,35 @@ return (
  )}
 
  {/* Info Card Minimalista */}
- <div className={`border border-gray-200 rounded-[20px] p-4 mb-6 bg-white shadow-sm ${status === 'en_camino' && (data.token_inicio || eta || calculatedEta) ? '' : 'mt-4'}`}>
- <div className="flex justify-between items-center mb-3">
- <span className="text-gray-500 text-[13px] font-medium">Día</span>
- <span className="font-bold text-gray-900 text-sm">
- {data.fecha_programacion ? format(new Date(data.fecha_programacion), "dd/MM/yyyy") : 'Por definir'}
- </span>
- </div>
- <div className="flex justify-between items-center mb-4">
- <span className="text-gray-500 text-[13px] font-medium">Hora estimada</span>
- <span className="font-bold text-gray-900 text-sm">
- {formatTramoToRange(data.tramo)}
- </span>
- </div>
- <div className="flex justify-between items-start mb-4">
- <span className="text-gray-500 text-[13px] font-medium whitespace-nowrap mr-4">Plan</span>
- <span className="font-bold text-gray-900 text-sm text-right uppercase">
- {data.campana || 'No especificado'}
- </span>
- </div>
- <div className="flex justify-between items-start">
- <span className="text-gray-500 text-[13px] font-medium mt-0.5">Dirección</span>
- <span className="font-bold text-gray-900 text-sm text-right w-2/3 leading-snug">
- {data.direccion || 'Cargando...'}
- </span>
+ <div className={`border border-gray-200 rounded-[20px] p-5 mb-6 bg-white shadow-sm ${status === 'en_camino' && (data.token_inicio || eta || calculatedEta) ? '' : 'mt-4'}`}>
+ <h3 className="text-[16px] font-black text-gray-900 mb-4 pb-3 border-b border-gray-100">
+   Instalación de {data.cliente_nombre ? toTitleCase(data.cliente_nombre.split(' ')[0]) : 'Cliente'}
+ </h3>
+ <div className="flex flex-col gap-3">
+   <div className="flex justify-between items-center">
+     <span className="text-gray-500 text-[14px] font-medium">Día</span>
+     <span className="font-bold text-gray-900 text-[14px]">
+     {data.fecha_programacion ? format(new Date(data.fecha_programacion), "dd/MM/yyyy") : 'Por definir'}
+     </span>
+   </div>
+   <div className="flex justify-between items-center">
+     <span className="text-gray-500 text-[14px] font-medium">Hora estimada</span>
+     <span className="font-bold text-gray-900 text-[14px]">
+     {formatTramoToRange(data.tramo)}
+     </span>
+   </div>
+   <div className="flex justify-between items-start">
+     <span className="text-gray-500 text-[14px] font-medium mr-4">Plan</span>
+     <span className="font-bold text-gray-900 text-[14px] text-right">
+     {toTitleCase(data.campana || 'No especificado')}
+     </span>
+   </div>
+   <div className="flex justify-between items-start">
+     <span className="text-gray-500 text-[14px] font-medium mt-0.5 mr-4">Dirección</span>
+     <span className="font-bold text-gray-900 text-[14px] text-right leading-snug line-clamp-3">
+     {formatAddress(data.direccion)}
+     </span>
+   </div>
  </div>
  </div>
 
