@@ -435,11 +435,11 @@ return (
  </MapContainer>
 
  {/* Mensaje Referencial superpuesto en el mapa */}
- <div className="absolute bottom-[28vh] left-4 z-[400] bg-white/90 backdrop-blur-sm px-3.5 py-2.5 rounded-xl shadow-md border border-gray-100 max-w-[170px]">
+ <div className="absolute bottom-[28vh] left-4 z-[400] bg-white/90 backdrop-blur-sm px-3.5 py-2.5 rounded-xl shadow-md border border-gray-100 max-w-[200px]">
    <div className="flex items-center gap-1.5">
      <AlertTriangle className="w-5 h-5 text-[#E3001B] shrink-0" />
      <p className="text-[11px] text-gray-600 font-normal leading-tight">
-       El tiempo de llegada es <span className="font-bold text-gray-800">referencial</span>
+       El tiempo de llegada puede variar según el tráfico.
      </p>
    </div>
  </div>
@@ -519,9 +519,8 @@ return (
 
  {/* Drag Handle (Only when map is visible) */}
  {status === 'en_camino' && (
- <div className="w-full flex flex-col items-center justify-center pt-3 pb-1 shrink-0 cursor-grab active:cursor-grabbing hover:bg-gray-50 rounded-t-[2.5rem] transition-colors">
- <div className="w-10 h-1 bg-gray-300 rounded-full mb-1"></div>
- {sheetHeight === 25 && <p className="text-[9px] text-gray-400 font-bold tracking-widest uppercase mb-1">Desliza para más detalles</p>}
+ <div className="w-full flex flex-col items-center justify-center pt-4 pb-2 shrink-0 cursor-grab active:cursor-grabbing hover:bg-gray-50 rounded-t-[2.5rem] transition-colors">
+ <div className="w-12 h-1.5 bg-gray-300 rounded-full mb-1"></div>
  </div>
  )}
 
@@ -687,18 +686,18 @@ return (
  <>
  {/* Token de Inicio (Si está en camino) */}
  {status === 'en_camino' && data.token_inicio && (
- <div className="bg-gray-900 rounded-3xl p-4 mb-3 shadow-[0_8px_30px_rgb(0,0,0,0.12)] mt-2 flex items-center justify-between mx-0 overflow-hidden relative">
+ <div className="bg-gray-900 rounded-3xl p-5 mb-3 shadow-[0_8px_30px_rgb(0,0,0,0.12)] mt-2 flex items-center justify-between mx-0 overflow-hidden relative">
    {/* Elemento decorativo de fondo */}
    <div className="absolute top-0 right-0 w-32 h-32 bg-[#E3001B] rounded-full blur-[50px] opacity-20 -mr-10 -mt-10"></div>
    
-   <div className="flex flex-col relative z-10 w-2/3 pr-2">
-     <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-0.5">Código de seguridad</p>
+   <div className="flex flex-col relative z-10 w-2/3 pr-3">
+     <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">Código de seguridad</p>
      <p className="text-[12px] text-gray-300 font-normal leading-snug">
-       Brinda este PIN al técnico para iniciar.
+       Comparte este PIN cuando el instalador llegue a tu domicilio.
      </p>
    </div>
    
-   <div className="relative z-10 flex gap-1.5 shrink-0 bg-black/40 p-2 rounded-2xl border border-gray-700/50 backdrop-blur-md">
+   <div className="relative z-10 flex gap-1.5 shrink-0 bg-black/40 p-2.5 rounded-2xl border border-gray-700/50 backdrop-blur-md">
      {data.token_inicio.split('').map((digit, i) => (
        <div key={i} className="w-8 h-10 bg-gray-800 rounded-lg flex items-center justify-center text-xl font-bold text-white shadow-inner border border-gray-700/50">
          {digit}
@@ -710,15 +709,30 @@ return (
 
  {/* Llegada del técnico separada del Info Card */}
  {status === 'en_camino' && (eta || calculatedEta) && (
- <div className="flex justify-between items-center mb-3 bg-[#E3001B]/10 px-4 py-3 rounded-2xl">
- <span className="text-[#E3001B] text-[14px] font-bold flex items-center gap-2">
-    <span className="relative flex h-2.5 w-2.5">
-      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#E3001B] opacity-75"></span>
-      <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-[#E3001B]"></span>
-    </span>
-    Llegada del técnico
- </span>
- <span className="font-bold text-[#E3001B] text-[15px]">{calculatedEta || eta}</span>
+ <div className="flex flex-col mb-4 bg-[#E3001B]/10 px-5 py-4 rounded-[20px] gap-2">
+   <div className="flex items-center gap-2 mb-1">
+      <span className="relative flex h-2.5 w-2.5">
+        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#E3001B] opacity-75"></span>
+        <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-[#E3001B]"></span>
+      </span>
+      <span className="text-[#E3001B] text-[15px] font-bold">Llegada estimada del técnico</span>
+   </div>
+   <div className="flex justify-between items-end">
+      {calculatedEta ? (
+        <>
+          <span className="font-bold text-[#E3001B] text-[18px] leading-none">
+            {calculatedEta.split(' (')[0].replace('min', 'min - ')} {parseInt(calculatedEta.split(' (')[0]) + 10} min
+          </span>
+          <span className="font-bold text-[#E3001B] text-[15px] leading-none">
+            {calculatedEta.split('(')[1]?.replace(')', '')} - {
+              new Date(new Date().setMinutes(new Date().getMinutes() + parseInt(calculatedEta.split(' (')[0]) + 10)).toLocaleTimeString('es-PE', { hour: 'numeric', minute: '2-digit', hour12: true }).toLowerCase()
+            }
+          </span>
+        </>
+      ) : (
+        <span className="font-bold text-[#E3001B] text-[18px]">{eta}</span>
+      )}
+   </div>
  </div>
  )}
 
@@ -816,20 +830,13 @@ return (
 
  {/* Action Buttons and Help Center CTA (Bottom) */}
  <div className="flex flex-col gap-3 pt-6 pb-2 border-t border-gray-100 mt-2">
- <p className="text-[12px] text-gray-500 text-center mb-1">¿Necesitas ayuda?</p>
+ <p className="text-[14px] text-gray-500 text-center mb-2">¿Necesitas ayuda?</p>
  <button 
  onClick={() => window.open('https://wa.me/51999999999')}
- className="w-full flex items-center justify-center gap-2 border border-[#E3001B] text-[#E3001B] h-12 rounded-full text-[14px] font-bold hover:bg-[#E3001B]/5 active:scale-95 transition-all"
+ className="w-full flex items-center justify-center gap-2 border border-[#E3001B] text-[#E3001B] h-12 rounded-full text-[14px] font-bold hover:bg-[#E3001B]/5 active:scale-95 transition-all flex-row-reverse"
  >
- Comunícate con nosotros
+ Contactar soporte
  <Phone className="w-4 h-4" />
- </button>
- <button 
- onClick={() => window.open(`https://wa.me/51999999999?text=Hola,%20quiero%20reportar%20un%20incidente%20con%20mi%20instalaci%C3%B3n%20(Token:%20${token})`)}
- className="w-full flex items-center justify-center gap-2 bg-gray-100 text-gray-800 h-12 rounded-full text-[14px] font-bold hover:bg-gray-200 active:scale-95 transition-all"
- >
- Reportar un incidente
- <AlertTriangle className="w-4 h-4" />
  </button>
  {status !== 'finalizada' && status !== 'cerrada' && (
  <button 
@@ -837,9 +844,10 @@ return (
  setIsReprogramModalOpen(true);
  setReprogramStep('confirm_initial');
  }}
- className="w-full bg-[#1a202c] text-white h-12 rounded-full text-[14px] font-bold flex items-center justify-center gap-2 active:scale-95 transition-transform shadow-md"
+ className="w-full bg-[#1a202c] text-white h-12 rounded-full text-[14px] font-bold flex items-center justify-center gap-2 active:scale-95 transition-transform shadow-md flex-row-reverse"
  >
- Reprogramar solicitud
+ Reprogramar visita
+ <AlertTriangle className="w-4 h-4" />
  </button>
  )}
  </div>
