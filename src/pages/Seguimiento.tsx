@@ -180,8 +180,14 @@ const Seguimiento = () => {
  };
 
  const handleEncuestaSubmit = async () => {
- if (!encuesta.instalacion_concretada || !encuesta.satisfaccion_general || !encuesta.facilidad_gestion) {
- alert("Por favor responde las preguntas principales antes de enviar.");
+ const {
+   instalacion_concretada, tecnico_trato, tecnico_puntualidad,
+   tecnico_claridad, tecnico_orden, tecnico_efectividad,
+   satisfaccion_general, facilidad_gestion
+ } = encuesta;
+
+ if (!instalacion_concretada || !tecnico_trato || !tecnico_puntualidad || !tecnico_claridad || !tecnico_orden || !tecnico_efectividad || !satisfaccion_general || !facilidad_gestion) {
+ alert("Por favor, responde todas las preguntas obligatorias antes de enviar tu calificación.");
  return;
  }
 
