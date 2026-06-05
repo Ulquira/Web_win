@@ -74,7 +74,8 @@ app.post('/api/encuesta', async (req, res) => {
 });
 
 // Endpoint para verificar si un token ya llenó la encuesta en BD
-{ token } = req.params;
+app.get('/api/encuesta/verificar/:token', async (req, res) => {
+  const { token } = req.params;
   try {
     const [rows]: any = await pool.query('SELECT id FROM ENCUESTAS WHERE token = ? LIMIT 1', [token]);
     const completada = rows.length > 0;
