@@ -23,41 +23,20 @@ app.use(express.json());
 
 // Endpoint para guardar reprogramaciones en BD
 app.post('/api/reprogramar', async (req, res) => {
-  const { token, fecha, turno, motivo } = req.body;
-
-  if (!token || !fecha || !turno) {
-    return res.status(400).json({ success: false, message: 'Faltan datos obligatorios' });
-  }
-
-  try {
-    const query = `
-      INSERT INTO REPROGRAMACIONES (token, fecha_solicitada, turno, motivo)
-      VALUES (?, ?, ?, ?)
-    `;
-    await pool.query(query, [token, fecha, turno, motivo || '']);
-
-    res.json({ success: true, message: 'Reprogramación guardada con éxito' });
-  } catch (error) {
-    console.error('Error guardando en BD:', error);
-    res.status(500).json({ success: false, message: 'Error interno guardando la solicitud' });
-  }
-});
-
-// Endpoint para guardar Encuestas en BD
-app.post('/api/encuesta', async (req, res) => {
   const { 
-    token, llego_horario, calificacion_tecnico, explicacion_clara, 
-    tiempo_adecuado, informacion_clara, probabilidad_recomendar, comentarios 
+    token, instalacion_concretada, tecnico_trato, tecnico_puntualidad, tecnico_claridad, 
+    tecnico_orden, tecnico_efectividad, satisfaccion_general, satisfaccion_comentario, 
+    facilidad_gestion, facilidad_motivo 
   } = req.body;
 
-  if (!token || !probabilidad_recomendar) {
+  if (!token || !satisfaccion_general) {
     return res.status(400).json({ success: false, message: 'Faltan datos obligatorios' });
   }
 
   try {
     const query = `
-      INSERT INTO ENCUESTAS (token, llego_horario, calificacion_tecnico, explicacion_clara, tiempo_adecuado, informacion_clara, probabilidad_recomendar, comentarios)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO ENCUESTAS (token, instalacion_concretada, tecnico_trato, tecnico_puntualidad, tecnico_claridad, tecnico_orden, tecnico_efectividad, satisfaccion_general, satisfaccion_comentario, facilidad_gestion, facilidad_motivo)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
     await pool.query(query, [
       token, 

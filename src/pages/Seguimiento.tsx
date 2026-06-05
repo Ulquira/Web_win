@@ -84,13 +84,16 @@ const Seguimiento = () => {
  const [isSubmittingReprogram, setIsSubmittingReprogram] = useState(false);
  
  const [encuesta, setEncuesta] = useState({
- llego_horario: '',
- calificacion_tecnico: '',
- explicacion_clara: '',
- tiempo_adecuado: '',
- informacion_clara: '',
- probabilidad_recomendar: '',
- comentarios: ''
+ instalacion_concretada: '',
+ tecnico_trato: '',
+ tecnico_puntualidad: '',
+ tecnico_claridad: '',
+ tecnico_orden: '',
+ tecnico_efectividad: '',
+ satisfaccion_general: '',
+ satisfaccion_comentario: '',
+ facilidad_gestion: '',
+ facilidad_motivo: ''
  });
  const [isSubmittingEncuesta, setIsSubmittingEncuesta] = useState(false);
  const [encuestaEnviada, setEncuestaEnviada] = useState(false);
@@ -177,8 +180,8 @@ const Seguimiento = () => {
  };
 
  const handleEncuestaSubmit = async () => {
- if (!encuesta.probabilidad_recomendar) {
- alert("Por favor bríndanos una calificación del 1 al 10 antes de enviar.");
+ if (!encuesta.instalacion_concretada || !encuesta.satisfaccion_general || !encuesta.facilidad_gestion) {
+ alert("Por favor responde las preguntas principales antes de enviar.");
  return;
  }
 
@@ -552,14 +555,14 @@ return (
  <div className="space-y-4">
  {/* Pregunta 1 */}
  <div className="bg-white border border-gray-100 shadow-sm rounded-2xl p-5">
- <p className="font-bold text-[14px] mb-3 text-gray-900">¿El técnico llegó dentro del horario acordado?</p>
+ <p className="font-bold text-[14px] mb-3 text-gray-900">1. ¿La instalación se concretó correctamente?</p>
  <div className="flex gap-3">
  <label className="flex items-center justify-center gap-2 cursor-pointer bg-gray-50 px-4 py-2.5 rounded-xl border border-gray-100 flex-1 hover:bg-gray-100 transition-colors has-[:checked]:border-[#E3001B] has-[:checked]:bg-[#E3001B]/5">
- <input type="radio" name="q1" value="Sí" onChange={(e) => setEncuesta({...encuesta, llego_horario: e.target.value})} className="accent-[#E3001B] w-4 h-4" /> 
+ <input type="radio" name="q1" value="Sí" onChange={(e) => setEncuesta({...encuesta, instalacion_concretada: e.target.value})} className="accent-[#E3001B] w-4 h-4" /> 
  <span className="font-bold text-[13px] text-gray-800">Sí</span>
  </label>
  <label className="flex items-center justify-center gap-2 cursor-pointer bg-gray-50 px-4 py-2.5 rounded-xl border border-gray-100 flex-1 hover:bg-gray-100 transition-colors has-[:checked]:border-[#E3001B] has-[:checked]:bg-[#E3001B]/5">
- <input type="radio" name="q1" value="No" onChange={(e) => setEncuesta({...encuesta, llego_horario: e.target.value})} className="accent-[#E3001B] w-4 h-4" /> 
+ <input type="radio" name="q1" value="No" onChange={(e) => setEncuesta({...encuesta, instalacion_concretada: e.target.value})} className="accent-[#E3001B] w-4 h-4" /> 
  <span className="font-bold text-[13px] text-gray-800">No</span>
  </label>
  </div>
@@ -567,91 +570,97 @@ return (
 
  {/* Pregunta 2 */}
  <div className="bg-white border border-gray-100 shadow-sm rounded-2xl p-5">
- <p className="font-bold text-[14px] mb-3 text-gray-900">¿Cómo calificarías la amabilidad y atención del técnico?</p>
- <div className="flex justify-between gap-1">
- {[1,2,3,4,5].map(num => (
- <label key={`cal_${num}`} className="flex-1">
- <input type="radio" name="calificacion" value={num} onChange={(e) => setEncuesta({...encuesta, calificacion_tecnico: e.target.value})} className="peer hidden" />
- <div className="border border-gray-100 bg-gray-50 rounded-xl flex flex-col items-center justify-center py-2 cursor-pointer hover:bg-gray-100 peer-checked:border-yellow-400 peer-checked:bg-yellow-50 transition-all">
- <Star className={`w-6 h-6 mb-1 ${encuesta.calificacion_tecnico >= num.toString() ? 'text-yellow-400 fill-yellow-400' : 'text-gray-300 fill-gray-200'}`} />
- <span className="text-[10px] font-bold text-gray-500 peer-checked:text-yellow-700">{num}</span>
- </div>
- </label>
+ <p className="font-bold text-[14px] mb-1 text-gray-900">2. Evalúa al técnico en los siguientes aspectos:</p>
+ <p className="text-[11px] text-gray-400 mb-4 font-normal">1 = Totalmente Insatisfecho, 5 = Totalmente Satisfecho</p>
+ 
+ {[
+   { key: 'tecnico_trato', label: 'Trato y respeto' },
+   { key: 'tecnico_puntualidad', label: 'Puntualidad y cumplimiento de la instalación' },
+   { key: 'tecnico_claridad', label: 'Claridad de la explicación (Uso, recomendaciones, cuidados)' },
+   { key: 'tecnico_orden', label: 'Orden y cuidado del espacio (limpieza, cableado prolijo)' },
+   { key: 'tecnico_efectividad', label: 'Efectividad del trabajo realizado' }
+ ].map(aspect => (
+   <div key={aspect.key} className="mb-4 last:mb-0">
+     <p className="text-[12px] font-bold text-gray-800 mb-2">{aspect.label}</p>
+     <div className="flex justify-between gap-1">
+     {[1,2,3,4,5].map(num => (
+     <label key={`${aspect.key}_${num}`} className="flex-1">
+     <input type="radio" name={aspect.key} value={num} onChange={(e) => setEncuesta({...encuesta, [aspect.key]: e.target.value})} className="peer hidden" />
+     <div className="border border-gray-100 bg-gray-50 rounded-xl flex flex-col items-center justify-center py-2 cursor-pointer hover:bg-gray-100 peer-checked:border-[#E3001B] peer-checked:bg-[#E3001B]/10 transition-all">
+     <span className={`text-[14px] font-bold ${(encuesta as any)[aspect.key] === num.toString() ? 'text-[#E3001B]' : 'text-gray-500'}`}>{num}</span>
+     </div>
+     </label>
+     ))}
+     </div>
+   </div>
  ))}
- </div>
  </div>
 
  {/* Pregunta 3 */}
  <div className="bg-white border border-gray-100 shadow-sm rounded-2xl p-5">
- <p className="font-bold text-[14px] mb-3 text-gray-900">¿El técnico te explicó claramente cómo usar el servicio?</p>
- <div className="flex gap-3">
- <label className="flex items-center justify-center gap-2 cursor-pointer bg-gray-50 px-4 py-2.5 rounded-xl border border-gray-100 flex-1 hover:bg-gray-100 transition-colors has-[:checked]:border-[#E3001B] has-[:checked]:bg-[#E3001B]/5">
- <input type="radio" name="q3" value="Sí" onChange={(e) => setEncuesta({...encuesta, explicacion_clara: e.target.value})} className="accent-[#E3001B] w-4 h-4" /> 
- <span className="font-bold text-[13px] text-gray-800">Sí</span>
- </label>
- <label className="flex items-center justify-center gap-2 cursor-pointer bg-gray-50 px-4 py-2.5 rounded-xl border border-gray-100 flex-1 hover:bg-gray-100 transition-colors has-[:checked]:border-[#E3001B] has-[:checked]:bg-[#E3001B]/5">
- <input type="radio" name="q3" value="No" onChange={(e) => setEncuesta({...encuesta, explicacion_clara: e.target.value})} className="accent-[#E3001B] w-4 h-4" /> 
- <span className="font-bold text-[13px] text-gray-800">No</span>
- </label>
- </div>
- </div>
-
- {/* Pregunta 4 */}
- <div className="bg-white border border-gray-100 shadow-sm rounded-2xl p-5">
- <p className="font-bold text-[14px] mb-3 text-gray-900">¿El tiempo que demoró la instalación fue adecuado?</p>
- <div className="flex gap-3">
- <label className="flex items-center justify-center gap-2 cursor-pointer bg-gray-50 px-4 py-2.5 rounded-xl border border-gray-100 flex-1 hover:bg-gray-100 transition-colors has-[:checked]:border-[#E3001B] has-[:checked]:bg-[#E3001B]/5">
- <input type="radio" name="q4" value="Sí" onChange={(e) => setEncuesta({...encuesta, tiempo_adecuado: e.target.value})} className="accent-[#E3001B] w-4 h-4" /> 
- <span className="font-bold text-[13px] text-gray-800">Sí</span>
- </label>
- <label className="flex items-center justify-center gap-2 cursor-pointer bg-gray-50 px-4 py-2.5 rounded-xl border border-gray-100 flex-1 hover:bg-gray-100 transition-colors has-[:checked]:border-[#E3001B] has-[:checked]:bg-[#E3001B]/5">
- <input type="radio" name="q4" value="No" onChange={(e) => setEncuesta({...encuesta, tiempo_adecuado: e.target.value})} className="accent-[#E3001B] w-4 h-4" /> 
- <span className="font-bold text-[13px] text-gray-800">No</span>
- </label>
- </div>
- </div>
-
- {/* Pregunta 5 */}
- <div className="bg-white border border-gray-100 shadow-sm rounded-2xl p-5">
- <p className="font-bold text-[14px] mb-3 text-gray-900">¿La información del tracking fue útil y clara?</p>
- <div className="flex gap-3">
- <label className="flex items-center justify-center gap-2 cursor-pointer bg-gray-50 px-4 py-2.5 rounded-xl border border-gray-100 flex-1 hover:bg-gray-100 transition-colors has-[:checked]:border-[#E3001B] has-[:checked]:bg-[#E3001B]/5">
- <input type="radio" name="q5" value="Sí" onChange={(e) => setEncuesta({...encuesta, informacion_clara: e.target.value})} className="accent-[#E3001B] w-4 h-4" /> 
- <span className="font-bold text-[13px] text-gray-800">Sí</span>
- </label>
- <label className="flex items-center justify-center gap-2 cursor-pointer bg-gray-50 px-4 py-2.5 rounded-xl border border-gray-100 flex-1 hover:bg-gray-100 transition-colors has-[:checked]:border-[#E3001B] has-[:checked]:bg-[#E3001B]/5">
- <input type="radio" name="q5" value="No" onChange={(e) => setEncuesta({...encuesta, informacion_clara: e.target.value})} className="accent-[#E3001B] w-4 h-4" /> 
- <span className="font-bold text-[13px] text-gray-800">No</span>
- </label>
- </div>
- </div>
-
- {/* Pregunta NPS */}
- <div className="bg-white border border-gray-100 shadow-sm rounded-2xl p-5">
- <p className="font-bold text-[14px] mb-1 text-gray-900">Del 1 al 10, ¿qué tan probable es que nos recomiende?</p>
- <p className="text-[11px] text-gray-400 mb-4 font-normal">1 = Nada probable, 10 = Muy probable</p>
- <div className="flex flex-wrap gap-1.5">
- {[1,2,3,4,5,6,7,8,9,10].map(num => (
- <label key={`nps_${num}`} className="flex-1 min-w-[28px]">
- <input type="radio" name="nps" value={num} onChange={(e) => setEncuesta({...encuesta, probabilidad_recomendar: e.target.value})} className="peer hidden" />
- <div className="bg-gray-50 border border-gray-100 rounded-lg text-center py-2 text-[13px] font-bold text-gray-600 peer-checked:border-[#E3001B] peer-checked:bg-[#E3001B] peer-checked:text-white hover:bg-gray-100 transition-all cursor-pointer">
- {num}
+ <p className="font-bold text-[14px] mb-1 text-gray-900">3. En general, ¿Qué tan satisfecho(a) estás con la atención recibida durante la instalación?</p>
+ <p className="text-[11px] text-gray-400 mb-4 font-normal">1 = Totalmente Insatisfecho, 5 = Totalmente Satisfecho</p>
+ <div className="flex justify-between gap-1 mb-4">
+ {[1,2,3,4,5].map(num => (
+ <label key={`sat_${num}`} className="flex-1">
+ <input type="radio" name="satisfaccion" value={num} onChange={(e) => {
+   setEncuesta({...encuesta, satisfaccion_general: e.target.value, satisfaccion_comentario: ''});
+ }} className="peer hidden" />
+ <div className="border border-gray-100 bg-gray-50 rounded-xl flex flex-col items-center justify-center py-2 cursor-pointer hover:bg-gray-100 peer-checked:border-[#E3001B] peer-checked:bg-[#E3001B]/10 transition-all">
+ <span className={`text-[14px] font-bold ${encuesta.satisfaccion_general === num.toString() ? 'text-[#E3001B]' : 'text-gray-500'}`}>{num}</span>
  </div>
  </label>
  ))}
  </div>
+
+ {encuesta.satisfaccion_general === '1' || encuesta.satisfaccion_general === '2' ? (
+   <div className="animate-in fade-in slide-in-from-top-2 duration-300">
+     <p className="font-bold text-[13px] text-gray-900 mb-2">Lamentamos que tu experiencia no haya sido la ideal ¿Cuál fue el motivo principal de tu calificación?</p>
+     <textarea value={encuesta.satisfaccion_comentario} onChange={(e) => setEncuesta({...encuesta, satisfaccion_comentario: e.target.value})} className="w-full bg-gray-50 border border-gray-100 rounded-xl p-3 text-[13px] font-normal text-gray-800 focus:outline-none focus:border-[#E3001B] resize-none" rows={3}></textarea>
+   </div>
+ ) : encuesta.satisfaccion_general === '3' ? (
+   <div className="animate-in fade-in slide-in-from-top-2 duration-300">
+     <p className="font-bold text-[13px] text-gray-900 mb-2">Gracias por tu respuesta. ¿Qué hubiéramos podido hacer diferente para mejorar tu experiencia?</p>
+     <textarea value={encuesta.satisfaccion_comentario} onChange={(e) => setEncuesta({...encuesta, satisfaccion_comentario: e.target.value})} className="w-full bg-gray-50 border border-gray-100 rounded-xl p-3 text-[13px] font-normal text-gray-800 focus:outline-none focus:border-[#E3001B] resize-none" rows={3}></textarea>
+   </div>
+ ) : encuesta.satisfaccion_general === '4' || encuesta.satisfaccion_general === '5' ? (
+   <div className="animate-in fade-in slide-in-from-top-2 duration-300">
+     <p className="font-bold text-[13px] text-gray-900 mb-2">¡Nos alegramos! Para seguir brindándote el mejor servicio: ¿Qué fue lo que más te gustó de la atención recibida?</p>
+     <textarea value={encuesta.satisfaccion_comentario} onChange={(e) => setEncuesta({...encuesta, satisfaccion_comentario: e.target.value})} className="w-full bg-gray-50 border border-gray-100 rounded-xl p-3 text-[13px] font-normal text-gray-800 focus:outline-none focus:border-[#E3001B] resize-none" rows={3}></textarea>
+   </div>
+ ) : null}
  </div>
 
- {/* Comentarios Libres */}
- <div className="bg-white border border-gray-100 shadow-sm rounded-2xl p-5">
- <p className="font-bold text-[14px] mb-3 text-gray-900">¿Tienes algún comentario o sugerencia? (Opcional)</p>
- <textarea 
- value={encuesta.comentarios}
- onChange={(e) => setEncuesta({...encuesta, comentarios: e.target.value})}
- className="w-full bg-gray-50 border border-gray-100 rounded-xl p-3 text-[13px] font-normal text-gray-800 focus:outline-none focus:border-[#E3001B] focus:ring-1 focus:ring-[#E3001B] resize-none" 
- rows={3} 
- placeholder="Escribe aquí tus comentarios..."
- ></textarea>
+ {/* Pregunta 4 */}
+ <div className="bg-white border border-gray-100 shadow-sm rounded-2xl p-5 mb-4">
+ <p className="font-bold text-[14px] mb-1 text-gray-900">4. ¿Qué tan fácil fue gestionar tu solicitud de instalación?</p>
+ <p className="text-[11px] text-gray-400 mb-4 font-normal">1 = Muy difícil, 5 = Muy fácil</p>
+ <div className="flex justify-between gap-1 mb-4">
+ {[1,2,3,4,5].map(num => (
+ <label key={`fac_${num}`} className="flex-1">
+ <input type="radio" name="facilidad" value={num} onChange={(e) => {
+   setEncuesta({...encuesta, facilidad_gestion: e.target.value, facilidad_motivo: ''});
+ }} className="peer hidden" />
+ <div className="border border-gray-100 bg-gray-50 rounded-xl flex flex-col items-center justify-center py-2 cursor-pointer hover:bg-gray-100 peer-checked:border-[#E3001B] peer-checked:bg-[#E3001B]/10 transition-all">
+ <span className={`text-[14px] font-bold ${encuesta.facilidad_gestion === num.toString() ? 'text-[#E3001B]' : 'text-gray-500'}`}>{num}</span>
+ </div>
+ </label>
+ ))}
+ </div>
+
+ {(encuesta.facilidad_gestion === '1' || encuesta.facilidad_gestion === '2') && (
+   <div className="animate-in fade-in slide-in-from-top-2 duration-300 mt-4">
+     <p className="font-bold text-[13px] text-gray-900 mb-3">¿Qué fue lo más difícil o incómodo del proceso de instalación?</p>
+     <div className="flex flex-col gap-2">
+       {['Coordinar la visita', 'Tiempo de espera', 'Información o tracking poco claro', 'Atención del técnico', 'Duración de la instalación', 'Otro'].map(opcion => (
+         <label key={opcion} className="flex items-center gap-3 cursor-pointer p-2 rounded-lg hover:bg-gray-50 border border-transparent has-[:checked]:border-[#E3001B] has-[:checked]:bg-[#E3001B]/5">
+           <input type="radio" name="facilidad_motivo" value={opcion} onChange={(e) => setEncuesta({...encuesta, facilidad_motivo: e.target.value})} className="accent-[#E3001B] w-4 h-4" />
+           <span className="text-[13px] font-normal text-gray-700">{opcion}</span>
+         </label>
+       ))}
+     </div>
+   </div>
+ )}
  </div>
 
  <Button 

@@ -137,24 +137,25 @@ app.get('/api/v1/terceros/instalaciones/:token', verificarTercero, async (req, r
 // Endpoint para guardar Encuestas (Oculto al mundo exterior directo sin llave)
 app.post('/api/encuesta', verificarTercero, async (req, res) => {
   const { 
-    token, llego_horario, calificacion_tecnico, explicacion_clara, 
-    tiempo_adecuado, informacion_clara, probabilidad_recomendar, comentarios 
-  } = req.body;
+      token, instalacion_concretada, tecnico_trato, tecnico_puntualidad, tecnico_claridad, 
+      tecnico_orden, tecnico_efectividad, satisfaccion_general, satisfaccion_comentario, 
+      facilidad_gestion, facilidad_motivo 
+    } = req.body;
 
-  if (!token || !probabilidad_recomendar) {
+  if (!token || !satisfaccion_general) {
     return res.status(400).json({ success: false, message: 'Faltan datos obligatorios' });
   }
 
   try {
     const csvPath = path.join(__dirname, '../server/encuestas.csv');
     const timestamp = new Date().toISOString();
-    const cleanComments = (comentarios || '').replace(/,/g, ' ');
+    const cleanComments = (satisfaccion_comentario || '').replace(/,/g, ' ');
 
     if (!fs.existsSync(csvPath)) {
-      await fs.promises.writeFile(csvPath, 'FECHA_REGISTRO,TOKEN,LLEGO_A_TIEMPO,CALIFICACION_TECNICO,EXPLICACION_CLARA,TIEMPO_INSTALACION,INFO_CLARA,NPS,COMENTARIOS\n', 'utf8');
+      await fs.promises.writeFile(csvPath, 'FECHA_REGISTRO,TOKEN,CONCRETO_INSTALACION,TRATO,PUNTUALIDAD,CLARIDAD,ORDEN,EFECTIVIDAD,SATISFACCION_GENERAL,SATISFACCION_COMENTARIO,FACILIDAD,FACILIDAD_MOTIVO\n', 'utf8');
     }
 
-    const csvLine = `${timestamp},${token},${llego_horario},${calificacion_tecnico},${explicacion_clara},${tiempo_adecuado},${informacion_clara},${probabilidad_recomendar},${cleanComments}\n`;
+    const csvLine = `${timestamp},${token},${instalacion_concretada},${tecnico_trato},${tecnico_puntualidad},${tecnico_claridad},${tecnico_orden},${tecnico_efectividad},${satisfaccion_general},${cleanComments},${facilidad_gestion},${facilidad_motivo || ''}\n`;
     await fs.promises.appendFile(csvPath, csvLine, 'utf8');
 
     res.json({ success: true, message: 'Encuesta guardada con éxito' });
