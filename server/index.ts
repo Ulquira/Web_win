@@ -23,6 +23,28 @@ app.use(express.json());
 
 // Endpoint para guardar reprogramaciones en BD
 app.post('/api/reprogramar', async (req, res) => {
+  const { token, fecha, turno, motivo } = req.body;
+
+  if (!token || !fecha || !turno) {
+    return res.status(400).json({ success: false, message: 'Faltan datos obligatorios' });
+  }
+
+  try {
+    const query = `
+      INSERT INTO REPROGRAMACIONES (token, fecha_solicitada, turno, motivo)
+      VALUES (?, ?, ?, ?)
+    `;
+    await pool.query(query, [token, fecha, turno, motivo || '']);
+
+    res.json({ success: true, message: 'Reprogramación guardada con éxito' });
+  } catch (error) {
+    console.error('Error guardando en BD:', error);
+    res.status(500).json({ success: false, message: 'Error interno guardando la solicitud' });
+  }
+});
+
+// Endpoint para guardar Encuestas en BD
+app.post('/api/encuesta', async (req, res) => {
   const { 
     token, instalacion_concretada, tecnico_trato, tecnico_puntualidad, tecnico_claridad, 
     tecnico_orden, tecnico_efectividad, satisfaccion_general, satisfaccion_comentario, 
@@ -39,14 +61,9 @@ app.post('/api/reprogramar', async (req, res) => {
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
     await pool.query(query, [
-      token, 
-      llego_horario || null, 
-      calificacion_tecnico || null, 
-      explicacion_clara || null, 
-      tiempo_adecuado || null, 
-      informacion_clara || null, 
-      probabilidad_recomendar, 
-      comentarios || ''
+      token, instalacion_concretada, tecnico_trato, tecnico_puntualidad, tecnico_claridad, 
+      tecnico_orden, tecnico_efectividad, satisfaccion_general, satisfaccion_comentario, 
+      facilidad_gestion, facilidad_motivo
     ]);
 
     res.json({ success: true, message: 'Encuesta guardada con éxito' });
@@ -57,8 +74,7 @@ app.post('/api/reprogramar', async (req, res) => {
 });
 
 // Endpoint para verificar si un token ya llenó la encuesta en BD
-app.get('/api/encuesta/verificar/:token', async (req, res) => {
-  const { token } = req.params;
+{ token } = req.params;
   try {
     const [rows]: any = await pool.query('SELECT id FROM ENCUESTAS WHERE token = ? LIMIT 1', [token]);
     const completada = rows.length > 0;
