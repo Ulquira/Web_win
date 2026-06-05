@@ -99,7 +99,7 @@ const Seguimiento = () => {
  const etaReferenceTime = useRef<number | null>(null);
  const [notifications, setNotifications] = useState<{title: string, body: string, time: Date, read: boolean}[]>([]);
  const [showNotifications, setShowNotifications] = useState(false);
- const [sheetHeight, setSheetHeight] = useState(25);
+ const [sheetHeight, setSheetHeight] = useState(38);
 
  useEffect(() => {
  if ("Notification" in window && Notification.permission === "default") {
@@ -369,7 +369,7 @@ return (
    if (info.offset.y < -50) {
      setSheetHeight(85);
    } else if (info.offset.y > 50) {
-     setSheetHeight(25);
+     setSheetHeight(38);
    }
  };
 
@@ -514,8 +514,8 @@ return (
 
  {/* Drag Handle (Only when map is visible) */}
  {status === 'en_camino' && (
- <div className="w-full flex flex-col items-center justify-center pt-4 pb-2 shrink-0 cursor-grab active:cursor-grabbing hover:bg-gray-50 rounded-t-[2.5rem] transition-colors">
- <div className="w-12 h-1.5 bg-gray-300 rounded-full mb-1"></div>
+ <div className="w-full flex flex-col items-center justify-center pt-3 pb-1 shrink-0 cursor-grab active:cursor-grabbing hover:bg-gray-50 rounded-t-[2.5rem] transition-colors">
+ <div className="w-12 h-1.5 bg-gray-300 rounded-full mb-1 mt-1"></div>
  </div>
  )}
 
@@ -681,18 +681,18 @@ return (
  <>
  {/* Token de Inicio (Si está en camino) */}
  {status === 'en_camino' && data.token_inicio && (
- <div className="bg-gray-900 rounded-3xl p-5 mb-3 shadow-[0_8px_30px_rgb(0,0,0,0.12)] mt-2 flex items-center justify-between mx-0 overflow-hidden relative">
+ <div className="bg-gray-900 rounded-3xl p-4 mb-3 shadow-[0_8px_30px_rgb(0,0,0,0.12)] mt-1 flex items-center justify-between mx-0 overflow-hidden relative">
    {/* Elemento decorativo de fondo */}
    <div className="absolute top-0 right-0 w-32 h-32 bg-[#E3001B] rounded-full blur-[50px] opacity-20 -mr-10 -mt-10"></div>
    
-   <div className="flex flex-col relative z-10 w-2/3 pr-3">
-     <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">Código de seguridad</p>
-     <p className="text-[12px] text-gray-300 font-normal leading-snug">
+   <div className="flex flex-col relative z-10 w-2/3 pr-2">
+     <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Código de seguridad</p>
+     <p className="text-[12px] text-gray-300 font-normal leading-tight">
        Comparte este PIN cuando el instalador llegue a tu domicilio.
      </p>
    </div>
    
-   <div className="relative z-10 flex gap-1.5 shrink-0 bg-black/40 p-2.5 rounded-2xl border border-gray-700/50 backdrop-blur-md">
+   <div className="relative z-10 flex gap-1.5 shrink-0 bg-black/40 p-2 rounded-2xl border border-gray-700/50 backdrop-blur-md">
      {data.token_inicio.split('').map((digit, i) => (
        <div key={i} className="w-8 h-10 bg-gray-800 rounded-lg flex items-center justify-center text-xl font-bold text-white shadow-inner border border-gray-700/50">
          {digit}
@@ -704,16 +704,16 @@ return (
 
  {/* Llegada del técnico separada del Info Card */}
  {status === 'en_camino' && (eta || calculatedEta) && (
- <div className="flex flex-col mb-4 bg-[#E3001B]/10 px-5 py-4 rounded-[20px] gap-2">
-   <div className="flex items-center gap-2 mb-1">
-      <span className="relative flex h-2.5 w-2.5">
+ <div className="flex justify-between items-center mb-3 bg-[#E3001B]/10 px-4 py-3.5 rounded-2xl gap-2">
+   <div className="flex items-center gap-2">
+      <span className="relative flex h-2 w-2">
         <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#E3001B] opacity-75"></span>
-        <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-[#E3001B]"></span>
+        <span className="relative inline-flex rounded-full h-2 w-2 bg-[#E3001B]"></span>
       </span>
-      <span className="text-[#E3001B] text-[15px] font-bold">Llegada estimada del técnico</span>
+      <span className="text-[#E3001B] text-[13px] font-bold uppercase tracking-wide">Llegada estimada</span>
    </div>
-   <div className="flex justify-between items-end">
-      <span className="font-bold text-[#E3001B] text-[18px]">
+   <div className="flex justify-between items-center text-right">
+      <span className="font-bold text-[#E3001B] text-[15px]">
         {calculatedEta || eta}
       </span>
    </div>
