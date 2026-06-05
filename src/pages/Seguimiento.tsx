@@ -99,7 +99,7 @@ const Seguimiento = () => {
  const etaReferenceTime = useRef<number | null>(null);
  const [notifications, setNotifications] = useState<{title: string, body: string, time: Date, read: boolean}[]>([]);
  const [showNotifications, setShowNotifications] = useState(false);
- const [sheetHeight, setSheetHeight] = useState(25);
+ const [sheetHeight, setSheetHeight] = useState(22);
 
  useEffect(() => {
  if ("Notification" in window && Notification.permission === "default") {
@@ -369,7 +369,7 @@ return (
    if (info.offset.y < -50) {
      setSheetHeight(85);
    } else if (info.offset.y > 50) {
-     setSheetHeight(25);
+     setSheetHeight(22);
    }
  };
 
@@ -430,7 +430,7 @@ return (
  </MapContainer>
 
  {/* Mensaje Referencial superpuesto en el mapa */}
- <div className="absolute bottom-[29vh] left-4 z-[400] bg-white/90 backdrop-blur-sm px-3.5 py-2.5 rounded-xl shadow-md border border-gray-100 max-w-[200px]">
+ <div className="absolute bottom-[26vh] left-4 z-[400] bg-white/90 backdrop-blur-sm px-3.5 py-2.5 rounded-xl shadow-md border border-gray-100 max-w-[200px]">
    <div className="flex items-center gap-1.5">
      <AlertTriangle className="w-5 h-5 text-[#E3001B] shrink-0" />
      <p className="text-[11px] text-gray-600 font-normal leading-tight">
