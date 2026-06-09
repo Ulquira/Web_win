@@ -820,7 +820,7 @@ return (
  <div className="flex flex-col gap-3 pt-6 pb-2 border-t border-gray-100 mt-2">
  <p className="text-[14px] text-gray-500 text-center mb-2">¿Necesitas ayuda?</p>
  <button 
- onClick={() => window.open('tel:017546000')}
+ onClick={() => window.open('https://wa.me/51937096003')}
  className="w-full flex items-center justify-center gap-2 border border-[#E3001B] text-[#E3001B] h-12 rounded-full text-[14px] font-bold hover:bg-[#E3001B]/5 active:scale-95 transition-all flex-row-reverse"
  >
  Contactar soporte
