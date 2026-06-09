@@ -180,14 +180,8 @@ const Seguimiento = () => {
  };
 
  const handleEncuestaSubmit = async () => {
- const {
-   instalacion_concretada, tecnico_trato, tecnico_puntualidad,
-   tecnico_claridad, tecnico_orden, tecnico_efectividad,
-   satisfaccion_general, facilidad_gestion
- } = encuesta;
-
- if (!instalacion_concretada || !tecnico_trato || !tecnico_puntualidad || !tecnico_claridad || !tecnico_orden || !tecnico_efectividad || !satisfaccion_general || !facilidad_gestion) {
- alert("Por favor, responde todas las preguntas obligatorias antes de enviar tu calificación.");
+ if (!encuesta.instalacion_concretada || !encuesta.satisfaccion_general || !encuesta.facilidad_gestion) {
+ alert("Por favor responde las preguntas principales antes de enviar.");
  return;
  }
 
@@ -813,12 +807,6 @@ return (
  <span className="text-[11px] text-gray-500 font-normal">Técnico asignado</span>
  </div>
  </div>
- <button 
- onClick={() => window.open('tel:017546000')}
- className="w-10 h-10 rounded-full border border-[#E3001B] text-[#E3001B] flex items-center justify-center hover:bg-[#E3001B]/10 transition-colors shrink-0"
- >
- <Phone className="w-4 h-4 fill-current" />
- </button>
  </div>
  )}
  
@@ -832,7 +820,7 @@ return (
  <div className="flex flex-col gap-3 pt-6 pb-2 border-t border-gray-100 mt-2">
  <p className="text-[14px] text-gray-500 text-center mb-2">¿Necesitas ayuda?</p>
  <button 
- onClick={() => window.open('https://wa.me/51999999999')}
+ onClick={() => window.open('tel:017546000')}
  className="w-full flex items-center justify-center gap-2 border border-[#E3001B] text-[#E3001B] h-12 rounded-full text-[14px] font-bold hover:bg-[#E3001B]/5 active:scale-95 transition-all flex-row-reverse"
  >
  Contactar soporte
