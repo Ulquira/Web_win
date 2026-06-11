@@ -1,7 +1,18 @@
 FROM node:20-alpine
+
+# Descargar Cloud SQL Auth Proxy
+RUN apk add --no-cache curl && \
+    curl -o /cloud_sql_proxy https://dl.google.com/cloudsql/cloud_sql_proxy.linux.amd64 && \
+    chmod +x /cloud_sql_proxy
+
 WORKDIR /app
 COPY package*.json ./
 RUN npm install
 COPY . .
+
 EXPOSE 4001
-CMD ["npx", "tsx", "capa_intermedia/index.ts"]
+
+# Script que inicia el proxy y la app simultáneamente
+RUN printf '#!/bin/sh\nset -e\n/cloud_sql_proxy -instances=dynamic-radar-470920-g9:us-east4:quantum-vn=tcp:3306 &\nPROXY_PID=$!\nnpx tsx capa_intermedia/index.ts\n' > /start.sh && chmod +x /start.sh
+
+CMD ["/start.sh"]

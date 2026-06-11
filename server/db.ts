@@ -3,8 +3,11 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
+// En Cloud Run, usa localhost (proxy), en local usa IP pública
+const host = process.env.DB_HOST || 'localhost';
+
 const pool = mysql.createPool({
-  host: process.env.DB_HOST || 'localhost',
+  host: host,
   user: process.env.DB_USER || 'root',
   password: process.env.DB_PASSWORD || '',
   database: process.env.DB_NAME || 'win_instalaciones',
