@@ -1,10 +1,5 @@
 FROM node:20-alpine
 
-# Descargar Cloud SQL Auth Proxy
-RUN apk add --no-cache curl bash && \
-    curl -L -o /cloud_sql_proxy https://dl.google.com/cloudsql/cloud_sql_proxy.v2.11.0.linux.amd64 && \
-    chmod +x /cloud_sql_proxy
-
 WORKDIR /app
 COPY package*.json ./
 RUN npm install
@@ -12,16 +7,4 @@ COPY . .
 
 EXPOSE 4001
 
-# Crear script de inicio
-RUN echo '#!/bin/bash' > /start.sh && \
-    echo 'set -e' >> /start.sh && \
-    echo 'echo "Iniciando Cloud SQL Proxy..."' >> /start.sh && \
-    echo '/cloud_sql_proxy -instances=dynamic-radar-470920-g9:us-east4:quantum-vn=tcp:3306 -max_connections=10 &' >> /start.sh && \
-    echo 'PROXY_PID=$!' >> /start.sh && \
-    echo 'echo "Esperando a que el proxy esté listo..."' >> /start.sh && \
-    echo 'sleep 3' >> /start.sh && \
-    echo 'echo "Iniciando aplicación..."' >> /start.sh && \
-    echo 'npx tsx capa_intermedia/index.ts' >> /start.sh && \
-    chmod +x /start.sh
-
-CMD ["/start.sh"]
+CMD ["npx", "tsx", "capa_intermedia/index.ts"]
