@@ -6,6 +6,7 @@ import Seguimiento from '@/pages/Seguimiento'
 import './index.css'
 import { Toaster } from "@/components/ui/toaster"
 import { ThemeProvider } from '@/components/ThemeProvider'
+import '@/lib/firebaseConfig' // Inicializar Firebase Analytics
 
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('/sw.js').catch(err => {
