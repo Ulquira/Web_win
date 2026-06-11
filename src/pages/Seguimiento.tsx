@@ -13,6 +13,7 @@ import Routing from "@/components/Routing";
 import AnimatedMarker from "@/components/AnimatedMarker";
 import { motion, AnimatePresence } from "framer-motion";
 import { PeruFibraLogo } from "@/components/PeruFibraLogo";
+import { trackEvent } from "@/lib/firebaseConfig";
 
 
 delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -168,6 +169,7 @@ const Seguimiento = () => {
 
  const result = await response.json();
  if (result.success) {
+ trackEvent('reprogramar_solicitud_completada', { token, motivo: reprogramData.motivoSeleccionado });
  setReprogramStep('success');
  } else {
  alert("Ocurrió un error. Por favor intenta de nuevo más tarde.");
@@ -198,6 +200,12 @@ const Seguimiento = () => {
 
  const result = await response.json();
  if (result.success) {
+ trackEvent('encuesta_completada', { 
+   token, 
+   instalacion_concretada: encuesta.instalacion_concretada,
+   satisfaccion_general: encuesta.satisfaccion_general,
+   facilidad_gestion: encuesta.facilidad_gestion
+ });
  setEncuestaEnviada(true);
  localStorage.setItem(`encuesta_completada_${token}`, 'true');
  setData(prev => prev ? { ...prev, status: 'cerrada' } : null);
@@ -276,7 +284,18 @@ const Seguimiento = () => {
           }
           
           if (previousStatus.current && previousStatus.current !== fetchedData.status) {
+            trackEvent('actualizacion_estado_visto', { 
+              token, 
+              estado_anterior: previousStatus.current, 
+              estado_nuevo: fetchedData.status 
+            });
             triggerNotification(fetchedData.status, fetchedData.tecnico);
+          } else if (previousStatus.current === null) {
+            // Primer carga/visita de la web por parte del usuario
+            trackEvent('ver_seguimiento_instalacion', { 
+              token, 
+              estado_actual: fetchedData.status 
+            });
           }
           previousStatus.current = fetchedData.status;
 
@@ -820,7 +839,10 @@ return (
  <div className="flex flex-col gap-3 pt-6 pb-2 border-t border-gray-100 mt-2">
  <p className="text-[14px] text-gray-500 text-center mb-2">¿Necesitas ayuda?</p>
  <button 
- onClick={() => window.open('https://wa.me/51937096003')}
+ onClick={() => {
+   trackEvent('click_contactar_soporte', { token });
+   window.open('https://wa.me/51937096003');
+ }}
  className="w-full flex items-center justify-center gap-2 border border-[#E3001B] text-[#E3001B] h-12 rounded-full text-[14px] font-bold hover:bg-[#E3001B]/5 active:scale-95 transition-all flex-row-reverse"
  >
  Contactar soporte
@@ -829,8 +851,9 @@ return (
  {status !== 'finalizada' && status !== 'cerrada' && (
  <button 
  onClick={() => {
- setIsReprogramModalOpen(true);
- setReprogramStep('confirm_initial');
+   trackEvent('click_iniciar_reprogramacion', { token, estado_actual: status });
+   setIsReprogramModalOpen(true);
+   setReprogramStep('confirm_initial');
  }}
  className="w-full bg-[#1a202c] text-white h-12 rounded-full text-[14px] font-bold flex items-center justify-center gap-2 active:scale-95 transition-transform shadow-md flex-row-reverse"
  >
