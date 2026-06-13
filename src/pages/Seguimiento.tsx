@@ -555,10 +555,13 @@ return (
  Tu visita ha sido cerrada. Si no reconoces esta cancelación, comunícate con nosotros, con gusto te atenderemos.
  </p>
  <button 
- onClick={() => window.open('tel:017546000')} 
+ onClick={() => {
+  trackEvent('click_contactar_soporte_cerrada', { token });
+  window.open('https://wa.me/51937096003');
+}} 
  className="w-full bg-[#E3001B] text-white font-bold rounded-2xl h-14 shadow-lg text-[15px] flex items-center justify-center gap-2 transition-transform active:scale-95"
  >
- <Phone className="w-5 h-5" /> Llamar a ATC
+ <Phone className="w-5 h-5" /> Contactar con Soporte
  </button>
  </div>
  </div>
