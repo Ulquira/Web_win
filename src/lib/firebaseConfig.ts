@@ -19,18 +19,6 @@ const app = initializeApp(firebaseConfig);
 // Inicializar Analytics
 const analytics = getAnalytics(app);
 
-// Función para detectar el tipo de dispositivo del cliente (Teléfono, Tablet o PC)
-export const obtenerTipoDispositivo = (): string => {
-  const ua = navigator.userAgent;
-  if (/(tablet|ipad|playbook|silk)|(android(?!.*mobi))/i.test(ua)) {
-    return "tablet";
-  }
-  if (/Mobile|iP(hone|od)|Android|BlackBerry|IEMobile|Kindle|Silk-Accelerated|(hpw|web)OS|Opera M(obi|ini)/i.test(ua)) {
-    return "telefono";
-  }
-  return "pc";
-};
-
 // Función para rastrear eventos custom en Firebase y en nuestra BD MySQL local
 export const trackEvent = (eventName: string, eventParams?: Record<string, any>) => {
   // 1. Firebase Analytics (Existente)
@@ -53,8 +41,7 @@ export const trackEvent = (eventName: string, eventParams?: Record<string, any>)
         body: JSON.stringify({
           token,
           evento: eventName,
-          detalles: Object.keys(detalles).length > 0 ? detalles : null,
-          dispositivo: obtenerTipoDispositivo() // Enviar como parámetro separado del body
+          detalles: Object.keys(detalles).length > 0 ? detalles : null
         })
       }).catch(err => console.error("Error al guardar log custom en MySQL:", err));
     }

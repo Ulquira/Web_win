@@ -13,7 +13,7 @@ import Routing from "@/components/Routing";
 import AnimatedMarker from "@/components/AnimatedMarker";
 import { motion, AnimatePresence } from "framer-motion";
 import { PeruFibraLogo } from "@/components/PeruFibraLogo";
-import { trackEvent, obtenerTipoDispositivo } from "@/lib/firebaseConfig";
+import { trackEvent } from "@/lib/firebaseConfig";
 
 
 delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -116,7 +116,7 @@ const Seguimiento = () => {
  useEffect(() => {
    if (!token) return;
 
-   const startTime = Date.now();
+   let startTime = Date.now();
    // Hacemos un cast a "any" para evitar el error de TypeScript con PerformanceEntry
    const isReload = window.performance && (window.performance.getEntriesByType("navigation")[0] as any)?.type === "reload";
 
@@ -124,11 +124,9 @@ const Seguimiento = () => {
      trackEvent('pagina_refrescada', { token });
    }
 
-   const handleUnload = () => {
-     if (loggedUnload.current) return;
-     loggedUnload.current = true;
-
-     const durationSeconds = Math.round((Date.now() - startTime) / 1000);
+   const sendDurationLog = () => {
+     const endTime = Date.now();
+     const durationSeconds = Math.round((endTime - startTime) / 1000);
      
      // Evitar registrar visitas ultra cortas de 0 segundos
      if (durationSeconds <= 0) return;
@@ -136,29 +134,32 @@ const Seguimiento = () => {
      const logData = JSON.stringify({
        token,
        evento: 'visita_finalizada',
-       detalles: { duracion_segundos: durationSeconds },
-       dispositivo: obtenerTipoDispositivo()
+       detalles: { duracion_segundos: durationSeconds }
      });
 
-     if (navigator.sendBeacon) {
-       navigator.sendBeacon(`${import.meta.env.VITE_API_URL}/api/log`, new Blob([logData], { type: 'application/json' }));
-     } else {
-       fetch(`${import.meta.env.VITE_API_URL}/api/log`, {
-         method: 'POST',
-         headers: { 'Content-Type': 'application/json' },
-         body: logData,
-         keepalive: true
-       });
+     // El uso de fetch con keepalive es el estándar moderno y 100% confiable
+     fetch(`${import.meta.env.VITE_API_URL}/api/log`, {
+       method: 'POST',
+       headers: { 'Content-Type': 'application/json' },
+       body: logData,
+       keepalive: true
+     }).catch(err => console.error("Error al registrar duracion:", err));
+   };
+
+   const handleVisibilityChange = () => {
+     if (document.visibilityState === 'hidden') {
+       sendDurationLog();
+     } else if (document.visibilityState === 'visible') {
+       // Resetear el tiempo de inicio cuando el usuario vuelve a abrir/mirar la pestaña
+       startTime = Date.now();
      }
    };
 
-   window.addEventListener('beforeunload', handleUnload);
-   window.addEventListener('pagehide', handleUnload); // Para dispositivos móviles (iOS/Android)
+   document.addEventListener('visibilitychange', handleVisibilityChange);
 
    return () => {
-     window.removeEventListener('beforeunload', handleUnload);
-     window.removeEventListener('pagehide', handleUnload);
-     handleUnload();
+     document.removeEventListener('visibilitychange', handleVisibilityChange);
+     sendDurationLog(); // Registrar última duración si el componente se desmonta
    };
  }, [token]);
 
