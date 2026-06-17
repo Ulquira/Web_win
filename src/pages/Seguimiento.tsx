@@ -104,7 +104,6 @@ const Seguimiento = () => {
  const [notifications, setNotifications] = useState<{title: string, body: string, time: Date, read: boolean}[]>([]);
  const [showNotifications, setShowNotifications] = useState(false);
  const [sheetHeight, setSheetHeight] = useState(22);
- const loggedUnload = useRef(false);
 
  useEffect(() => {
  if ("Notification" in window && Notification.permission === "default") {
