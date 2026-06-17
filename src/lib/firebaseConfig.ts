@@ -19,6 +19,18 @@ const app = initializeApp(firebaseConfig);
 // Inicializar Analytics
 const analytics = getAnalytics(app);
 
+// Función para detectar el tipo de dispositivo del cliente (Teléfono, Tablet o PC)
+const obtenerTipoDispositivo = (): string => {
+  const ua = navigator.userAgent;
+  if (/(tablet|ipad|playbook|silk)|(android(?!.*mobi))/i.test(ua)) {
+    return "tablet";
+  }
+  if (/Mobile|iP(hone|od)|Android|BlackBerry|IEMobile|Kindle|Silk-Accelerated|(hpw|web)OS|Opera M(obi|ini)/i.test(ua)) {
+    return "telefono";
+  }
+  return "pc";
+};
+
 // Función para rastrear eventos custom en Firebase y en nuestra BD MySQL local
 export const trackEvent = (eventName: string, eventParams?: Record<string, any>) => {
   // 1. Firebase Analytics (Existente)
@@ -32,7 +44,10 @@ export const trackEvent = (eventName: string, eventParams?: Record<string, any>)
   try {
     const token = eventParams?.token || "";
     if (token) {
-      const detalles = { ...eventParams };
+      const detalles = { 
+        ...eventParams,
+        dispositivo: obtenerTipoDispositivo() // Inyectar el tipo de dispositivo automáticamente
+      };
       delete detalles.token; // No repetir el token que irá en su propia columna
 
       fetch(`${import.meta.env.VITE_API_URL}/api/log`, {
