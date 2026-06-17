@@ -87,6 +87,20 @@ app.get('/api/encuesta/verificar/:token', async (req, res) => {
   }
 });
 
+// Función para obtener la fecha y hora actual en la zona horaria de Lima (UTC-5)
+const getLimaDateTime = () => {
+  const formatter = new Intl.DateTimeFormat('sv-SE', {
+    timeZone: 'America/Lima',
+    year: 'numeric',
+    month: '2-digit',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit'
+  });
+  return formatter.format(new Date()); // Retorna "YYYY-MM-DD HH:mm:ss"
+};
+
 // Endpoint para guardar Logs de Interacción en BD
 app.post('/api/log', async (req, res) => {
   const { token, evento, detalles, dispositivo } = req.body;
@@ -101,17 +115,21 @@ app.post('/api/log', async (req, res) => {
     ? ip[0] 
     : (typeof ip === 'string' ? ip.split(',')[0].trim() : '');
 
+  const limaTime = getLimaDateTime();
+
   try {
     const query = `
-      INSERT INTO LOGS_TRAKING (token, evento, ip_address, detalles, dispositivo)
-      VALUES (?, ?, ?, ?, ?)
+      INSERT INTO LOGS_TRAKING (token, evento, ip_address, detalles, dispositivo, timestamp, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
     `;
     await pool.query(query, [
       token, 
       evento, 
       ip_address, 
       detalles ? JSON.stringify(detalles) : null,
-      dispositivo || null
+      dispositivo || null,
+      limaTime,
+      limaTime
     ]);
 
     res.json({ success: true });
