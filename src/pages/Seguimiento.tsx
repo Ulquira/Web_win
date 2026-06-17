@@ -13,7 +13,7 @@ import Routing from "@/components/Routing";
 import AnimatedMarker from "@/components/AnimatedMarker";
 import { motion, AnimatePresence } from "framer-motion";
 import { PeruFibraLogo } from "@/components/PeruFibraLogo";
-import { trackEvent } from "@/lib/firebaseConfig";
+import { trackEvent, obtenerTipoDispositivo } from "@/lib/firebaseConfig";
 
 
 delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -136,7 +136,8 @@ const Seguimiento = () => {
      const logData = JSON.stringify({
        token,
        evento: 'visita_finalizada',
-       detalles: { duracion_segundos: durationSeconds }
+       detalles: { duracion_segundos: durationSeconds },
+       dispositivo: obtenerTipoDispositivo()
      });
 
      if (navigator.sendBeacon) {

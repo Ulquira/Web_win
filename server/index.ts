@@ -89,7 +89,7 @@ app.get('/api/encuesta/verificar/:token', async (req, res) => {
 
 // Endpoint para guardar Logs de Interacción en BD
 app.post('/api/log', async (req, res) => {
-  const { token, evento, detalles } = req.body;
+  const { token, evento, detalles, dispositivo } = req.body;
 
   if (!token || !evento) {
     return res.status(400).json({ success: false, message: 'Faltan datos obligatorios: token y evento' });
@@ -103,14 +103,15 @@ app.post('/api/log', async (req, res) => {
 
   try {
     const query = `
-      INSERT INTO LOGS_TRAKING (token, evento, ip_address, detalles)
-      VALUES (?, ?, ?, ?)
+      INSERT INTO LOGS_TRAKING (token, evento, ip_address, detalles, dispositivo)
+      VALUES (?, ?, ?, ?, ?)
     `;
     await pool.query(query, [
       token, 
       evento, 
       ip_address, 
-      detalles ? JSON.stringify(detalles) : null
+      detalles ? JSON.stringify(detalles) : null,
+      dispositivo || null
     ]);
 
     res.json({ success: true });

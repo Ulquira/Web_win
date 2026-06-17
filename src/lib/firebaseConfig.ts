@@ -20,7 +20,7 @@ const app = initializeApp(firebaseConfig);
 const analytics = getAnalytics(app);
 
 // Función para detectar el tipo de dispositivo del cliente (Teléfono, Tablet o PC)
-const obtenerTipoDispositivo = (): string => {
+export const obtenerTipoDispositivo = (): string => {
   const ua = navigator.userAgent;
   if (/(tablet|ipad|playbook|silk)|(android(?!.*mobi))/i.test(ua)) {
     return "tablet";
@@ -44,10 +44,7 @@ export const trackEvent = (eventName: string, eventParams?: Record<string, any>)
   try {
     const token = eventParams?.token || "";
     if (token) {
-      const detalles = { 
-        ...eventParams,
-        dispositivo: obtenerTipoDispositivo() // Inyectar el tipo de dispositivo automáticamente
-      };
+      const detalles = { ...eventParams };
       delete detalles.token; // No repetir el token que irá en su propia columna
 
       fetch(`${import.meta.env.VITE_API_URL}/api/log`, {
@@ -56,7 +53,8 @@ export const trackEvent = (eventName: string, eventParams?: Record<string, any>)
         body: JSON.stringify({
           token,
           evento: eventName,
-          detalles: Object.keys(detalles).length > 0 ? detalles : null
+          detalles: Object.keys(detalles).length > 0 ? detalles : null,
+          dispositivo: obtenerTipoDispositivo() // Enviar como parámetro separado del body
         })
       }).catch(err => console.error("Error al guardar log custom en MySQL:", err));
     }
