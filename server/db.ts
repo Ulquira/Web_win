@@ -11,6 +11,7 @@ const poolConfig: any = {
   user: process.env.DB_USER || 'root',
   password: process.env.DB_PASSWORD || '',
   database: process.env.DB_NAME || 'win_instalaciones',
+  timezone: '-05:00', // Configurar la zona horaria de la sesión a Lima, Perú (UTC-5)
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0
