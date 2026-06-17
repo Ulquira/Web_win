@@ -118,6 +118,36 @@ app.post('/api/log', async (req, res) => {
   const limaTime = getLimaDateTime();
 
   try {
+    // Verificar si es la primera visita absoluta de este token a la web
+    let esPrimeraVisita = false;
+    if (evento === 'ver_seguimiento_instalacion') {
+      const [rows]: any = await pool.query(
+        "SELECT id FROM LOGS_TRAKING WHERE token = ? AND evento = 'primera_visita' LIMIT 1",
+        [token]
+      );
+      if (rows.length === 0) {
+        esPrimeraVisita = true;
+      }
+    }
+
+    // Si es la primera vez que abre el enlace, insertamos el evento de 'primera_visita'
+    if (esPrimeraVisita) {
+      const insertPrimeraQuery = `
+        INSERT INTO LOGS_TRAKING (token, evento, ip_address, detalles, dispositivo, timestamp, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+      `;
+      await pool.query(insertPrimeraQuery, [
+        token, 
+        'primera_visita', 
+        ip_address, 
+        detalles ? JSON.stringify(detalles) : null,
+        dispositivo || null,
+        limaTime,
+        limaTime
+      ]);
+    }
+
+    // Insertar el evento actual normalmente
     const query = `
       INSERT INTO LOGS_TRAKING (token, evento, ip_address, detalles, dispositivo, timestamp, created_at)
       VALUES (?, ?, ?, ?, ?, ?, ?)
