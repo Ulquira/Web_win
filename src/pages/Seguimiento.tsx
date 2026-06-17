@@ -117,7 +117,8 @@ const Seguimiento = () => {
    if (!token) return;
 
    const startTime = Date.now();
-   const isReload = window.performance && window.performance.getEntriesByType("navigation")[0]?.type === "reload";
+   // Hacemos un cast a "any" para evitar el error de TypeScript con PerformanceEntry
+   const isReload = window.performance && (window.performance.getEntriesByType("navigation")[0] as any)?.type === "reload";
 
    if (isReload) {
      trackEvent('pagina_refrescada', { token });
