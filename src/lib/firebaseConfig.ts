@@ -19,9 +19,35 @@ const app = initializeApp(firebaseConfig);
 // Inicializar Analytics
 const analytics = getAnalytics(app);
 
-// Función para rastrear eventos custom (la usaremos en opción B)
+// Función para rastrear eventos custom en Firebase y en nuestra BD MySQL local
 export const trackEvent = (eventName: string, eventParams?: Record<string, any>) => {
-  logEvent(analytics, eventName, eventParams);
+  // 1. Firebase Analytics (Existente)
+  try {
+    logEvent(analytics, eventName, eventParams);
+  } catch (e) {
+    console.error("Error al registrar en Firebase:", e);
+  }
+
+  // 2. Base de Datos MySQL (Custom Logs_Traking)
+  try {
+    const token = eventParams?.token || "";
+    if (token) {
+      const detalles = { ...eventParams };
+      delete detalles.token; // No repetir el token que irá en su propia columna
+
+      fetch(`${import.meta.env.VITE_API_URL}/api/log`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          token,
+          evento: eventName,
+          detalles: Object.keys(detalles).length > 0 ? detalles : null
+        })
+      }).catch(err => console.error("Error al guardar log custom en MySQL:", err));
+    }
+  } catch (e) {
+    console.error("Error en log custom local:", e);
+  }
 };
 
 export { analytics };

@@ -87,6 +87,39 @@ app.get('/api/encuesta/verificar/:token', async (req, res) => {
   }
 });
 
+// Endpoint para guardar Logs de Interacción en BD
+app.post('/api/log', async (req, res) => {
+  const { token, evento, detalles } = req.body;
+
+  if (!token || !evento) {
+    return res.status(400).json({ success: false, message: 'Faltan datos obligatorios: token y evento' });
+  }
+
+  // Obtener IP real del cliente
+  const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress || '';
+  const ip_address = Array.isArray(ip) 
+    ? ip[0] 
+    : (typeof ip === 'string' ? ip.split(',')[0].trim() : '');
+
+  try {
+    const query = `
+      INSERT INTO LOGS_TRAKING (token, evento, ip_address, detalles)
+      VALUES (?, ?, ?, ?)
+    `;
+    await pool.query(query, [
+      token, 
+      evento, 
+      ip_address, 
+      detalles ? JSON.stringify(detalles) : null
+    ]);
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error guardando log en BD:', error);
+    res.status(500).json({ success: false, message: 'Error interno guardando el log' });
+  }
+});
+
 // Obtener detalles de una instalación por token
 app.get('/api/instalaciones/:token', async (req, res) => {
   const { token } = req.params;

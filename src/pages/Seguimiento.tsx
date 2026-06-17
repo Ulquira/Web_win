@@ -104,12 +104,61 @@ const Seguimiento = () => {
  const [notifications, setNotifications] = useState<{title: string, body: string, time: Date, read: boolean}[]>([]);
  const [showNotifications, setShowNotifications] = useState(false);
  const [sheetHeight, setSheetHeight] = useState(22);
+ const loggedUnload = useRef(false);
 
  useEffect(() => {
  if ("Notification" in window && Notification.permission === "default") {
  Notification.requestPermission();
  }
  }, []);
+
+ // Registrar tiempo de estadía y si refrescó la página en nuestra base de datos
+ useEffect(() => {
+   if (!token) return;
+
+   const startTime = Date.now();
+   const isReload = window.performance && window.performance.getEntriesByType("navigation")[0]?.type === "reload";
+
+   if (isReload) {
+     trackEvent('pagina_refrescada', { token });
+   }
+
+   const handleUnload = () => {
+     if (loggedUnload.current) return;
+     loggedUnload.current = true;
+
+     const durationSeconds = Math.round((Date.now() - startTime) / 1000);
+     
+     // Evitar registrar visitas ultra cortas de 0 segundos
+     if (durationSeconds <= 0) return;
+
+     const logData = JSON.stringify({
+       token,
+       evento: 'visita_finalizada',
+       detalles: { duracion_segundos: durationSeconds }
+     });
+
+     if (navigator.sendBeacon) {
+       navigator.sendBeacon(`${import.meta.env.VITE_API_URL}/api/log`, new Blob([logData], { type: 'application/json' }));
+     } else {
+       fetch(`${import.meta.env.VITE_API_URL}/api/log`, {
+         method: 'POST',
+         headers: { 'Content-Type': 'application/json' },
+         body: logData,
+         keepalive: true
+       });
+     }
+   };
+
+   window.addEventListener('beforeunload', handleUnload);
+   window.addEventListener('pagehide', handleUnload); // Para dispositivos móviles (iOS/Android)
+
+   return () => {
+     window.removeEventListener('beforeunload', handleUnload);
+     window.removeEventListener('pagehide', handleUnload);
+     handleUnload();
+   };
+ }, [token]);
 
  const triggerNotification = (newStatus: string, tecnicoData: any) => {
  let title = "¡Actualización de tu servicio!";
