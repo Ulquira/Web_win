@@ -161,16 +161,14 @@ app.post('/api/log', async (req, res) => {
     // Si es la primera vez que abre el enlace, insertamos el evento de 'primera_visita'
     if (esPrimeraVisita) {
       const insertPrimeraQuery = `
-        INSERT INTO LOGS_TRAKING (token, evento, ip_address, detalles, dispositivo, navegador, sistema_operativo, timestamp, created_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO LOGS_TRAKING (token, evento, ip_address, detalles, sistema_operativo, timestamp, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
       `;
       await pool.query(insertPrimeraQuery, [
         token, 
         'primera_visita', 
         ip_address, 
         detalles ? JSON.stringify(detalles) : null,
-        dispositivo || null,
-        navegador,
         sistema_operativo,
         limaTime,
         limaTime
@@ -179,16 +177,14 @@ app.post('/api/log', async (req, res) => {
 
     // Insertar el evento actual normalmente
     const query = `
-      INSERT INTO LOGS_TRAKING (token, evento, ip_address, detalles, dispositivo, navegador, sistema_operativo, timestamp, created_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO LOGS_TRAKING (token, evento, ip_address, detalles, sistema_operativo, timestamp, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
     `;
     await pool.query(query, [
       token, 
       evento, 
       ip_address, 
       detalles ? JSON.stringify(detalles) : null,
-      dispositivo || null,
-      navegador,
       sistema_operativo,
       limaTime,
       limaTime
