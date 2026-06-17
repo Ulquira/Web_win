@@ -101,6 +101,30 @@ const getLimaDateTime = () => {
   return formatter.format(new Date()); // Retorna "YYYY-MM-DD HH:mm:ss"
 };
 
+// Función para parsear el User-Agent y obtener Navegador y Sistema Operativo de forma ligera
+const parseUserAgent = (ua: string) => {
+  let sistema_operativo = 'Otro';
+  let navegador = 'Otro';
+
+  if (!ua) return { sistema_operativo, navegador };
+
+  // Detectar Sistema Operativo
+  if (/Windows/i.test(ua)) sistema_operativo = 'Windows';
+  else if (/iPhone|iPad|iPod/i.test(ua)) sistema_operativo = 'iOS';
+  else if (/Android/i.test(ua)) sistema_operativo = 'Android';
+  else if (/Macintosh|Mac OS X/i.test(ua)) sistema_operativo = 'macOS';
+  else if (/Linux/i.test(ua)) sistema_operativo = 'Linux';
+
+  // Detectar Navegador
+  if (/WhatsApp/i.test(ua)) navegador = 'WhatsApp WebView';
+  else if (/Edg/i.test(ua)) navegador = 'Edge';
+  else if (/Chrome/i.test(ua) && /Safari/i.test(ua)) navegador = 'Chrome';
+  else if (/Safari/i.test(ua) && !/Chrome/i.test(ua)) navegador = 'Safari';
+  else if (/Firefox/i.test(ua)) navegador = 'Firefox';
+  
+  return { sistema_operativo, navegador };
+};
+
 // Endpoint para guardar Logs de Interacción en BD
 app.post('/api/log', async (req, res) => {
   const { token, evento, detalles, dispositivo } = req.body;
@@ -114,6 +138,10 @@ app.post('/api/log', async (req, res) => {
   const ip_address = Array.isArray(ip) 
     ? ip[0] 
     : (typeof ip === 'string' ? ip.split(',')[0].trim() : '');
+
+  // Obtener el User-Agent para detectar Navegador y Sistema Operativo
+  const userAgentHeader = req.headers['user-agent'] || '';
+  const { navegador, sistema_operativo } = parseUserAgent(userAgentHeader);
 
   const limaTime = getLimaDateTime();
 
@@ -133,8 +161,8 @@ app.post('/api/log', async (req, res) => {
     // Si es la primera vez que abre el enlace, insertamos el evento de 'primera_visita'
     if (esPrimeraVisita) {
       const insertPrimeraQuery = `
-        INSERT INTO LOGS_TRAKING (token, evento, ip_address, detalles, dispositivo, timestamp, created_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO LOGS_TRAKING (token, evento, ip_address, detalles, dispositivo, navegador, sistema_operativo, timestamp, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
       `;
       await pool.query(insertPrimeraQuery, [
         token, 
@@ -142,6 +170,8 @@ app.post('/api/log', async (req, res) => {
         ip_address, 
         detalles ? JSON.stringify(detalles) : null,
         dispositivo || null,
+        navegador,
+        sistema_operativo,
         limaTime,
         limaTime
       ]);
@@ -149,11 +179,23 @@ app.post('/api/log', async (req, res) => {
 
     // Insertar el evento actual normalmente
     const query = `
-      INSERT INTO LOGS_TRAKING (token, evento, ip_address, detalles, dispositivo, timestamp, created_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO LOGS_TRAKING (token, evento, ip_address, detalles, dispositivo, navegador, sistema_operativo, timestamp, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
     await pool.query(query, [
       token, 
+      evento, 
+      ip_address, 
+      detalles ? JSON.stringify(detalles) : null,
+      dispositivo || null,
+      navegador,
+      sistema_operativo,
+      limaTime,
+      limaTime
+    ]);
+
+    res.json({ success: true });
+  } catch (error) {
       evento, 
       ip_address, 
       detalles ? JSON.stringify(detalles) : null,
