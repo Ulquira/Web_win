@@ -196,16 +196,6 @@ app.post('/api/log', async (req, res) => {
 
     res.json({ success: true });
   } catch (error) {
-      evento, 
-      ip_address, 
-      detalles ? JSON.stringify(detalles) : null,
-      dispositivo || null,
-      limaTime,
-      limaTime
-    ]);
-
-    res.json({ success: true });
-  } catch (error) {
     console.error('Error guardando log en BD:', error);
     res.status(500).json({ success: false, message: 'Error interno guardando el log' });
   }
