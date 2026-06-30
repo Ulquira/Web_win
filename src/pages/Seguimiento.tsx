@@ -15,6 +15,17 @@ import { motion, AnimatePresence } from "framer-motion";
 import { PeruFibraLogo } from "@/components/PeruFibraLogo";
 import { trackEvent } from "@/lib/firebaseConfig";
 
+const parseSafeDate = (dateStr?: string) => {
+  if (!dateStr) return null;
+  const match = dateStr.match(/^(\d{4}-\d{2}-\d{2})/);
+  if (match) {
+    const [year, month, day] = match[1].split('-').map(Number);
+    return new Date(year, month - 1, day);
+  }
+  const d = new Date(dateStr);
+  return isNaN(d.getTime()) ? null : d;
+};
+
 
 delete (L.Icon.Default.prototype as any)._getIconUrl;
 L.Icon.Default.mergeOptions({
@@ -811,7 +822,7 @@ return (
    <div className="flex justify-between items-center">
      <span className="text-gray-500 text-[14px] font-normal">Día</span>
      <span className="font-bold text-gray-900 text-[14px]">
-     {data.fecha_programacion ? format(new Date(data.fecha_programacion.split('T')[0] + 'T00:00:00'), "dd/MM/yyyy") : 'Por definir'}
+     {data.fecha_programacion && parseSafeDate(data.fecha_programacion) ? format(parseSafeDate(data.fecha_programacion)!, "dd/MM/yyyy") : 'Por definir'}
      </span>
    </div>
    {status !== 'en_camino' && (
