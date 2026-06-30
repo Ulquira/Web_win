@@ -145,7 +145,8 @@ app.get('/api/v1/terceros/instalaciones/:token', verificarTercero, async (req, r
       cliente_nombre: op.nom_cliente,
       direccion: op.direccion_cliente,
       campana: op.Campaña,
-      token_inicio: tokenInicio || null
+      token_inicio: tokenInicio || null,
+      tipo: isTicket ? 'ticket' : 'instalacion'
     };
 
     if (op.Cuadrilla) {

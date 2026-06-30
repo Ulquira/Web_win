@@ -62,6 +62,7 @@ export interface InstalacionData {
  tramo?: string;
  token_inicio?: string;
  campana?: string;
+ tipo?: 'instalacion' | 'ticket';
 }
 
 const Seguimiento = () => {
@@ -804,13 +805,13 @@ return (
  {/* Info Card Minimalista */}
  <div className={`border border-gray-200 rounded-[20px] p-5 mb-6 bg-white shadow-sm ${status === 'en_camino' && (data.token_inicio || eta || calculatedEta) ? '' : 'mt-4'}`}>
  <h3 className="text-[16px] font-bold text-gray-900 mb-4 pb-3 border-b border-gray-100">
-   Instalación de {data.cliente_nombre ? toTitleCase(data.cliente_nombre.split(' ')[0]) : 'Cliente'}
+   {data.tipo === 'ticket' ? 'Visita Técnica de ' : 'Instalación de '}{data.cliente_nombre ? toTitleCase(data.cliente_nombre.split(' ')[0]) : 'Cliente'}
  </h3>
  <div className="flex flex-col gap-3">
    <div className="flex justify-between items-center">
      <span className="text-gray-500 text-[14px] font-normal">Día</span>
      <span className="font-bold text-gray-900 text-[14px]">
-     {data.fecha_programacion ? format(new Date(data.fecha_programacion), "dd/MM/yyyy") : 'Por definir'}
+     {data.fecha_programacion ? format(new Date(data.fecha_programacion.split('T')[0] + 'T00:00:00'), "dd/MM/yyyy") : 'Por definir'}
      </span>
    </div>
    {status !== 'en_camino' && (
@@ -821,12 +822,14 @@ return (
        </span>
      </div>
    )}
-   <div className="flex justify-between items-start">
-     <span className="text-gray-500 text-[14px] font-normal mr-4">Plan</span>
-     <span className="font-bold text-gray-900 text-[14px] text-right">
-     {toTitleCase(data.campana || 'No especificado')}
-     </span>
-   </div>
+   {data.tipo !== 'ticket' && (
+     <div className="flex justify-between items-start">
+       <span className="text-gray-500 text-[14px] font-normal mr-4">Plan</span>
+       <span className="font-bold text-gray-900 text-[14px] text-right">
+       {toTitleCase(data.campana || 'No especificado')}
+       </span>
+     </div>
+   )}
    <div className="flex justify-between items-start">
      <span className="text-gray-500 text-[14px] font-normal mt-0.5 mr-4">Dirección</span>
      <span className="font-bold text-gray-900 text-[14px] text-right leading-snug line-clamp-3">

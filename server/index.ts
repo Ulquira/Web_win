@@ -190,7 +190,7 @@ app.post('/api/log', async (req, res) => {
       limaTime
     ]);
 
-    res.json({ success: true });
+    res.json({ success: true });  
   } catch (error) {
     console.error('Error guardando log en BD:', error);
     res.status(500).json({ success: false, message: 'Error interno guardando el log' });
