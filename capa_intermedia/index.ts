@@ -44,12 +44,42 @@ app.get('/api/v1/terceros/instalaciones/:token', verificarTercero, async (req, r
     );
 
     const instalaciones = rows as any[];
+    let op: any = null;
+    let isTicket = false;
 
-    if (instalaciones.length === 0) {
-      return res.status(404).json({ success: false, message: 'Instalación no encontrada' });
+    if (instalaciones.length > 0) {
+      op = instalaciones[0];
+    } else {
+      // Buscar en tabla TICKETS
+      const [ticketRows] = await pool.query(
+        `SELECT IDticket, Estado, SubEstado, Cuadrilla_v, coordenadas_direccion, Ubi_TEC, telefono, Fecha_programacion, Tramo, nom_cliente, direccion_cliente, Token_inicio 
+         FROM TICKETS 
+         WHERE token_seguimiento = ? 
+         ORDER BY Fecha_programacion DESC LIMIT 1`,
+        [token]
+      );
+      const tickets = ticketRows as any[];
+      if (tickets.length === 0) {
+        return res.status(404).json({ success: false, message: 'Operación o Ticket no encontrado' });
+      }
+      const tk = tickets[0];
+      isTicket = true;
+      op = {
+        idoperacion: tk.IDticket,
+        Estado: tk.Estado,
+        SubEstado: tk.SubEstado,
+        Cuadrilla: tk.Cuadrilla_v, // En tickets usamos Cuadrilla_v
+        coordenadas_direccion: tk.coordenadas_direccion,
+        Ubi_TEC: tk.Ubi_TEC,
+        telefono: tk.telefono,
+        fecha_programacion: tk.Fecha_programacion,
+        Tramo_Atencio: tk.Tramo,
+        nom_cliente: tk.nom_cliente,
+        direccion_cliente: tk.direccion_cliente,
+        Campaña: null, // En caso de ticket no usar Campaña
+        Token_inicio: tk.Token_inicio
+      };
     }
-
-    const op = instalaciones[0];
 
     // Mapeamos el estado real de tu BBDD a los estados que entiende el frontend del tercero
     let statusFront = 'programada';
@@ -93,7 +123,11 @@ app.get('/api/v1/terceros/instalaciones/:token', verificarTercero, async (req, r
     if (!tokenInicio) {
       tokenInicio = Math.floor(1000 + Math.random() * 9000).toString();
       try {
-        await pool.query('UPDATE OPERACION SET Token_inicio = ? WHERE idoperacion = ?', [tokenInicio, op.idoperacion]);
+        if (isTicket) {
+          await pool.query('UPDATE TICKETS SET Token_inicio = ? WHERE IDticket = ?', [tokenInicio, op.idoperacion]);
+        } else {
+          await pool.query('UPDATE OPERACION SET Token_inicio = ? WHERE idoperacion = ?', [tokenInicio, op.idoperacion]);
+        }
       } catch (err) {
         console.error('Error al guardar el token de inicio:', err);
       }
