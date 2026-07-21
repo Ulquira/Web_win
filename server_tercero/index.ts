@@ -5,12 +5,13 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 const app = express();
-const port = 3002; // Servidor del Tercero
+const port = process.env.PORT || 3002; // Servidor del Tercero, usa variable de entorno o 3002
 
 app.use(cors({ origin: '*' }));
 app.use(express.json());
 
-const URL_CAPA_INTERMEDIA = "http://localhost:4001";
+// Leer variables de entorno con fallback
+const URL_CAPA_INTERMEDIA = process.env.URL_CAPA_INTERMEDIA || "http://localhost:4001";
 const SECRET_API_KEY = process.env.SECRET_API_KEY || "LLAVE_SECRETA_DEL_TERCERO_123";
 
 // Función Proxy para no repetir código

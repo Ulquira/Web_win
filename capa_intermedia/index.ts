@@ -36,10 +36,24 @@ app.get('/api/v1/terceros/instalaciones/:token', verificarTercero, async (req, r
   try {
     // ESTA CAPA ES LA ÚNICA QUE TOCA MYSQL
     const [rows] = await pool.query(
-      `SELECT idoperacion, Estado, SubEstado, Cuadrilla, coordenadas_direccion, Ubi_TEC, telefono, fecha_programacion, Tramo_Atencio, nom_cliente, direccion_cliente, Campaña, Token_inicio 
-       FROM OPERACION 
-       WHERE token_seguimiento = ? 
-       ORDER BY fecha_programacion DESC LIMIT 1`, 
+      `SELECT 
+         OrdenId AS idoperacion, 
+         Estado, 
+         \`Estado OT\` AS SubEstado, 
+         Proveedeor AS Cuadrilla, 
+         Georeferencia AS coordenadas_direccion, 
+         NULL AS Ubi_TEC, 
+         TeleMovilNume AS telefono, 
+         DATE(\`F.Soli\`) AS fecha_programacion, 
+         TIME(\`F.Soli\`) AS Tramo_Atencio, 
+         ClienteFinal AS nom_cliente, 
+         Direccion AS direccion_cliente, 
+         IdenServi AS Campaña, 
+         token AS Token_inicio,
+         link 
+       FROM VW_WinORdeTraba 
+       WHERE token = ? 
+       ORDER BY \`F.Soli\` DESC LIMIT 1`, 
       [token]
     );
 

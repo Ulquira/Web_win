@@ -14,7 +14,7 @@ dotenv.config();
 const app = express();
 const port = parseInt(process.env.PORT || '3001', 10);
 
-// URLs para los servicios internos
+// URLs para los servicios internos (Ajustado para entorno de producción si es necesario)
 const CAPA_INTERMEDIA_URL = process.env.CAPA_INTERMEDIA_URL || 'http://localhost:4001';
 const SECRET_API_KEY = process.env.SECRET_API_KEY || "LLAVE_SECRETA_DEL_TERCERO_123";
 

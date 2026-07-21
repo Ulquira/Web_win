@@ -1,5 +1,5 @@
-import logoColor from '@/assets/logo.png';
-import logoWhite from '@/assets/logo-white.png';
+import logoColor from '@/assets/win_logo_png.png';
+import logoWhite from '@/assets/win_logo_png.png';
 
 interface MainLogoProps {
   className?: string;
@@ -11,7 +11,7 @@ export const MainLogo = ({ className = '', white = false }: MainLogoProps) => {
     <img 
       src={white ? logoWhite : logoColor} 
       alt="Winet" 
-      className={`object-contain ${className}`}
+      className={`object-contain ${className} ${white ? 'brightness-0 invert' : ''}`}
     />
   );
 };
