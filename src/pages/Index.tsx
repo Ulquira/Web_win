@@ -1,8 +1,8 @@
 import { useNavigate } from "react-router-dom";
 import { Card } from "@/components/ui/card";
 import { motion } from "framer-motion";
-import homeBg from "../assets/home.png";
-import logoImg from "../assets/logo-1.png";
+import homeBg from "../assets/win-banner.jpg";
+import logoImg from "../assets/win-logo.png";
 import textBannerImg from "../assets/text-banner.png";
 
 const Index = () => {
