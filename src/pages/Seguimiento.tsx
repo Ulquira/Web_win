@@ -843,7 +843,7 @@ return (
    <div className="flex justify-between items-center">
      <span className="text-gray-500 text-[14px] font-normal">Día</span>
      <span className="font-bold text-gray-900 text-[14px]">
-     {data.fecha_programacion && parseSafeDate(data.fecha_programacion) ? format(parseSafeDate(data.fecha_programacion), "dd/MM/yyyy") : 'Por definir'}
+     {data.fecha_programacion && parseSafeDate(data.fecha_programacion) ? format(parseSafeDate(data.fecha_programacion)!, "dd/MM/yyyy") : 'Por definir'}
      </span>
    </div>
    {status !== 'en_camino' && (
