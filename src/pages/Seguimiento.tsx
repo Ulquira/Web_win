@@ -839,14 +839,11 @@ return (
 
  {/* Info Card Minimalista */}
  <div className={`border border-gray-200 rounded-[20px] p-5 mb-6 bg-white shadow-sm ${status === 'en_camino' && (data.token_inicio || eta || calculatedEta) ? '' : 'mt-4'}`}>
- <h3 className="text-[16px] font-bold text-gray-900 mb-4 pb-3 border-b border-gray-100">
-   {data.tipo === 'ticket' ? 'Visita Técnica de ' : 'Instalación de '}{data.cliente_nombre ? toTitleCase(data.cliente_nombre.split(' ')[0]) : 'Cliente'}
- </h3>
- <div className="flex flex-col gap-3">
+ <div className="flex flex-col gap-4">
    <div className="flex justify-between items-center">
      <span className="text-gray-500 text-[14px] font-normal">Día</span>
      <span className="font-bold text-gray-900 text-[14px]">
-     {data.fecha_programacion && parseSafeDate(data.fecha_programacion) ? format(parseSafeDate(data.fecha_programacion)!, "dd/MM/yyyy") : 'Por definir'}
+     {data.fecha_programacion && parseSafeDate(data.fecha_programacion) ? format(parseSafeDate(data.fecha_programacion), "dd/MM/yyyy") : 'Por definir'}
      </span>
    </div>
    {status !== 'en_camino' && (
@@ -857,11 +854,21 @@ return (
        </span>
      </div>
    )}
+   
+   {/* Dirección */}
+   <div className="flex justify-between items-start">
+     <span className="text-gray-500 text-[14px] font-normal mt-0.5 mr-4">Dirección</span>
+     <span className="font-bold text-gray-900 text-[14px] text-right leading-snug line-clamp-3">
+     {formatAddress(data.direccion)}
+     </span>
+   </div>
+
+   {/* Plan y Servicios */}
    {data.tipo !== 'ticket' && (() => {
      const parsedPlan = parsePlanData(data.campana);
      return (
-       <div className="flex flex-col gap-2 mt-2 mb-2 w-full">
-         <span className="text-gray-500 text-[14px] font-normal">Plan y Servicios Contratados</span>
+       <div className="flex flex-col w-full mt-2 pt-4 border-t border-gray-100">
+         <span className="text-gray-500 text-[14px] font-normal mb-3">Plan y Servicios Contratados</span>
          
          {/* Burbuja Principal: Paquete */}
          {parsedPlan.paquete && (
@@ -876,13 +883,16 @@ return (
            </div>
          )}
          
-         {/* Burbujas Secundarias: SVAs */}
+         {/* Burbujas Secundarias: SVAs (Con Scroll Horizontal) */}
          {parsedPlan.svas.length > 0 && (
-           <div className="mt-1">
+           <div className="mt-4 overflow-hidden -mx-5 px-5">
              <p className="text-[12px] text-gray-500 font-semibold mb-2 ml-1">Servicios Adicionales (SVA)</p>
-             <div className="flex flex-wrap gap-2">
+             <div className="flex overflow-x-auto gap-2 pb-3" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+               <style>{`
+                 .flex.overflow-x-auto::-webkit-scrollbar { display: none; }
+               `}</style>
                {parsedPlan.svas.map((sva, idx) => (
-                 <span key={idx} className="bg-gray-50 border border-gray-200 text-gray-700 px-3 py-1.5 rounded-xl text-[12px] font-semibold flex items-center shadow-sm">
+                 <span key={idx} className="bg-gray-50 border border-gray-200 text-gray-700 px-4 py-2 rounded-xl text-[13px] font-semibold flex items-center shadow-sm whitespace-nowrap shrink-0">
                    <span className="w-2 h-2 rounded-full bg-yellow-400 mr-2"></span>
                    {toTitleCase(sva)}
                  </span>
@@ -893,22 +903,15 @@ return (
          
          {/* Fallback si no hay paquete separado por pipetas */}
          {!parsedPlan.paquete && (
-           <div className="bg-gray-50 border border-gray-200 text-gray-900 px-4 py-3 rounded-2xl shadow-sm">
+           <div className="bg-gray-50 border border-gray-200 text-gray-900 px-4 py-3 rounded-2xl shadow-sm mt-2">
              <p className="text-[14px] font-bold leading-snug">{toTitleCase(data.campana || 'No especificado')}</p>
            </div>
          )}
        </div>
      );
    })()}
-   <div className="flex justify-between items-start">
-     <span className="text-gray-500 text-[14px] font-normal mt-0.5 mr-4">Dirección</span>
-     <span className="font-bold text-gray-900 text-[14px] text-right leading-snug line-clamp-3">
-     {formatAddress(data.direccion)}
-     </span>
-   </div>
  </div>
  </div>
-
  {/* Vertical Timeline - Minimalista */}
  <div className="relative pl-[24px] border-l-[2px] border-dashed border-gray-300 ml-4 mb-10 mt-2">
  {steps.map((step, i) => {
