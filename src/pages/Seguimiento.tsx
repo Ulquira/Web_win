@@ -436,6 +436,30 @@ return (
    return tramoStr; // Por defecto retorna lo que venga si no coincide con los 3 tramos
  };
 
+ const parsePlanData = (campana?: string) => {
+   if (!campana) return { paquete: '', svas: [] };
+   if (!campana.includes('|')) return { paquete: '', svas: [] };
+   
+   const parts = campana.split('|');
+   let paquete = '';
+   let svas: string[] = [];
+   
+   parts.forEach(part => {
+     const [key, ...valueParts] = part.split(':');
+     if (!key || valueParts.length === 0) return;
+     const value = valueParts.join(':').trim();
+     const cleanKey = key.trim().toLowerCase();
+     
+     if (cleanKey === 'paquete') {
+       paquete = value;
+     } else if (cleanKey === "sva's" || cleanKey === "svas") {
+       svas = value.split('+').map(s => s.trim()).filter(s => s.length > 0);
+     }
+   });
+
+   return { paquete, svas };
+ };
+
  const toTitleCase = (text?: string) => {
    if (!text) return '';
    return text.toLowerCase().replace(/(?:^|\s)\S/g, (a) => a.toUpperCase());
@@ -833,14 +857,49 @@ return (
        </span>
      </div>
    )}
-   {data.tipo !== 'ticket' && (
-     <div className="flex justify-between items-start">
-       <span className="text-gray-500 text-[14px] font-normal mr-4">Plan</span>
-       <span className="font-bold text-gray-900 text-[14px] text-right">
-       {toTitleCase(data.campana || 'No especificado')}
-       </span>
-     </div>
-   )}
+   {data.tipo !== 'ticket' && (() => {
+     const parsedPlan = parsePlanData(data.campana);
+     return (
+       <div className="flex flex-col gap-2 mt-2 mb-2 w-full">
+         <span className="text-gray-500 text-[14px] font-normal">Plan y Servicios Contratados</span>
+         
+         {/* Burbuja Principal: Paquete */}
+         {parsedPlan.paquete && (
+           <div className="bg-[#FF5A0A]/10 border border-[#FF5A0A]/20 text-gray-900 px-4 py-3 rounded-2xl flex items-center justify-between shadow-sm">
+             <div className="pr-2">
+               <p className="text-[11px] font-bold text-[#FF5A0A] uppercase tracking-wider mb-0.5">Paquete de Internet</p>
+               <p className="text-[14px] font-bold">{toTitleCase(parsedPlan.paquete)}</p>
+             </div>
+             <div className="bg-[#FF5A0A] text-white text-[10px] font-bold px-2.5 py-1 rounded-lg">
+               Activo
+             </div>
+           </div>
+         )}
+         
+         {/* Burbujas Secundarias: SVAs */}
+         {parsedPlan.svas.length > 0 && (
+           <div className="mt-1">
+             <p className="text-[12px] text-gray-500 font-semibold mb-2 ml-1">Servicios Adicionales (SVA)</p>
+             <div className="flex flex-wrap gap-2">
+               {parsedPlan.svas.map((sva, idx) => (
+                 <span key={idx} className="bg-gray-50 border border-gray-200 text-gray-700 px-3 py-1.5 rounded-xl text-[12px] font-semibold flex items-center shadow-sm">
+                   <span className="w-2 h-2 rounded-full bg-yellow-400 mr-2"></span>
+                   {toTitleCase(sva)}
+                 </span>
+               ))}
+             </div>
+           </div>
+         )}
+         
+         {/* Fallback si no hay paquete separado por pipetas */}
+         {!parsedPlan.paquete && (
+           <div className="bg-gray-50 border border-gray-200 text-gray-900 px-4 py-3 rounded-2xl shadow-sm">
+             <p className="text-[14px] font-bold leading-snug">{toTitleCase(data.campana || 'No especificado')}</p>
+           </div>
+         )}
+       </div>
+     );
+   })()}
    <div className="flex justify-between items-start">
      <span className="text-gray-500 text-[14px] font-normal mt-0.5 mr-4">Dirección</span>
      <span className="font-bold text-gray-900 text-[14px] text-right leading-snug line-clamp-3">
