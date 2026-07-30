@@ -68,23 +68,19 @@ app.get('/api/v1/terceros/instalaciones/:token', verificarTercero, async (req, r
 
     // Mapeamos el estado real de tu BBDD a los estados que entiende el frontend del tercero
     let statusFront = 'programada';
-    const estadoDB = (op.Estado || '').toUpperCase();
+    const estadoDB = (op.Estado || '').toUpperCase().trim();
     
     if (estadoDB === 'PENDIENTE') {
       statusFront = 'programada';
-    } else if (estadoDB === 'PROGRAMADO') {
-      if (op.Cuadrilla && op.Cuadrilla.trim() !== '') {
-        statusFront = 'asignado';
-      } else {
-        statusFront = 'programada';
-      }
+    } else if (estadoDB === 'AGENDADA' || estadoDB === 'PROGRAMADO') {
+      statusFront = 'asignado';
     } else if (estadoDB === 'EN CAMINO') {
       statusFront = 'en_camino';
-    } else if (estadoDB === 'EN PROCESO') {
+    } else if (estadoDB === 'INICIADA' || estadoDB === 'EN PROCESO') {
       statusFront = 'en_proceso';
-    } else if (estadoDB === 'FINALIZADO') {
+    } else if (estadoDB === 'FINALIZADA' || estadoDB === 'FINALIZADO') {
       statusFront = 'finalizada';
-    } else if (['AUSENTE', 'CANCELADO', 'DULPLICADO', 'INASISTENCIA', 'PEXT', 'REPROGRAMA'].includes(estadoDB)) {
+    } else if (['ANULADA', 'REGESTION', 'CANCELADA', 'REVISIÓN', 'REVISION', 'AUSENTE', 'CANCELADO', 'DULPLICADO', 'INASISTENCIA', 'PEXT', 'REPROGRAMA'].includes(estadoDB)) {
       statusFront = 'cerrada';
     }
 
