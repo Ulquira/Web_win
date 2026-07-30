@@ -131,8 +131,19 @@ app.get('/api/v1/terceros/instalaciones/:token', verificarTercero, async (req, r
     };
 
     if (op.Cuadrilla) {
+      let nombreLimpio = op.Cuadrilla;
+      const sgiSplit = nombreLimpio.split('SGI');
+      if (sgiSplit.length > 1) {
+        nombreLimpio = sgiSplit[1].trim();
+      } else {
+        const words = nombreLimpio.split(' ');
+        if (words.length > 4) {
+          nombreLimpio = words.slice(words.length - 4).join(' ').trim();
+        }
+      }
+
       responseData.tecnico = {
-        nombre: op.Cuadrilla,
+        nombre: nombreLimpio || 'Técnico Asignado',
         cuadrilla: op.Cuadrilla,
         telefono: op.telefono || 'Central'
       };
