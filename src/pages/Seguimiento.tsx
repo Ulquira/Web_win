@@ -457,7 +457,7 @@ return (
      } else if (cleanKey === "sva's" || cleanKey === "svas") {
         svas = value.split('+')
           .map(s => s.trim())
-          .filter(s => s.length > 0 && !/^(ninguno|no|n\/a|na|no aplica|-|0|null)$/i.test(s));
+          .filter(s => s.length > 0 && !/^(ninguno|no|n\/a|na|no aplica|-|0|null|sin\s*sva|sin\s*sva's)$/i.test(s));
      }
    });
 
