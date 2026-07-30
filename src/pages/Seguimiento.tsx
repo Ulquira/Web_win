@@ -455,24 +455,9 @@ return (
      if (cleanKey === 'paquete') {
        paquete = value;
      } else if (cleanKey === "sva's" || cleanKey === "svas") {
-       svas = value.split('+').map(s => s.trim()).filter(s => s.length > 0);
-     }
-   });
-
-   return { paquete, svas };
- };
-
- const toTitleCase = (text?: string) => {
-   if (!text) return '';
-   return text.toLowerCase().replace(/(?:^|\s)\S/g, (a) => a.toUpperCase());
- };
-
- const formatAddress = (address?: string) => {
-   if (!address) return 'Cargando...';
-   // Limpiar campos vacíos al final como "DPTO/INTERIOR -"
-   let clean = address.replace(/PISO\s*-?\s*$/i, '').replace(/DPTO\/INTERIOR\s*-?\s*$/i, '').trim();
-   // Remover la doble coma o coma al final
-   clean = clean.replace(/,\s*$/, '').trim();
+        svas = value.split('+')
+          .map(s => s.trim())
+          .filter(s => s.length > 0 && !/^(ninguno|no|n\/a|na|no aplica|-|0|null)$/i.test(s));
    return toTitleCase(clean);
  };
 
@@ -844,8 +829,10 @@ return (
  <div className="flex flex-col gap-4">
    <div className="flex justify-between items-center">
      <span className="text-gray-500 text-[14px] font-normal">Día</span>
-     <span className="font-bold text-gray-900 text-[14px] capitalize">
-     {data.fecha_programacion && parseSafeDate(data.fecha_programacion) ? format(parseSafeDate(data.fecha_programacion)!, "d 'de' MMMM", { locale: es }) : 'Por definir'}
+     <span className="font-bold text-gray-900 text-[14px]">
+     {data.fecha_programacion && parseSafeDate(data.fecha_programacion) ? (
+       `${format(parseSafeDate(data.fecha_programacion)!, "d 'de' ", { locale: es })}${format(parseSafeDate(data.fecha_programacion)!, "MMMM", { locale: es }).toUpperCase()}`
+     ) : 'Por definir'}
      </span>
    </div>
    {status !== 'en_camino' && (
