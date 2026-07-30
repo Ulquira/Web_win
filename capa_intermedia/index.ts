@@ -58,44 +58,13 @@ app.get('/api/v1/terceros/instalaciones/:token', verificarTercero, async (req, r
     );
 
     const instalaciones = rows as any[];
-    let op: any = null;
-    let isTicket = false;
-
-    if (instalaciones.length > 0) {
-      op = instalaciones[0];
-    } else {
-      // Buscar en tabla TICKETS
-      const [ticketRows] = await pool.query(
-        `SELECT IDticket, Estado, SubEstado, Cuadrilla_v, coordenadas_direccion, Ubi_TEC, telefono, Fecha_Gestion_v, Fecha_programacion, Tramo, nom_cliente, direccion_cliente, Token_inicio 
-         FROM TICKETS 
-         WHERE token_seguimiento = ? 
-         ORDER BY Fecha_Gestion_v DESC LIMIT 1`,
-        [token]
-      );
-      const tickets = ticketRows as any[];
-      if (tickets.length === 0) {
-        return res.status(404).json({ success: false, message: 'Operación o Ticket no encontrado' });
-      }
-      const tk = tickets[0];
-      isTicket = true;
-      // Usamos Fecha_Gestion_v si existe (es un tipo Date nativo), si no, usamos Fecha_programacion
-      const fechaFinal = tk.Fecha_Gestion_v ? tk.Fecha_Gestion_v : tk.Fecha_programacion;
-      op = {
-        idoperacion: tk.IDticket,
-        Estado: tk.Estado,
-        SubEstado: tk.SubEstado,
-        Cuadrilla: tk.Cuadrilla_v, // En tickets usamos Cuadrilla_v
-        coordenadas_direccion: tk.coordenadas_direccion,
-        Ubi_TEC: tk.Ubi_TEC,
-        telefono: tk.telefono,
-        fecha_programacion: fechaFinal,
-        Tramo_Atencio: tk.Tramo,
-        nom_cliente: tk.nom_cliente,
-        direccion_cliente: tk.direccion_cliente,
-        Campaña: null, // En caso de ticket no usar Campaña
-        Token_inicio: tk.Token_inicio
-      };
+    
+    if (instalaciones.length === 0) {
+      return res.status(404).json({ success: false, message: 'Operación no encontrada' });
     }
+
+    const op = instalaciones[0];
+    const isTicket = false; // Mantenemos la variable por compatibilidad con el frontend
 
     // Mapeamos el estado real de tu BBDD a los estados que entiende el frontend del tercero
     let statusFront = 'programada';
