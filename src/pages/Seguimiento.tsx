@@ -8,6 +8,7 @@ import 'leaflet/dist/leaflet.css';
 import 'leaflet-routing-machine/dist/leaflet-routing-machine.css';
 import L from 'leaflet';
 import { format } from "date-fns";
+import { es } from "date-fns/locale";
 
 import Routing from "@/components/Routing";
 import AnimatedMarker from "@/components/AnimatedMarker";
@@ -842,8 +843,8 @@ return (
  <div className="flex flex-col gap-4">
    <div className="flex justify-between items-center">
      <span className="text-gray-500 text-[14px] font-normal">Día</span>
-     <span className="font-bold text-gray-900 text-[14px]">
-     {data.fecha_programacion && parseSafeDate(data.fecha_programacion) ? format(parseSafeDate(data.fecha_programacion)!, "dd/MM/yyyy") : 'Por definir'}
+     <span className="font-bold text-gray-900 text-[14px] capitalize">
+     {data.fecha_programacion && parseSafeDate(data.fecha_programacion) ? format(parseSafeDate(data.fecha_programacion)!, "d 'de' MMMM", { locale: es }) : 'Por definir'}
      </span>
    </div>
    {status !== 'en_camino' && (
@@ -872,13 +873,10 @@ return (
          
          {/* Burbuja Principal: Paquete */}
          {parsedPlan.paquete && (
-           <div className="bg-[#FF5A0A]/10 border border-[#FF5A0A]/20 text-gray-900 px-4 py-3 rounded-2xl flex items-center justify-between shadow-sm">
+           <div className="bg-[#FF5A0A]/10 border border-[#FF5A0A]/20 text-gray-900 px-4 py-3 rounded-2xl flex items-center shadow-sm">
              <div className="pr-2">
                <p className="text-[11px] font-bold text-[#FF5A0A] uppercase tracking-wider mb-0.5">Paquete de Internet</p>
                <p className="text-[14px] font-bold">{toTitleCase(parsedPlan.paquete)}</p>
-             </div>
-             <div className="bg-[#FF5A0A] text-white text-[10px] font-bold px-2.5 py-1 rounded-lg">
-               Activo
              </div>
            </div>
          )}
@@ -886,7 +884,7 @@ return (
          {/* Burbujas Secundarias: SVAs (Con Scroll Horizontal) */}
          {parsedPlan.svas.length > 0 && (
            <div className="mt-4 overflow-hidden -mx-5 px-5">
-             <p className="text-[12px] text-gray-500 font-semibold mb-2 ml-1">Servicios Adicionales (SVA)</p>
+             <p className="text-[12px] text-gray-500 font-semibold mb-2 ml-1">Servicios Adicionales</p>
              <div className="flex overflow-x-auto gap-2 pb-3" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
                <style>{`
                  .flex.overflow-x-auto::-webkit-scrollbar { display: none; }
