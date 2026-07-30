@@ -215,10 +215,11 @@ const Seguimiento = () => {
  };
 
  const handleReprogramSubmit = async () => {
+ /* VALIDACIÓN DE PIN OCULTA PARA SPRINT 1
  if (reprogramData.pin_confirmacion !== data?.token_inicio) {
    alert("El PIN de seguridad ingresado es incorrecto.");
    return;
- }
+ } */
 
  setIsSubmittingReprogram(true);
  try {
@@ -1147,6 +1148,7 @@ return (
  placeholder="Ej: No estaré en casa, por favor venir por la tarde..."
  ></textarea>
 
+ {/* INPUT DE PIN OCULTO PARA SPRINT 1
  <h3 className="font-bold text-[14px] text-gray-900 mb-3 mt-5">PIN de Seguridad</h3>
  <p className="text-[11px] text-gray-500 mb-2 leading-tight">
    Ingresa el PIN de 4 dígitos que te fue asignado para confirmar tu identidad.
@@ -1158,7 +1160,7 @@ return (
  onChange={(e) => setReprogramData({...reprogramData, pin_confirmacion: e.target.value.replace(/\D/g, '')})}
  className="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 text-center text-lg font-bold tracking-[0.5em] text-gray-900 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
  placeholder="----"
- />
+ /> */}
  </div>
  )}
  </div>
@@ -1166,7 +1168,7 @@ return (
  {/* Footer CTA */}
  <div className="bg-white p-4 shadow-[0_-10px_20px_rgba(0,0,0,0.05)] shrink-0">
  <button 
- disabled={!reprogramData.fecha || !reprogramData.turno || reprogramData.pin_confirmacion.length !== 4}
+ disabled={!reprogramData.fecha || !reprogramData.turno}
  onClick={handleReprogramSubmit}
  className="w-full bg-primary disabled:bg-gray-300 disabled:text-gray-500 text-white font-bold h-12 rounded-full text-[14px] transition-colors shadow-lg shadow-primary/20"
  >
