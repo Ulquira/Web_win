@@ -329,6 +329,36 @@ const Seguimiento = () => {
         
         if (result.success) {
           const fetchedData = result.data;
+          
+          // MAPEO DE NUEVOS ESTADOS DE BD A ESTADOS INTERNOS DE UI
+          const dbStatus = fetchedData.status ? fetchedData.status.toLowerCase().trim() : '';
+          let mappedStatus = fetchedData.status;
+
+          switch (dbStatus) {
+            case 'pendiente':
+              mappedStatus = 'programada';
+              break;
+            case 'agendada':
+              mappedStatus = 'asignado';
+              break;
+            case 'en camino':
+              mappedStatus = 'en_camino';
+              break;
+            case 'iniciada':
+              mappedStatus = 'en_proceso';
+              break;
+            case 'finalizada':
+              mappedStatus = 'finalizada';
+              break;
+            case 'anulada':
+            case 'regestion':
+            case 'cancelada':
+            case 'revisión':
+            case 'revision':
+              mappedStatus = 'cerrada';
+              break;
+          }
+          fetchedData.status = mappedStatus;
 
           const hasCompletedSurveyLocal = localStorage.getItem(`encuesta_completada_${token}`);
           
