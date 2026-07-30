@@ -458,6 +458,23 @@ return (
         svas = value.split('+')
           .map(s => s.trim())
           .filter(s => s.length > 0 && !/^(ninguno|no|n\/a|na|no aplica|-|0|null)$/i.test(s));
+     }
+   });
+
+   return { paquete, svas };
+ };
+
+ const toTitleCase = (text?: string) => {
+   if (!text) return '';
+   return text.toLowerCase().replace(/(?:^|\s)\S/g, (a) => a.toUpperCase());
+ };
+
+ const formatAddress = (address?: string) => {
+   if (!address) return 'Cargando...';
+   // Limpiar campos vacíos al final como "DPTO/INTERIOR -"
+   let clean = address.replace(/PISO\s*-?\s*$/i, '').replace(/DPTO\/INTERIOR\s*-?\s*$/i, '').trim();
+   // Remover la doble coma o coma al final
+   clean = clean.replace(/,\s*$/, '').trim();
    return toTitleCase(clean);
  };
 
