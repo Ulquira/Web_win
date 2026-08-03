@@ -132,11 +132,11 @@ app.get('/api/v1/terceros/instalaciones/:token', verificarTercero, async (req, r
 
     if (op.Cuadrilla) {
       let nombreLimpio = op.Cuadrilla;
-      const sgiSplit = nombreLimpio.split('SGI');
-      if (sgiSplit.length > 1) {
-        nombreLimpio = sgiSplit[1].trim();
+      const sgiMatch = /SGI\s+(.+)$/i.exec(nombreLimpio);
+      if (sgiMatch && sgiMatch[1]) {
+        nombreLimpio = sgiMatch[1].trim();
       } else {
-        const words = nombreLimpio.split(' ');
+        const words = nombreLimpio.split(' ').filter(Boolean);
         if (words.length > 4) {
           nombreLimpio = words.slice(words.length - 4).join(' ').trim();
         }
