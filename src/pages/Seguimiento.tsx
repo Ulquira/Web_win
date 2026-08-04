@@ -94,7 +94,10 @@ const Seguimiento = () => {
  const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
  const [isReprogramModalOpen, setIsReprogramModalOpen] = useState(false);
  const [reprogramStep, setReprogramStep] = useState<'confirm_initial' | 'form' | 'success'>('confirm_initial');
-  const [reprogramData, setReprogramData] = useState({ fecha: '', turno: '', motivo: '', motivoSeleccionado: '' });
+ const [reprogramData, setReprogramData] = useState({ fecha: '', turno: '', motivo: '', motivoSeleccionado: '' });
+ const [isSubmittingReprogram, setIsSubmittingReprogram] = useState(false);
+ 
+ const [encuesta, setEncuesta] = useState({
  instalacion_concretada: '',
  tecnico_trato: '',
  tecnico_puntualidad: '',
@@ -212,8 +215,7 @@ const Seguimiento = () => {
  };
 
  const handleReprogramSubmit = async () => {
-   return;
- } */
+ 
 
  setIsSubmittingReprogram(true);
  try {
@@ -831,9 +833,10 @@ return (
    <div className="absolute top-0 right-0 w-32 h-32 bg-primary rounded-full blur-[50px] opacity-20 -mr-10 -mt-10"></div>
    
    <div className="flex flex-col relative z-10 w-2/3 pr-2">
-              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Código de Instalación</p>
-              <p className="text-[12px] text-gray-300 font-normal leading-tight">
-                Muestra este código cuando el instalador llegue a tu domicilio.
+     <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Código de seguridad</p>
+     <p className="text-[12px] text-gray-300 font-normal leading-tight">
+       Muestra este c�digo cuando el instalador llegue a tu domicilio.
+     </p>
    </div>
    
    <div className="relative z-10 flex gap-1.5 shrink-0 bg-black/40 p-2 rounded-2xl border border-gray-700/50 backdrop-blur-md">
@@ -1175,14 +1178,7 @@ return (
  placeholder="Ej: No estaré en casa, por favor venir por la tarde..."
  ></textarea>
 
- <p className="text-[11px] text-gray-500 mb-2 leading-tight">
- </p>
- <input 
- type="text"
- maxLength={4}
- className="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 text-center text-lg font-bold tracking-[0.5em] text-gray-900 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
- placeholder="----"
- /> */}
+ 
  </div>
  )}
  </div>
