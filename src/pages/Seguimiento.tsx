@@ -826,29 +826,6 @@ return (
  </div>
  ) : (
  <>
- {/* Token de Inicio (Si está en camino) */}
- {status === 'en_camino' && data.token_inicio && (
- <div className="bg-gray-900 rounded-3xl p-4 mb-3 shadow-[0_8px_30px_rgb(0,0,0,0.12)] mt-1 flex items-center justify-between mx-0 overflow-hidden relative">
-   {/* Elemento decorativo de fondo */}
-   <div className="absolute top-0 right-0 w-32 h-32 bg-primary rounded-full blur-[50px] opacity-20 -mr-10 -mt-10"></div>
-   
-   <div className="flex flex-col relative z-10 w-2/3 pr-2">
-     <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Código de seguridad</p>
-     <p className="text-[12px] text-gray-300 font-normal leading-tight">
-       Muestra este c�digo cuando el instalador llegue a tu domicilio.
-     </p>
-   </div>
-   
-   <div className="relative z-10 flex gap-1.5 shrink-0 bg-black/40 p-2 rounded-2xl border border-gray-700/50 backdrop-blur-md">
-     {data.token_inicio.split('').map((digit, i) => (
-       <div key={i} className="w-8 h-10 bg-gray-800 rounded-lg flex items-center justify-center text-xl font-bold text-white shadow-inner border border-gray-700/50">
-         {digit}
-       </div>
-     ))}
-   </div>
- </div>
- )}
-
  {/* Llegada del técnico separada del Info Card */}
  {status === 'en_camino' && (eta || calculatedEta) && (
  <div className="flex justify-between items-center mb-3 bg-primary/10 px-4 py-3.5 rounded-2xl gap-2">
