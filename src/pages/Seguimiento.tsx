@@ -531,8 +531,7 @@ return (
  {status === 'en_camino' && (
  <div className="absolute top-0 left-0 w-full h-full z-0 bg-muted">
  <MapContainer center={position} zoom={15} zoomControl={false} scrollWheelZoom={false} className="h-full w-full">
-    <TileLayer url="https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}" />
- 
+    <TileLayer url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png" />
  
 
  {status === 'en_camino' && (
