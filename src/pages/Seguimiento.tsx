@@ -94,10 +94,7 @@ const Seguimiento = () => {
  const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
  const [isReprogramModalOpen, setIsReprogramModalOpen] = useState(false);
  const [reprogramStep, setReprogramStep] = useState<'confirm_initial' | 'form' | 'success'>('confirm_initial');
- const [reprogramData, setReprogramData] = useState({ fecha: '', turno: '', motivo: '', motivoSeleccionado: '', pin_confirmacion: '' });
- const [isSubmittingReprogram, setIsSubmittingReprogram] = useState(false);
- 
- const [encuesta, setEncuesta] = useState({
+  const [reprogramData, setReprogramData] = useState({ fecha: '', turno: '', motivo: '', motivoSeleccionado: '' });
  instalacion_concretada: '',
  tecnico_trato: '',
  tecnico_puntualidad: '',
@@ -215,9 +212,6 @@ const Seguimiento = () => {
  };
 
  const handleReprogramSubmit = async () => {
- /* VALIDACIÓN DE PIN OCULTA PARA SPRINT 1
- if (reprogramData.pin_confirmacion !== data?.token_inicio) {
-   alert("El PIN de seguridad ingresado es incorrecto.");
    return;
  } */
 
@@ -837,10 +831,9 @@ return (
    <div className="absolute top-0 right-0 w-32 h-32 bg-primary rounded-full blur-[50px] opacity-20 -mr-10 -mt-10"></div>
    
    <div className="flex flex-col relative z-10 w-2/3 pr-2">
-     <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Código de seguridad</p>
-     <p className="text-[12px] text-gray-300 font-normal leading-tight">
-       Comparte este PIN cuando el instalador llegue a tu domicilio.
-     </p>
+              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Código de Instalación</p>
+              <p className="text-[12px] text-gray-300 font-normal leading-tight">
+                Muestra este código cuando el instalador llegue a tu domicilio.
    </div>
    
    <div className="relative z-10 flex gap-1.5 shrink-0 bg-black/40 p-2 rounded-2xl border border-gray-700/50 backdrop-blur-md">
@@ -1182,16 +1175,11 @@ return (
  placeholder="Ej: No estaré en casa, por favor venir por la tarde..."
  ></textarea>
 
- {/* INPUT DE PIN OCULTO PARA SPRINT 1
- <h3 className="font-bold text-[14px] text-gray-900 mb-3 mt-5">PIN de Seguridad</h3>
  <p className="text-[11px] text-gray-500 mb-2 leading-tight">
-   Ingresa el PIN de 4 dígitos que te fue asignado para confirmar tu identidad.
  </p>
  <input 
  type="text"
  maxLength={4}
- value={reprogramData.pin_confirmacion}
- onChange={(e) => setReprogramData({...reprogramData, pin_confirmacion: e.target.value.replace(/\D/g, '')})}
  className="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 text-center text-lg font-bold tracking-[0.5em] text-gray-900 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
  placeholder="----"
  /> */}
