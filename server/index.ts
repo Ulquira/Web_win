@@ -5,6 +5,8 @@ import pool from './db.ts';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { replicateChange } from './replicationService.ts';
+import replicationRouter from './replicationReceiver.ts';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -21,6 +23,9 @@ const SECRET_API_KEY = process.env.SECRET_API_KEY || "LLAVE_SECRETA_DEL_TERCERO_
 app.use(cors({ origin: '*' }));
 app.use(express.json());
 
+// Registrar rutas de replicación en tiempo real (puede actuar como receptor)
+app.use(replicationRouter);
+
 // Endpoint para guardar reprogramaciones en BD
 app.post('/api/reprogramar', async (req, res) => {
   const { token, fecha, turno, motivo } = req.body;
@@ -35,6 +40,14 @@ app.post('/api/reprogramar', async (req, res) => {
       VALUES (?, ?, ?, ?)
     `;
     await pool.query(query, [token, fecha, turno, motivo || '']);
+
+    // Replicar cambio a la base de datos secundaria en tiempo real
+    replicateChange('REPROGRAMACIONES', 'INSERT', {
+      token,
+      fecha_solicitada: fecha,
+      turno,
+      motivo: motivo || ''
+    });
 
     res.json({ success: true, message: 'Reprogramación guardada con éxito' });
   } catch (error) {
@@ -65,6 +78,21 @@ app.post('/api/encuesta', async (req, res) => {
       tecnico_orden, tecnico_efectividad, satisfaccion_general, satisfaccion_comentario, 
       facilidad_gestion, facilidad_motivo
     ]);
+
+    // Replicar cambio a la base de datos secundaria en tiempo real
+    replicateChange('ENCUESTAS', 'INSERT', {
+      token,
+      instalacion_concretada,
+      tecnico_trato,
+      tecnico_puntualidad,
+      tecnico_claridad,
+      tecnico_orden,
+      tecnico_efectividad,
+      satisfaccion_general,
+      satisfaccion_comentario,
+      facilidad_gestion,
+      facilidad_motivo
+    });
 
     res.json({ success: true, message: 'Encuesta guardada con éxito' });
   } catch (error) {
@@ -173,6 +201,17 @@ app.post('/api/log', async (req, res) => {
         limaTime,
         limaTime
       ]);
+
+      // Replicar en tiempo real a la BD secundaria
+      replicateChange('LOGS_TRAKING', 'INSERT', {
+        token,
+        evento: 'primera_visita',
+        ip_address,
+        detalles: detalles ? JSON.stringify(detalles) : null,
+        sistema_operativo,
+        timestamp: limaTime,
+        created_at: limaTime
+      });
     }
 
     // Insertar el evento actual normalmente
@@ -189,6 +228,17 @@ app.post('/api/log', async (req, res) => {
       limaTime,
       limaTime
     ]);
+
+    // Replicar en tiempo real a la BD secundaria
+    replicateChange('LOGS_TRAKING', 'INSERT', {
+      token,
+      evento,
+      ip_address,
+      detalles: detalles ? JSON.stringify(detalles) : null,
+      sistema_operativo,
+      timestamp: limaTime,
+      created_at: limaTime
+    });
 
     res.json({ success: true });  
   } catch (error) {
