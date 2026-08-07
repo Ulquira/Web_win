@@ -990,7 +990,7 @@ return (
    setIsReprogramModalOpen(true);
    setReprogramStep('confirm_initial');
  }}
- className="w-full bg-[#f2f2f2] text-[#0F090B] h-[60px] rounded-full text-[20px] font-medium flex items-center justify-center gap-2 active:scale-95 transition-transform flex-row-reverse shadow-[0_4px_8px_rgba(0,0,0,0.1)]"
+ className="w-full bg-[#1a202c] text-white h-12 rounded-full text-[14px] font-bold flex items-center justify-center gap-2 active:scale-95 transition-transform shadow-md flex-row-reverse"
  >
  Reprogramar visita
  <CalendarDays className="w-5 h-5" />
@@ -1174,9 +1174,9 @@ return (
  </AnimatePresence>
 
  {/* Confirm & Success Modals inside Reprogram flow */}
-  <>
   <AnimatePresence>
-  {isReprogramModalOpen && reprogramStep === 'confirm_initial' && (
+  {isReprogramModalOpen && reprogramStep 
+=== 'confirm_initial' && (
   <motion.div 
   initial={{ opacity: 0 }}
   animate={{ opacity: 1 }}
@@ -1184,7 +1184,63 @@ return (
   className="fixed inset-0 z-[110] bg-black/40 flex items-center justify-center p-6 backdrop-blur-sm"
   >
   <motion.div 
-  initial
+  initial={{ scale: 0.9, y: 20 }}
+  animate={{ scale: 1, y: 0 }}
+  className="bg-white rounded-[20px] p-6 w-[290px] min-h-[350px] flex flex-col items-center text-center shadow-2xl justify-center"
+  >
+  <AlertTriangle className="w-[60px] h-[60px] text-[#FF5A0A] mb-5" strokeWidth={1.5} />
+  <h3 className="text-[18px] font-bold text-[#0F090B] mb-3 leading-tight">¯Estás seguro de reprogramar tu visita?</h3>
+  <p className="text-[14px] text-[#8e8e8e] mb-8 font-normal leading-snug">
+  Al reprogramarla, se cancelará la fecha actual y deberás seleccionar una nueva disponibilidad para la visita.
+  </p>
+  <button 
+  onClick={() => setReprogramStep('form')}
+  className="w-full bg-[#FF5A0A] text-white font-medium h-[50px] rounded-full text-[18px] mb-3 shadow-[0_4px_8px_rgba(255,90,10,0.24)] active:scale-95 transition-transform"
+  >
+  Confirmar
+  </button>
+  <button 
+  onClick={() => setIsReprogramModalOpen(false)}
+  className="w-full bg-[#f2f2f2] text-[#0F090B] font-medium h-[50px] rounded-full text-[18px] active:scale-95 transition-transform shadow-[0_4px_8px_rgba(0,0,0,0.1)] hover:bg-[#e8e7e8]"
+  >
+  Volver
+  </button>
+  </motion.div>
+  </motion.div>
+  )}
+
+  {isReprogramModalOpen && reprogramStep === 'success' && (
+  <motion.div 
+  initial={{ opacity: 0 }}
+  animate={{ opacity: 1 }}
+  exit={{ opacity: 0 }}
+  className="fixed inset-0 z-[120] bg-black/40 flex items-center justify-center p-6 backdrop-blur-sm"
+  >
+  <motion.div 
+  initial={{ scale: 0.9, y: 20 }}
+  animate={{ scale: 1, y: 0 }}
+  className="bg-white rounded-[20px] p-6 w-[290px] min-h-[350px] flex flex-col items-center text-center shadow-2xl justify-center"
+  >
+  <div className="w-[60px] h-[60px] bg-white border-2 border-[#FF5A0A] rounded-full flex items-center justify-center mb-5">
+  <Check className="w-[30px] h-[30px] text-[#FF5A0A]" strokeWidth={2.5} />
+  </div>
+  <h3 className="text-[18px] font-bold text-[#0F090B] mb-3 leading-tight">Visita reprogramada</h3>
+  <p className="text-[14px] text-[#8e8e8e] mb-8 font-normal leading-snug">
+  Tu nueva visita ha sido confirmada. Revisa todos los detalles desde el historial de solicitudes.
+  </p>
+  <button 
+  onClick={() => {
+    setIsReprogramModalOpen(false);
+    setReprogramStep('confirm_initial');
+  }}
+  className="w-full bg-[#FF5A0A] text-white font-medium h-[50px] rounded-full text-[18px] shadow-[0_4px_8px_rgba(255,90,10,0.24)] active:scale-95 transition-transform"
+  >
+  Aceptar
+  </button>
+  </motion.div>
+  </motion.div>
+  )}
+  </AnimatePresence>
 
  </div>
   );
