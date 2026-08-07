@@ -495,7 +495,7 @@ return (
    return text.toLowerCase().replace(/(?:^|\s)\S/g, (a) => a.toUpperCase());
  };
  
- const extractTechnicianName = (nombre?: string, cuadrilla?: string) => {
+ const extractTechnicianName = (nombre?: string, _cuadrilla?: string) => {
     if (nombre && nombre.trim() && nombre !== "Técnico Asignado") {
       return toTitleCase(nombre.trim());
     }
