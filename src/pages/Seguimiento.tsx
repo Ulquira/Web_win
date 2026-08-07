@@ -518,17 +518,23 @@ return (
    if (fromNombre) return fromNombre;
 
    // Si no hay SGI pero nombre existe y no es el nombre de la contrata (ej. ALFITELL)
-   if (nombre && nombre.trim() && !nombre.toLowerCase().includes('alfitell')) {
-     const words = nombre.trim().split(/\s+/);
-     return normalize(words.slice(0, 2).join(' ')); // Devolver máximo 2 palabras
+   if (nombre && nombre.trim()) {
+     const n = nombre.toLowerCase();
+     if (!n.includes('alfitell') && !n.includes('sgi') && !n.includes('sga') && !n.includes('m&d')) {
+       const words = nombre.trim().split(/\s+/);
+       return normalize(words.slice(0, 2).join(' ')); // Devolver máximo 2 palabras
+     }
    }
 
    // Si cuadrilla existe pero no tiene SGI
    if (cuadrilla && cuadrilla.trim()) {
-     const cleanCuadrilla = cuadrilla.replace(/P\s*\d+/i, '').replace(/ALFITELL/i, '').trim();
-     if (cleanCuadrilla) {
-       const words = cleanCuadrilla.split(/\s+/);
-       return normalize(words.slice(0, 2).join(' '));
+     const c = cuadrilla.toLowerCase();
+     if (!c.includes('sgi') && !c.includes('sga') && !c.includes('m&d')) {
+       const cleanCuadrilla = cuadrilla.replace(/P\s*\d+/i, '').replace(/ALFITELL/i, '').trim();
+       if (cleanCuadrilla) {
+         const words = cleanCuadrilla.split(/\s+/);
+         return normalize(words.slice(0, 2).join(' '));
+       }
      }
    }
    
