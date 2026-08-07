@@ -1188,11 +1188,8 @@ return (
   animate={{ scale: 1, y: 0 }}
   className="bg-white rounded-[20px] p-6 w-[290px] min-h-[350px] flex flex-col items-center text-center shadow-2xl justify-center"
   >
-  <AlertTriangle className="w-[60px] h-[60px] text-[#FF5A0A] mb-5" strokeWidth={1.5} />
-  <h3 className="text-[18px] font-bold text-[#0F090B] mb-3 leading-tight">¯Estás seguro de reprogramar tu visita?</h3>
-  <p className="text-[14px] text-[#8e8e8e] mb-8 font-normal leading-snug">
-  Al reprogramarla, se cancelará la fecha actual y deberás seleccionar una nueva disponibilidad para la visita.
-  </p>
+  <img src="/warning.png" alt="Advertencia" className="w-[60px] h-[60px] object-contain mb-5" />
+  <h3 className="text-[20px] font-bold text-[#0F090B] mb-8 leading-tight">�Est�s seguro de reprogramar tu visita?</h3>
   <button 
   onClick={() => setReprogramStep('form')}
   className="w-full bg-[#FF5A0A] text-white font-medium h-[50px] rounded-full text-[18px] mb-3 shadow-[0_4px_8px_rgba(255,90,10,0.24)] active:scale-95 transition-transform"
