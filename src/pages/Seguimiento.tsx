@@ -495,52 +495,6 @@ return (
    return text.toLowerCase().replace(/(?:^|\s)\S/g, (a) => a.toUpperCase());
  };
  
- const extractTechnicianName = (nombre?: string, cuadrilla?: string) => {
-   const normalize = (text: string) => toTitleCase(text.replace(/\s+/g, ' ').trim());
-
-   const extractAfterSgi = (text?: string) => {
-     if (!text) return null;
-     // Busca SGI seguido opcionalmente de caracteres no alfanuméricos, luego extrae las siguientes 1 o 2 palabras
-     const match = text.match(/SGI[^\w]*\s+([a-zA-ZÁÉÍÓÚáéíóúÑñ]+)(?:\s+([a-zA-ZÁÉÍÓÚáéíóúÑñ]+))?/i);
-     if (match && match[1]) {
-       const first = match[1];
-       const second = match[2];
-       return normalize(`${first}${second ? ' ' + second : ''}`);
-     }
-     return null;
-   };
-
-   // Priorizar siempre buscar "SGI" en la cuadrilla primero
-   const fromCuadrilla = extractAfterSgi(cuadrilla);
-   if (fromCuadrilla) return fromCuadrilla;
-
-   const fromNombre = extractAfterSgi(nombre);
-   if (fromNombre) return fromNombre;
-
-   // Si no hay SGI pero nombre existe y no es el nombre de la contrata (ej. ALFITELL)
-   if (nombre && nombre.trim()) {
-     const n = nombre.toLowerCase();
-     if (!n.includes('alfitell') && !n.includes('sgi') && !n.includes('sga') && !n.includes('m&d') && !n.includes('datantenna') && !n.includes('oni') && !n.includes('cobra') && !n.includes('yevizacom') && !n.includes('visual') && !n.includes('tli') && !n.includes('comfica')) {
-       const words = nombre.trim().split(/\s+/);
-       return normalize(words.slice(0, 2).join(' ')); // Devolver máximo 2 palabras
-     }
-   }
-
-   // Si cuadrilla existe pero no tiene SGI
-   if (cuadrilla && cuadrilla.trim()) {
-     const c = cuadrilla.toLowerCase();
-     if (!c.includes('sgi') && !c.includes('sga') && !c.includes('m&d') && !c.includes('datantenna') && !c.includes('oni') && !c.includes('cobra') && !c.includes('yevizacom') && !c.includes('visual') && !c.includes('tli') && !c.includes('comfica')) {
-       const cleanCuadrilla = cuadrilla.replace(/P\s*\d+/i, '').replace(/K\s*\d+/i, '').replace(/ALFITELL/i, '').trim();
-       if (cleanCuadrilla) {
-         const words = cleanCuadrilla.split(/\s+/);
-         return normalize(words.slice(0, 2).join(' '));
-       }
-     }
-   }
-   
-   return 'Técnico Asignado';
- };
- 
  const formatAddress = (address?: string) => {
    if (!address) return 'Cargando...';
    // Limpiar campos vacíos al final como "DPTO/INTERIOR -"
@@ -998,7 +952,7 @@ return (
  </div>
  <div className="flex-1">
  <p className="font-bold text-gray-900 text-[14px] leading-tight mb-0.5">
- {extractTechnicianName(tecnico.nombre, tecnico.cuadrilla)}
+ {toTitleCase(tecnico.nombre)}
  </p>
  <div className="flex items-center gap-1 mt-0.5">
  <Star className="w-3 h-3 text-primary fill-primary" />

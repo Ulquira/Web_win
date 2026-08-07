@@ -41,6 +41,7 @@ app.get('/api/v1/terceros/instalaciones/:token', verificarTercero, async (req, r
          Estado, 
          \`Estado OT\` AS SubEstado, 
          Cuadrilla,
+         Cuadrilla_nombre,
          Proveedeor, 
          Georeferencia AS coordenadas_direccion, 
          NULL AS Ubi_TEC, 
@@ -131,22 +132,9 @@ app.get('/api/v1/terceros/instalaciones/:token', verificarTercero, async (req, r
       tipo: isTicket ? 'ticket' : 'instalacion'
     };
 
-    const cuadrillaData = op.Cuadrilla;
-    if (cuadrillaData) {
-      let nombreLimpio = cuadrillaData;
-      // Extraemos todo lo que está después de SGI
-      const sgiMatch = /SGI[^\w]*\s+(.+)$/i.exec(nombreLimpio);
-      if (sgiMatch && sgiMatch[1]) {
-        nombreLimpio = sgiMatch[1].trim();
-      } else {
-        const words = nombreLimpio.split(' ').filter(Boolean);
-        if (words.length > 4) {
-          nombreLimpio = words.slice(words.length - 4).join(' ').trim();
-        }
-      }
-
+    if (op.Cuadrilla || op.Cuadrilla_nombre) {
       responseData.tecnico = {
-        nombre: nombreLimpio || 'Técnico Asignado',
+        nombre: op.Cuadrilla_nombre || 'Técnico Asignado',
         cuadrilla: op.Cuadrilla,
         telefono: op.telefono || 'Central'
       };
