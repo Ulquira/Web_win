@@ -1,0 +1,1 @@
+const fs = require('fs'); const pdf = require('pdf-parse'); const dataBuffer = fs.readFileSync('C:\\Users\\tonny\\OneDrive - WI-NET TELECOM\\Escritorio\\Web_win\\MI WIN APP MANUAL UI (1).pdf'); pdf(dataBuffer).then(function(data) { fs.writeFileSync('pdf_content.txt', data.text, 'utf8'); console.log('Extraccion completa'); });

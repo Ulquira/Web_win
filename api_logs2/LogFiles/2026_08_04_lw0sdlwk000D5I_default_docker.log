@@ -1,0 +1,497 @@
+2026-08-04T14:36:25.1989752Z ◇ injected env (0) from .env // tip: ◈ secrets for agents [www.dotenvx.com]
+2026-08-04T14:36:25.6402763Z ◇ injected env (0) from .env // tip: ◈ encrypted .env [www.dotenvx.com]
+2026-08-04T14:36:25.6506948Z ◇ injected env (0) from .env // tip: ⌁ auth for agents [www.vestauth.com]
+2026-08-04T14:36:25.6699194Z ◇ injected env (0) from .env // tip: ◈ encrypted .env [www.dotenvx.com]
+2026-08-04T14:36:25.7410142Z (node:29) [DEP0118] DeprecationWarning: The provided hostname "" is not a valid hostname, and is supported in the dns module solely for compatibility.
+2026-08-04T14:36:25.7410837Z (Use `node --trace-deprecation ...` to show where the warning was created)
+2026-08-04T14:36:25.7790395Z 🚀 Servidor API corriendo en http://0.0.0.0:3001
+2026-08-04T14:36:26.2492800Z Error al conectar con la base de datos de Azure SQL:  ConnectionError: Failed to connect to :1433 - Could not connect (sequence)
+2026-08-04T14:36:26.2495808Z     at /app/node_modules/mssql/lib/tedious/connection-pool.js:86:17
+2026-08-04T14:36:26.2495845Z     at err (/app/node_modules/tedious/src/connection.ts:1823:9)
+2026-08-04T14:36:26.2495867Z     at Object.onceWrapper (node:events:639:26)
+2026-08-04T14:36:26.2496017Z     at Connection.emit (node:events:524:28)
+2026-08-04T14:36:26.2496056Z     at emit (/app/node_modules/tedious/src/connection.ts:1985:18)
+2026-08-04T14:36:26.2496077Z     at <anonymous> (/app/node_modules/tedious/src/connection.ts:1845:14)
+2026-08-04T14:36:26.2496097Z     at process.processTicksAndRejections (node:internal/process/task_queues:77:11) {
+2026-08-04T14:36:26.2496116Z   code: 'ESOCKET',
+2026-08-04T14:36:26.2496152Z   originalError: ConnectionError: Failed to connect to :1433 - Could not connect (sequence)
+2026-08-04T14:36:26.2496197Z       at wrapSocketError (/app/node_modules/tedious/src/connection.ts:2400:14)
+2026-08-04T14:36:26.2496220Z       at Connection.initialiseConnection (/app/node_modules/tedious/src/connection.ts:2044:20)
+2026-08-04T14:36:26.2496240Z       at process.processTicksAndRejections (node:internal/process/task_queues:95:5) {
+2026-08-04T14:36:26.2496257Z     code: 'ESOCKET',
+2026-08-04T14:36:26.2496276Z     [cause]: AggregateError: Could not connect (sequence)
+2026-08-04T14:36:26.2496297Z         at connectInSequence (/app/node_modules/tedious/src/connector.ts:138:9)
+2026-08-04T14:36:26.2496339Z         at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+2026-08-04T14:36:26.2496364Z         at async Connection.connectOnPort (/app/node_modules/tedious/src/connection.ts:2246:18)
+2026-08-04T14:36:26.2496385Z         at async Connection.initialiseConnection (/app/node_modules/tedious/src/connection.ts:2040:18) {
+2026-08-04T14:36:26.2496403Z       [errors]: []
+2026-08-04T14:36:26.2496419Z     }
+2026-08-04T14:36:26.2496436Z   }
+2026-08-04T14:36:26.2496452Z }
+2026-08-04T14:36:26.3415177Z node:internal/process/promises:391
+2026-08-04T14:36:26.3415741Z     triggerUncaughtException(err, true /* fromPromise */);
+2026-08-04T14:36:26.3415768Z     ^
+2026-08-04T14:36:26.3415798Z 
+2026-08-04T14:36:26.3415823Z ConnectionError: Failed to connect to :1433 - Could not connect (sequence)
+2026-08-04T14:36:26.3415843Z     at /app/node_modules/mssql/lib/tedious/connection-pool.js:86:17
+2026-08-04T14:36:26.3415873Z     at err (/app/node_modules/tedious/src/connection.ts:1823:9)
+2026-08-04T14:36:26.3416036Z     at Object.onceWrapper (node:events:639:26)
+2026-08-04T14:36:26.3416056Z     at Connection.emit (node:events:524:28)
+2026-08-04T14:36:26.3416076Z     at emit (/app/node_modules/tedious/src/connection.ts:1985:18)
+2026-08-04T14:36:26.3416097Z     at <anonymous> (/app/node_modules/tedious/src/connection.ts:1845:14)
+2026-08-04T14:36:26.3416117Z     at process.processTicksAndRejections (node:internal/process/task_queues:77:11) {
+2026-08-04T14:36:26.3416134Z   code: 'ESOCKET',
+2026-08-04T14:36:26.3416155Z   originalError: ConnectionError: Failed to connect to :1433 - Could not connect (sequence)
+2026-08-04T14:36:26.3416209Z       at wrapSocketError (/app/node_modules/tedious/src/connection.ts:2400:14)
+2026-08-04T14:36:26.3416232Z       at Connection.initialiseConnection (/app/node_modules/tedious/src/connection.ts:2044:20)
+2026-08-04T14:36:26.3416252Z       at process.processTicksAndRejections (node:internal/process/task_queues:95:5) {
+2026-08-04T14:36:26.3416271Z     code: 'ESOCKET',
+2026-08-04T14:36:26.3416290Z     [cause]: AggregateError: Could not connect (sequence)
+2026-08-04T14:36:26.3416310Z         at connectInSequence (/app/node_modules/tedious/src/connector.ts:138:9)
+2026-08-04T14:36:26.3416330Z         at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+2026-08-04T14:36:26.3416374Z         at async Connection.connectOnPort (/app/node_modules/tedious/src/connection.ts:2246:18)
+2026-08-04T14:36:26.3416396Z         at async Connection.initialiseConnection (/app/node_modules/tedious/src/connection.ts:2040:18) {
+2026-08-04T14:36:26.3416414Z       [errors]: []
+2026-08-04T14:36:26.3416435Z     }
+2026-08-04T14:36:26.3416452Z   }
+2026-08-04T14:36:26.3416468Z }
+2026-08-04T14:36:26.3599949Z 
+2026-08-04T14:36:26.3600345Z Node.js v20.20.2
+2026-08-04T14:37:08.0085693Z ◇ injected env (0) from .env // tip: ⌘ multiple files { path: ['.env.local', '.env'] }
+2026-08-04T14:37:08.1170272Z ◇ injected env (0) from .env // tip: ⌘ enable debugging { debug: true }
+2026-08-04T14:37:08.1186432Z ◇ injected env (0) from .env // tip: ◈ secrets for agents [www.dotenvx.com]
+2026-08-04T14:37:08.1395162Z ◇ injected env (0) from .env // tip: ⌘ multiple files { path: ['.env.local', '.env'] }
+2026-08-04T14:37:08.1788810Z (node:29) [DEP0118] DeprecationWarning: The provided hostname "" is not a valid hostname, and is supported in the dns module solely for compatibility.
+2026-08-04T14:37:08.1789347Z (Use `node --trace-deprecation ...` to show where the warning was created)
+2026-08-04T14:37:08.1895946Z 🚀 Servidor API corriendo en http://0.0.0.0:3001
+2026-08-04T14:37:08.3877772Z Error al conectar con la base de datos de Azure SQL:  ConnectionError: Failed to connect to :1433 - Could not connect (sequence)
+2026-08-04T14:37:08.3878372Z     at /app/node_modules/mssql/lib/tedious/connection-pool.js:86:17
+2026-08-04T14:37:08.3878398Z     at err (/app/node_modules/tedious/src/connection.ts:1823:9)
+2026-08-04T14:37:08.3878413Z     at Object.onceWrapper (node:events:639:26)
+2026-08-04T14:37:08.3878429Z     at Connection.emit (node:events:524:28)
+2026-08-04T14:37:08.3878449Z     at emit (/app/node_modules/tedious/src/connection.ts:1985:18)
+2026-08-04T14:37:08.3878467Z     at <anonymous> (/app/node_modules/tedious/src/connection.ts:1845:14)
+2026-08-04T14:37:08.3878483Z     at process.processTicksAndRejections (node:internal/process/task_queues:77:11) {
+2026-08-04T14:37:08.3878498Z   code: 'ESOCKET',
+2026-08-04T14:37:08.3878622Z   originalError: ConnectionError: Failed to connect to :1433 - Could not connect (sequence)
+2026-08-04T14:37:08.3878640Z       at wrapSocketError (/app/node_modules/tedious/src/connection.ts:2400:14)
+2026-08-04T14:37:08.3878657Z       at Connection.initialiseConnection (/app/node_modules/tedious/src/connection.ts:2044:20)
+2026-08-04T14:37:08.3878674Z       at process.processTicksAndRejections (node:internal/process/task_queues:95:5) {
+2026-08-04T14:37:08.3878690Z     code: 'ESOCKET',
+2026-08-04T14:37:08.3878705Z     [cause]: AggregateError: Could not connect (sequence)
+2026-08-04T14:37:08.3878721Z         at connectInSequence (/app/node_modules/tedious/src/connector.ts:138:9)
+2026-08-04T14:37:08.3878737Z         at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+2026-08-04T14:37:08.3878755Z         at async Connection.connectOnPort (/app/node_modules/tedious/src/connection.ts:2246:18)
+2026-08-04T14:37:08.3878773Z         at async Connection.initialiseConnection (/app/node_modules/tedious/src/connection.ts:2040:18) {
+2026-08-04T14:37:08.3878786Z       [errors]: []
+2026-08-04T14:37:08.3878799Z     }
+2026-08-04T14:37:08.3878829Z   }
+2026-08-04T14:37:08.3878842Z }
+2026-08-04T14:37:08.4403404Z node:internal/process/promises:391
+2026-08-04T14:37:08.4403678Z     triggerUncaughtException(err, true /* fromPromise */);
+2026-08-04T14:37:08.4403695Z     ^
+2026-08-04T14:37:08.4403709Z 
+2026-08-04T14:37:08.4403728Z ConnectionError: Failed to connect to :1433 - Could not connect (sequence)
+2026-08-04T14:37:08.4403752Z     at /app/node_modules/mssql/lib/tedious/connection-pool.js:86:17
+2026-08-04T14:37:08.4403772Z     at err (/app/node_modules/tedious/src/connection.ts:1823:9)
+2026-08-04T14:37:08.4403789Z     at Object.onceWrapper (node:events:639:26)
+2026-08-04T14:37:08.4403805Z     at Connection.emit (node:events:524:28)
+2026-08-04T14:37:08.4403820Z     at emit (/app/node_modules/tedious/src/connection.ts:1985:18)
+2026-08-04T14:37:08.4403836Z     at <anonymous> (/app/node_modules/tedious/src/connection.ts:1845:14)
+2026-08-04T14:37:08.4403938Z     at process.processTicksAndRejections (node:internal/process/task_queues:77:11) {
+2026-08-04T14:37:08.4403954Z   code: 'ESOCKET',
+2026-08-04T14:37:08.4403970Z   originalError: ConnectionError: Failed to connect to :1433 - Could not connect (sequence)
+2026-08-04T14:37:08.4403986Z       at wrapSocketError (/app/node_modules/tedious/src/connection.ts:2400:14)
+2026-08-04T14:37:08.4404004Z       at Connection.initialiseConnection (/app/node_modules/tedious/src/connection.ts:2044:20)
+2026-08-04T14:37:08.4404020Z       at process.processTicksAndRejections (node:internal/process/task_queues:95:5) {
+2026-08-04T14:37:08.4404033Z     code: 'ESOCKET',
+2026-08-04T14:37:08.4404049Z     [cause]: AggregateError: Could not connect (sequence)
+2026-08-04T14:37:08.4404065Z         at connectInSequence (/app/node_modules/tedious/src/connector.ts:138:9)
+2026-08-04T14:37:08.4404081Z         at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+2026-08-04T14:37:08.4404098Z         at async Connection.connectOnPort (/app/node_modules/tedious/src/connection.ts:2246:18)
+2026-08-04T14:37:08.4404114Z         at async Connection.initialiseConnection (/app/node_modules/tedious/src/connection.ts:2040:18) {
+2026-08-04T14:37:08.4404148Z       [errors]: []
+2026-08-04T14:37:08.4404162Z     }
+2026-08-04T14:37:08.4404189Z   }
+2026-08-04T14:37:08.4404202Z }
+2026-08-04T14:37:08.4404213Z 
+2026-08-04T14:37:08.4404227Z Node.js v20.20.2
+2026-08-04T14:39:05.1083504Z ◇ injected env (0) from .env // tip: ◈ secrets for agents [www.dotenvx.com]
+2026-08-04T14:39:05.1880305Z ◇ injected env (0) from .env // tip: ⌘ suppress logs { quiet: true }
+2026-08-04T14:39:05.1967720Z ◇ injected env (0) from .env // tip: ⌘ suppress logs { quiet: true }
+2026-08-04T14:39:05.2072360Z ◇ injected env (0) from .env // tip: ⌁ auth for agents [www.vestauth.com]
+2026-08-04T14:39:05.2284514Z (node:29) [DEP0118] DeprecationWarning: The provided hostname "" is not a valid hostname, and is supported in the dns module solely for compatibility.
+2026-08-04T14:39:05.2285114Z (Use `node --trace-deprecation ...` to show where the warning was created)
+2026-08-04T14:39:05.2382737Z 🚀 Servidor API corriendo en http://0.0.0.0:3001
+2026-08-04T14:39:05.6323453Z Error al conectar con la base de datos de Azure SQL:  ConnectionError: Failed to connect to :1433 - Could not connect (sequence)
+2026-08-04T14:39:05.6324021Z     at /app/node_modules/mssql/lib/tedious/connection-pool.js:86:17
+2026-08-04T14:39:05.6324048Z     at err (/app/node_modules/tedious/src/connection.ts:1823:9)
+2026-08-04T14:39:05.6324068Z     at Object.onceWrapper (node:events:639:26)
+2026-08-04T14:39:05.6324082Z     at Connection.emit (node:events:524:28)
+2026-08-04T14:39:05.6324098Z     at emit (/app/node_modules/tedious/src/connection.ts:1985:18)
+2026-08-04T14:39:05.6324114Z     at <anonymous> (/app/node_modules/tedious/src/connection.ts:1845:14)
+2026-08-04T14:39:05.6324130Z     at process.processTicksAndRejections (node:internal/process/task_queues:77:11) {
+2026-08-04T14:39:05.6324144Z   code: 'ESOCKET',
+2026-08-04T14:39:05.6324300Z   originalError: ConnectionError: Failed to connect to :1433 - Could not connect (sequence)
+2026-08-04T14:39:05.6324318Z       at wrapSocketError (/app/node_modules/tedious/src/connection.ts:2400:14)
+2026-08-04T14:39:05.6324334Z       at Connection.initialiseConnection (/app/node_modules/tedious/src/connection.ts:2044:20)
+2026-08-04T14:39:05.6324351Z       at process.processTicksAndRejections (node:internal/process/task_queues:95:5) {
+2026-08-04T14:39:05.6324364Z     code: 'ESOCKET',
+2026-08-04T14:39:05.6324379Z     [cause]: AggregateError: Could not connect (sequence)
+2026-08-04T14:39:05.6324395Z         at connectInSequence (/app/node_modules/tedious/src/connector.ts:138:9)
+2026-08-04T14:39:05.6324411Z         at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+2026-08-04T14:39:05.6324428Z         at async Connection.connectOnPort (/app/node_modules/tedious/src/connection.ts:2246:18)
+2026-08-04T14:39:05.6324446Z         at async Connection.initialiseConnection (/app/node_modules/tedious/src/connection.ts:2040:18) {
+2026-08-04T14:39:05.6324459Z       [errors]: []
+2026-08-04T14:39:05.6324471Z     }
+2026-08-04T14:39:05.6324507Z   }
+2026-08-04T14:39:05.6324520Z }
+2026-08-04T14:39:05.6521311Z node:internal/process/promises:391
+2026-08-04T14:39:05.6521556Z     triggerUncaughtException(err, true /* fromPromise */);
+2026-08-04T14:39:05.6521573Z     ^
+2026-08-04T14:39:05.6521587Z 
+2026-08-04T14:39:05.6521605Z ConnectionError: Failed to connect to :1433 - Could not connect (sequence)
+2026-08-04T14:39:05.6521623Z     at /app/node_modules/mssql/lib/tedious/connection-pool.js:86:17
+2026-08-04T14:39:05.6521639Z     at err (/app/node_modules/tedious/src/connection.ts:1823:9)
+2026-08-04T14:39:05.6521654Z     at Object.onceWrapper (node:events:639:26)
+2026-08-04T14:39:05.6521669Z     at Connection.emit (node:events:524:28)
+2026-08-04T14:39:05.6521684Z     at emit (/app/node_modules/tedious/src/connection.ts:1985:18)
+2026-08-04T14:39:05.6521826Z     at <anonymous> (/app/node_modules/tedious/src/connection.ts:1845:14)
+2026-08-04T14:39:05.6521846Z     at process.processTicksAndRejections (node:internal/process/task_queues:77:11) {
+2026-08-04T14:39:05.6521859Z   code: 'ESOCKET',
+2026-08-04T14:39:05.6521875Z   originalError: ConnectionError: Failed to connect to :1433 - Could not connect (sequence)
+2026-08-04T14:39:05.6521891Z       at wrapSocketError (/app/node_modules/tedious/src/connection.ts:2400:14)
+2026-08-04T14:39:05.6521909Z       at Connection.initialiseConnection (/app/node_modules/tedious/src/connection.ts:2044:20)
+2026-08-04T14:39:05.6521925Z       at process.processTicksAndRejections (node:internal/process/task_queues:95:5) {
+2026-08-04T14:39:05.6521939Z     code: 'ESOCKET',
+2026-08-04T14:39:05.6521954Z     [cause]: AggregateError: Could not connect (sequence)
+2026-08-04T14:39:05.6521970Z         at connectInSequence (/app/node_modules/tedious/src/connector.ts:138:9)
+2026-08-04T14:39:05.6522004Z         at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+2026-08-04T14:39:05.6522022Z         at async Connection.connectOnPort (/app/node_modules/tedious/src/connection.ts:2246:18)
+2026-08-04T14:39:05.6522039Z         at async Connection.initialiseConnection (/app/node_modules/tedious/src/connection.ts:2040:18) {
+2026-08-04T14:39:05.6522052Z       [errors]: []
+2026-08-04T14:39:05.6522063Z     }
+2026-08-04T14:39:05.6522076Z   }
+2026-08-04T14:39:05.6522088Z }
+2026-08-04T14:39:05.6522170Z 
+2026-08-04T14:39:05.6522185Z Node.js v20.20.2
+2026-08-04T14:40:38.0618343Z ◇ injected env (0) from .env // tip: ⌁ auth for agents [www.vestauth.com]
+2026-08-04T14:40:38.1422037Z ◇ injected env (0) from .env // tip: ⌘ multiple files { path: ['.env.local', '.env'] }
+2026-08-04T14:40:38.1435286Z ◇ injected env (0) from .env // tip: ⌘ suppress logs { quiet: true }
+2026-08-04T14:40:38.1606236Z ◇ injected env (0) from .env // tip: ⌘ suppress logs { quiet: true }
+2026-08-04T14:40:38.1917260Z 🚀 Servidor API corriendo en http://0.0.0.0:3001
+2026-08-04T14:40:53.9918101Z Error al conectar con la base de datos de Azure SQL:  ConnectionError: Failed to connect to 34.186.62.43:3306 in 15000ms
+2026-08-04T14:40:53.9918716Z     at /app/node_modules/mssql/lib/tedious/connection-pool.js:86:17
+2026-08-04T14:40:53.9918737Z     at err (/app/node_modules/tedious/src/connection.ts:1823:9)
+2026-08-04T14:40:53.9918753Z     at Object.onceWrapper (node:events:639:26)
+2026-08-04T14:40:53.9918768Z     at Connection.emit (node:events:524:28)
+2026-08-04T14:40:53.9918805Z     at emit (/app/node_modules/tedious/src/connection.ts:1985:18)
+2026-08-04T14:40:53.9918821Z     at <anonymous> (/app/node_modules/tedious/src/connection.ts:1845:14)
+2026-08-04T14:40:53.9918838Z     at process.processTicksAndRejections (node:internal/process/task_queues:77:11) {
+2026-08-04T14:40:53.9918853Z   code: 'ETIMEOUT',
+2026-08-04T14:40:53.9918872Z   originalError: ConnectionError: Failed to connect to 34.186.62.43:3306 in 15000ms
+2026-08-04T14:40:53.9918920Z       at Timeout.<anonymous> (/app/node_modules/tedious/src/connection.ts:2015:31)
+2026-08-04T14:40:53.9918936Z       at listOnTimeout (node:internal/timers:581:17)
+2026-08-04T14:40:53.9918952Z       at process.processTimers (node:internal/timers:519:7) {
+2026-08-04T14:40:53.9918965Z     code: 'ETIMEOUT'
+2026-08-04T14:40:53.9918977Z   }
+2026-08-04T14:40:53.9918990Z }
+2026-08-04T14:40:53.9925218Z Error guardando log en BD: ConnectionError: Failed to connect to 34.186.62.43:3306 in 15000ms
+2026-08-04T14:40:53.9925316Z     at /app/node_modules/mssql/lib/tedious/connection-pool.js:86:17
+2026-08-04T14:40:53.9925337Z     at err (/app/node_modules/tedious/src/connection.ts:1823:9)
+2026-08-04T14:40:53.9925351Z     at Object.onceWrapper (node:events:639:26)
+2026-08-04T14:40:53.9925366Z     at Connection.emit (node:events:524:28)
+2026-08-04T14:40:53.9925432Z     at emit (/app/node_modules/tedious/src/connection.ts:1985:18)
+2026-08-04T14:40:53.9925448Z     at <anonymous> (/app/node_modules/tedious/src/connection.ts:1845:14)
+2026-08-04T14:40:53.9925464Z     at process.processTicksAndRejections (node:internal/process/task_queues:77:11) {
+2026-08-04T14:40:53.9925478Z   code: 'ETIMEOUT',
+2026-08-04T14:40:53.9925495Z   originalError: ConnectionError: Failed to connect to 34.186.62.43:3306 in 15000ms
+2026-08-04T14:40:53.9925511Z       at Timeout.<anonymous> (/app/node_modules/tedious/src/connection.ts:2015:31)
+2026-08-04T14:40:53.9925525Z       at listOnTimeout (node:internal/timers:581:17)
+2026-08-04T14:40:53.9925541Z       at process.processTimers (node:internal/timers:519:7) {
+2026-08-04T14:40:53.9925554Z     code: 'ETIMEOUT'
+2026-08-04T14:40:53.9925567Z   }
+2026-08-04T14:40:53.9925580Z }
+2026-08-04T14:40:54.0740996Z Error guardando log en BD: ConnectionError: Failed to connect to 34.186.62.43:3306 in 15000ms
+2026-08-04T14:40:54.0741649Z     at /app/node_modules/mssql/lib/tedious/connection-pool.js:86:17
+2026-08-04T14:40:54.0741793Z     at err (/app/node_modules/tedious/src/connection.ts:1823:9)
+2026-08-04T14:40:54.0741810Z     at Object.onceWrapper (node:events:639:26)
+2026-08-04T14:40:54.0741825Z     at Connection.emit (node:events:524:28)
+2026-08-04T14:40:54.0741840Z     at emit (/app/node_modules/tedious/src/connection.ts:1985:18)
+2026-08-04T14:40:54.0741857Z     at <anonymous> (/app/node_modules/tedious/src/connection.ts:1845:14)
+2026-08-04T14:40:54.0741873Z     at process.processTicksAndRejections (node:internal/process/task_queues:77:11) {
+2026-08-04T14:40:54.0741887Z   code: 'ETIMEOUT',
+2026-08-04T14:40:54.0741903Z   originalError: ConnectionError: Failed to connect to 34.186.62.43:3306 in 15000ms
+2026-08-04T14:40:54.0741919Z       at Timeout.<anonymous> (/app/node_modules/tedious/src/connection.ts:2015:31)
+2026-08-04T14:40:54.0741936Z       at listOnTimeout (node:internal/timers:581:17)
+2026-08-04T14:40:54.0741951Z       at process.processTimers (node:internal/timers:519:7) {
+2026-08-04T14:40:54.0741964Z     code: 'ETIMEOUT'
+2026-08-04T14:40:54.0742000Z   }
+2026-08-04T14:40:54.0742013Z }
+2026-08-04T14:41:03.3269492Z Error guardando log en BD: ConnectionError: Failed to connect to 34.186.62.43:3306 in 15000ms
+2026-08-04T14:41:03.3270022Z     at /app/node_modules/mssql/lib/tedious/connection-pool.js:86:17
+2026-08-04T14:41:03.3270051Z     at err (/app/node_modules/tedious/src/connection.ts:1823:9)
+2026-08-04T14:41:03.3270068Z     at Object.onceWrapper (node:events:639:26)
+2026-08-04T14:41:03.3270083Z     at Connection.emit (node:events:524:28)
+2026-08-04T14:41:03.3270099Z     at emit (/app/node_modules/tedious/src/connection.ts:1985:18)
+2026-08-04T14:41:03.3270117Z     at <anonymous> (/app/node_modules/tedious/src/connection.ts:1845:14)
+2026-08-04T14:41:03.3270134Z     at process.processTicksAndRejections (node:internal/process/task_queues:77:11) {
+2026-08-04T14:41:03.3270151Z   code: 'ETIMEOUT',
+2026-08-04T14:41:03.3270170Z   originalError: ConnectionError: Failed to connect to 34.186.62.43:3306 in 15000ms
+2026-08-04T14:41:03.3270187Z       at Timeout.<anonymous> (/app/node_modules/tedious/src/connection.ts:2015:31)
+2026-08-04T14:41:03.3270293Z       at listOnTimeout (node:internal/timers:581:17)
+2026-08-04T14:41:03.3270309Z       at process.processTimers (node:internal/timers:519:7) {
+2026-08-04T14:41:03.3270323Z     code: 'ETIMEOUT'
+2026-08-04T14:41:03.3270336Z   }
+2026-08-04T14:41:03.3270348Z }
+2026-08-04T14:41:42.0869770Z Error guardando log en BD: ConnectionError: Failed to connect to 34.186.62.43:3306 in 15000ms
+2026-08-04T14:41:42.0870227Z     at /app/node_modules/mssql/lib/tedious/connection-pool.js:86:17
+2026-08-04T14:41:42.0870248Z     at err (/app/node_modules/tedious/src/connection.ts:1823:9)
+2026-08-04T14:41:42.0870263Z     at Object.onceWrapper (node:events:639:26)
+2026-08-04T14:41:42.0870277Z     at Connection.emit (node:events:524:28)
+2026-08-04T14:41:42.0870293Z     at emit (/app/node_modules/tedious/src/connection.ts:1985:18)
+2026-08-04T14:41:42.0870308Z     at <anonymous> (/app/node_modules/tedious/src/connection.ts:1845:14)
+2026-08-04T14:41:42.0870325Z     at process.processTicksAndRejections (node:internal/process/task_queues:77:11) {
+2026-08-04T14:41:42.0870344Z   code: 'ETIMEOUT',
+2026-08-04T14:41:42.0870360Z   originalError: ConnectionError: Failed to connect to 34.186.62.43:3306 in 15000ms
+2026-08-04T14:41:42.0870376Z       at Timeout.<anonymous> (/app/node_modules/tedious/src/connection.ts:2015:31)
+2026-08-04T14:41:42.0870391Z       at listOnTimeout (node:internal/timers:581:17)
+2026-08-04T14:41:42.0870406Z       at process.processTimers (node:internal/timers:519:7) {
+2026-08-04T14:41:42.0870442Z     code: 'ETIMEOUT'
+2026-08-04T14:41:42.0870454Z   }
+2026-08-04T14:41:42.0870467Z }
+2026-08-04T14:48:21.4021986Z Error guardando log en BD: ConnectionError: Failed to connect to 34.186.62.43:3306 in 15000ms
+2026-08-04T14:48:21.4022440Z     at /app/node_modules/mssql/lib/tedious/connection-pool.js:86:17
+2026-08-04T14:48:21.4022462Z     at err (/app/node_modules/tedious/src/connection.ts:1823:9)
+2026-08-04T14:48:21.4022478Z     at Object.onceWrapper (node:events:639:26)
+2026-08-04T14:48:21.4022493Z     at Connection.emit (node:events:524:28)
+2026-08-04T14:48:21.4022509Z     at emit (/app/node_modules/tedious/src/connection.ts:1985:18)
+2026-08-04T14:48:21.4022526Z     at <anonymous> (/app/node_modules/tedious/src/connection.ts:1845:14)
+2026-08-04T14:48:21.4022543Z     at process.processTicksAndRejections (node:internal/process/task_queues:77:11) {
+2026-08-04T14:48:21.4022557Z   code: 'ETIMEOUT',
+2026-08-04T14:48:21.4022574Z   originalError: ConnectionError: Failed to connect to 34.186.62.43:3306 in 15000ms
+2026-08-04T14:48:21.4022590Z       at Timeout.<anonymous> (/app/node_modules/tedious/src/connection.ts:2015:31)
+2026-08-04T14:48:21.4022605Z       at listOnTimeout (node:internal/timers:581:17)
+2026-08-04T14:48:21.4022621Z       at process.processTimers (node:internal/timers:519:7) {
+2026-08-04T14:48:21.4022658Z     code: 'ETIMEOUT'
+2026-08-04T14:48:21.4022671Z   }
+2026-08-04T14:48:21.4022683Z }
+2026-08-04T14:49:03.2241613Z ◇ injected env (0) from .env // tip: ⌘ custom filepath { path: '/custom/path/.env' }
+2026-08-04T14:49:03.6351514Z ◇ injected env (0) from .env // tip: ⌘ custom filepath { path: '/custom/path/.env' }
+2026-08-04T14:49:03.6546976Z ◇ injected env (0) from .env // tip: ◈ secrets for agents [www.dotenvx.com]
+2026-08-04T14:49:03.6646461Z ◇ injected env (0) from .env // tip: ◈ encrypted .env [www.dotenvx.com]
+2026-08-04T14:49:03.7682141Z 🚀 Servidor API corriendo en http://0.0.0.0:3001
+2026-08-04T14:49:04.1974341Z Error al conectar con la base de datos de Azure SQL:  ConnectionError: Connection lost - Unable to process incoming packet
+2026-08-04T14:49:04.1974973Z     at /app/node_modules/mssql/lib/tedious/connection-pool.js:86:17
+2026-08-04T14:49:04.1974999Z     at err (/app/node_modules/tedious/src/connection.ts:1823:9)
+2026-08-04T14:49:04.1975019Z     at Object.onceWrapper (node:events:639:26)
+2026-08-04T14:49:04.1975040Z     at Connection.emit (node:events:524:28)
+2026-08-04T14:49:04.1975083Z     at emit (/app/node_modules/tedious/src/connection.ts:1985:18)
+2026-08-04T14:49:04.1975142Z     at <anonymous> (/app/node_modules/tedious/src/connection.ts:1845:14)
+2026-08-04T14:49:04.1975165Z     at process.processTicksAndRejections (node:internal/process/task_queues:77:11) {
+2026-08-04T14:49:04.1975183Z   code: 'ESOCKET',
+2026-08-04T14:49:04.1975217Z   originalError: ConnectionError: Connection lost - Unable to process incoming packet
+2026-08-04T14:49:04.1975238Z       at wrapSocketError (/app/node_modules/tedious/src/connection.ts:2403:14)
+2026-08-04T14:49:04.1975257Z       at err (/app/node_modules/tedious/src/connection.ts:3356:22)
+2026-08-04T14:49:04.1975276Z       at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+2026-08-04T14:49:04.1975320Z       at async Connection.readPreloginResponse (/app/node_modules/tedious/src/connection.ts:3354:23)
+2026-08-04T14:49:04.1975342Z       at async Connection.initialiseConnection (/app/node_modules/tedious/src/connection.ts:2083:36) {
+2026-08-04T14:49:04.1975360Z     code: 'ESOCKET',
+2026-08-04T14:49:04.1975380Z     [cause]: ConnectionError: Unable to process incoming packet
+2026-08-04T14:49:04.1975405Z         at processBufferedData (/app/node_modules/tedious/src/incoming-message-stream.ts:53:25)
+2026-08-04T14:49:04.1975450Z         at _transform (/app/node_modules/tedious/src/incoming-message-stream.ts:100:10)
+2026-08-04T14:49:04.1975470Z         at Transform._write (node:internal/streams/transform:171:8)
+2026-08-04T14:49:04.1975491Z         at writeOrBuffer (node:internal/streams/writable:572:12)
+2026-08-04T14:49:04.1975510Z         at _write (node:internal/streams/writable:501:10)
+2026-08-04T14:49:04.1975529Z         at Writable.write (node:internal/streams/writable:510:10)
+2026-08-04T14:49:04.1975548Z         at Socket.ondata (node:internal/streams/readable:1009:22)
+2026-08-04T14:49:04.1975566Z         at Socket.emit (node:events:524:28)
+2026-08-04T14:49:04.1975608Z         at addChunk (node:internal/streams/readable:561:12)
+2026-08-04T14:49:04.1975629Z         at readableAddChunkPushByteMode (node:internal/streams/readable:512:3) {
+2026-08-04T14:49:04.1975647Z       code: undefined
+2026-08-04T14:49:04.1975663Z     }
+2026-08-04T14:49:04.1975679Z   }
+2026-08-04T14:49:04.1975695Z }
+2026-08-04T14:49:04.2087296Z node:internal/process/promises:391
+2026-08-04T14:49:04.2088039Z     triggerUncaughtException(err, true /* fromPromise */);
+2026-08-04T14:49:04.2088064Z     ^
+2026-08-04T14:49:04.2088099Z 
+2026-08-04T14:49:04.2088125Z ConnectionError: Connection lost - Unable to process incoming packet
+2026-08-04T14:49:04.2088146Z     at /app/node_modules/mssql/lib/tedious/connection-pool.js:86:17
+2026-08-04T14:49:04.2088166Z     at err (/app/node_modules/tedious/src/connection.ts:1823:9)
+2026-08-04T14:49:04.2088214Z     at Object.onceWrapper (node:events:639:26)
+2026-08-04T14:49:04.2088234Z     at Connection.emit (node:events:524:28)
+2026-08-04T14:49:04.2088255Z     at emit (/app/node_modules/tedious/src/connection.ts:1985:18)
+2026-08-04T14:49:04.2088275Z     at <anonymous> (/app/node_modules/tedious/src/connection.ts:1845:14)
+2026-08-04T14:49:04.2088295Z     at process.processTicksAndRejections (node:internal/process/task_queues:77:11) {
+2026-08-04T14:49:04.2088313Z   code: 'ESOCKET',
+2026-08-04T14:49:04.2088334Z   originalError: ConnectionError: Connection lost - Unable to process incoming packet
+2026-08-04T14:49:04.2088375Z       at wrapSocketError (/app/node_modules/tedious/src/connection.ts:2403:14)
+2026-08-04T14:49:04.2088396Z       at err (/app/node_modules/tedious/src/connection.ts:3356:22)
+2026-08-04T14:49:04.2088417Z       at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+2026-08-04T14:49:04.2088439Z       at async Connection.readPreloginResponse (/app/node_modules/tedious/src/connection.ts:3354:23)
+2026-08-04T14:49:04.2088460Z       at async Connection.initialiseConnection (/app/node_modules/tedious/src/connection.ts:2083:36) {
+2026-08-04T14:49:04.2088477Z     code: 'ESOCKET',
+2026-08-04T14:49:04.2088496Z     [cause]: ConnectionError: Unable to process incoming packet
+2026-08-04T14:49:04.2088542Z         at processBufferedData (/app/node_modules/tedious/src/incoming-message-stream.ts:53:25)
+2026-08-04T14:49:04.2088565Z         at _transform (/app/node_modules/tedious/src/incoming-message-stream.ts:100:10)
+2026-08-04T14:49:04.2088584Z         at Transform._write (node:internal/streams/transform:171:8)
+2026-08-04T14:49:04.2088604Z         at writeOrBuffer (node:internal/streams/writable:572:12)
+2026-08-04T14:49:04.2088622Z         at _write (node:internal/streams/writable:501:10)
+2026-08-04T14:49:04.2088641Z         at Writable.write (node:internal/streams/writable:510:10)
+2026-08-04T14:49:04.2088680Z         at Socket.ondata (node:internal/streams/readable:1009:22)
+2026-08-04T14:49:04.2088699Z         at Socket.emit (node:events:524:28)
+2026-08-04T14:49:04.2088719Z         at addChunk (node:internal/streams/readable:561:12)
+2026-08-04T14:49:04.2088739Z         at readableAddChunkPushByteMode (node:internal/streams/readable:512:3) {
+2026-08-04T14:49:04.2088757Z       code: undefined
+2026-08-04T14:49:04.2088773Z     }
+2026-08-04T14:49:04.2088792Z   }
+2026-08-04T14:49:04.2088830Z }
+2026-08-04T14:49:04.2101498Z 
+2026-08-04T14:49:04.2101690Z Node.js v20.20.2
+2026-08-04T14:50:08.4521088Z ◇ injected env (0) from .env // tip: ⌘ enable debugging { debug: true }
+2026-08-04T14:50:08.5712437Z ◇ injected env (0) from .env // tip: ⌘ suppress logs { quiet: true }
+2026-08-04T14:50:08.5729377Z ◇ injected env (0) from .env // tip: ⌘ enable debugging { debug: true }
+2026-08-04T14:50:08.5832639Z ◇ injected env (0) from .env // tip: ⌘ suppress logs { quiet: true }
+2026-08-04T14:50:08.6127665Z 🚀 Servidor API corriendo en http://0.0.0.0:3001
+2026-08-04T14:50:08.9826086Z Error al conectar con la base de datos de Azure SQL:  ConnectionError: Connection lost - Unable to process incoming packet
+2026-08-04T14:50:08.9826888Z     at /app/node_modules/mssql/lib/tedious/connection-pool.js:86:17
+2026-08-04T14:50:08.9826917Z     at err (/app/node_modules/tedious/src/connection.ts:1823:9)
+2026-08-04T14:50:08.9826940Z     at Object.onceWrapper (node:events:639:26)
+2026-08-04T14:50:08.9827060Z     at Connection.emit (node:events:524:28)
+2026-08-04T14:50:08.9827092Z     at emit (/app/node_modules/tedious/src/connection.ts:1985:18)
+2026-08-04T14:50:08.9827114Z     at <anonymous> (/app/node_modules/tedious/src/connection.ts:1845:14)
+2026-08-04T14:50:08.9827134Z     at process.processTicksAndRejections (node:internal/process/task_queues:77:11) {
+2026-08-04T14:50:08.9827152Z   code: 'ESOCKET',
+2026-08-04T14:50:08.9827183Z   originalError: ConnectionError: Connection lost - Unable to process incoming packet
+2026-08-04T14:50:08.9827221Z       at wrapSocketError (/app/node_modules/tedious/src/connection.ts:2403:14)
+2026-08-04T14:50:08.9827242Z       at err (/app/node_modules/tedious/src/connection.ts:3356:22)
+2026-08-04T14:50:08.9827261Z       at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+2026-08-04T14:50:08.9827282Z       at async Connection.readPreloginResponse (/app/node_modules/tedious/src/connection.ts:3354:23)
+2026-08-04T14:50:08.9827304Z       at async Connection.initialiseConnection (/app/node_modules/tedious/src/connection.ts:2083:36) {
+2026-08-04T14:50:08.9827321Z     code: 'ESOCKET',
+2026-08-04T14:50:08.9827361Z     [cause]: ConnectionError: Unable to process incoming packet
+2026-08-04T14:50:08.9827386Z         at processBufferedData (/app/node_modules/tedious/src/incoming-message-stream.ts:53:25)
+2026-08-04T14:50:08.9827406Z         at _transform (/app/node_modules/tedious/src/incoming-message-stream.ts:100:10)
+2026-08-04T14:50:08.9827425Z         at Transform._write (node:internal/streams/transform:171:8)
+2026-08-04T14:50:08.9827444Z         at writeOrBuffer (node:internal/streams/writable:572:12)
+2026-08-04T14:50:08.9827560Z         at _write (node:internal/streams/writable:501:10)
+2026-08-04T14:50:08.9827600Z         at Writable.write (node:internal/streams/writable:510:10)
+2026-08-04T14:50:08.9827620Z         at Socket.ondata (node:internal/streams/readable:1009:22)
+2026-08-04T14:50:08.9827638Z         at Socket.emit (node:events:524:28)
+2026-08-04T14:50:08.9827658Z         at addChunk (node:internal/streams/readable:561:12)
+2026-08-04T14:50:08.9827678Z         at readableAddChunkPushByteMode (node:internal/streams/readable:512:3) {
+2026-08-04T14:50:08.9827695Z       code: undefined
+2026-08-04T14:50:08.9827711Z     }
+2026-08-04T14:50:08.9827745Z   }
+2026-08-04T14:50:08.9827761Z }
+2026-08-04T14:50:09.0038105Z node:internal/process/promises:391
+2026-08-04T14:50:09.0038566Z     triggerUncaughtException(err, true /* fromPromise */);
+2026-08-04T14:50:09.0038595Z     ^
+2026-08-04T14:50:09.0038623Z 
+2026-08-04T14:50:09.0038648Z ConnectionError: Connection lost - Unable to process incoming packet
+2026-08-04T14:50:09.0038760Z     at /app/node_modules/mssql/lib/tedious/connection-pool.js:86:17
+2026-08-04T14:50:09.0038783Z     at err (/app/node_modules/tedious/src/connection.ts:1823:9)
+2026-08-04T14:50:09.0038802Z     at Object.onceWrapper (node:events:639:26)
+2026-08-04T14:50:09.0038821Z     at Connection.emit (node:events:524:28)
+2026-08-04T14:50:09.0038842Z     at emit (/app/node_modules/tedious/src/connection.ts:1985:18)
+2026-08-04T14:50:09.0038880Z     at <anonymous> (/app/node_modules/tedious/src/connection.ts:1845:14)
+2026-08-04T14:50:09.0038902Z     at process.processTicksAndRejections (node:internal/process/task_queues:77:11) {
+2026-08-04T14:50:09.0038943Z   code: 'ESOCKET',
+2026-08-04T14:50:09.0038965Z   originalError: ConnectionError: Connection lost - Unable to process incoming packet
+2026-08-04T14:50:09.0038985Z       at wrapSocketError (/app/node_modules/tedious/src/connection.ts:2403:14)
+2026-08-04T14:50:09.0039004Z       at err (/app/node_modules/tedious/src/connection.ts:3356:22)
+2026-08-04T14:50:09.0039024Z       at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+2026-08-04T14:50:09.0039046Z       at async Connection.readPreloginResponse (/app/node_modules/tedious/src/connection.ts:3354:23)
+2026-08-04T14:50:09.0039088Z       at async Connection.initialiseConnection (/app/node_modules/tedious/src/connection.ts:2083:36) {
+2026-08-04T14:50:09.0039107Z     code: 'ESOCKET',
+2026-08-04T14:50:09.0039127Z     [cause]: ConnectionError: Unable to process incoming packet
+2026-08-04T14:50:09.0039148Z         at processBufferedData (/app/node_modules/tedious/src/incoming-message-stream.ts:53:25)
+2026-08-04T14:50:09.0039169Z         at _transform (/app/node_modules/tedious/src/incoming-message-stream.ts:100:10)
+2026-08-04T14:50:09.0039188Z         at Transform._write (node:internal/streams/transform:171:8)
+2026-08-04T14:50:09.0039206Z         at writeOrBuffer (node:internal/streams/writable:572:12)
+2026-08-04T14:50:09.0039243Z         at _write (node:internal/streams/writable:501:10)
+2026-08-04T14:50:09.0039263Z         at Writable.write (node:internal/streams/writable:510:10)
+2026-08-04T14:50:09.0039282Z         at Socket.ondata (node:internal/streams/readable:1009:22)
+2026-08-04T14:50:09.0039299Z         at Socket.emit (node:events:524:28)
+2026-08-04T14:50:09.0039319Z         at addChunk (node:internal/streams/readable:561:12)
+2026-08-04T14:50:09.0039339Z         at readableAddChunkPushByteMode (node:internal/streams/readable:512:3) {
+2026-08-04T14:50:09.0039357Z       code: undefined
+2026-08-04T14:50:09.0039391Z     }
+2026-08-04T14:50:09.0039413Z   }
+2026-08-04T14:50:09.0039429Z }
+2026-08-04T14:50:09.0125115Z 
+2026-08-04T14:50:09.0125612Z Node.js v20.20.2
+2026-08-04T14:51:01.1818350Z ◇ injected env (0) from .env // tip: ⌘ override existing { override: true }
+2026-08-04T14:51:01.2406456Z ◇ injected env (0) from .env // tip: ⌘ suppress logs { quiet: true }
+2026-08-04T14:51:01.2421735Z ◇ injected env (0) from .env // tip: ⌘ override existing { override: true }
+2026-08-04T14:51:01.2595106Z ◇ injected env (0) from .env // tip: ⌘ enable debugging { debug: true }
+2026-08-04T14:51:01.3288338Z 🚀 Servidor API corriendo en http://0.0.0.0:3001
+2026-08-04T14:51:01.9380022Z Error al conectar con la base de datos de Azure SQL:  ConnectionError: Connection lost - Unable to process incoming packet
+2026-08-04T14:51:01.9380620Z     at /app/node_modules/mssql/lib/tedious/connection-pool.js:86:17
+2026-08-04T14:51:01.9380645Z     at err (/app/node_modules/tedious/src/connection.ts:1823:9)
+2026-08-04T14:51:01.9380671Z     at Object.onceWrapper (node:events:639:26)
+2026-08-04T14:51:01.9380796Z     at Connection.emit (node:events:524:28)
+2026-08-04T14:51:01.9380813Z     at emit (/app/node_modules/tedious/src/connection.ts:1985:18)
+2026-08-04T14:51:01.9380831Z     at <anonymous> (/app/node_modules/tedious/src/connection.ts:1845:14)
+2026-08-04T14:51:01.9380848Z     at process.processTicksAndRejections (node:internal/process/task_queues:77:11) {
+2026-08-04T14:51:01.9380862Z   code: 'ESOCKET',
+2026-08-04T14:51:01.9380879Z   originalError: ConnectionError: Connection lost - Unable to process incoming packet
+2026-08-04T14:51:01.9380896Z       at wrapSocketError (/app/node_modules/tedious/src/connection.ts:2403:14)
+2026-08-04T14:51:01.9380911Z       at err (/app/node_modules/tedious/src/connection.ts:3356:22)
+2026-08-04T14:51:01.9380927Z       at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+2026-08-04T14:51:01.9380945Z       at async Connection.readPreloginResponse (/app/node_modules/tedious/src/connection.ts:3354:23)
+2026-08-04T14:51:01.9380963Z       at async Connection.initialiseConnection (/app/node_modules/tedious/src/connection.ts:2083:36) {
+2026-08-04T14:51:01.9380976Z     code: 'ESOCKET',
+2026-08-04T14:51:01.9381009Z     [cause]: ConnectionError: Unable to process incoming packet
+2026-08-04T14:51:01.9381027Z         at processBufferedData (/app/node_modules/tedious/src/incoming-message-stream.ts:53:25)
+2026-08-04T14:51:01.9381043Z         at _transform (/app/node_modules/tedious/src/incoming-message-stream.ts:100:10)
+2026-08-04T14:51:01.9381059Z         at Transform._write (node:internal/streams/transform:171:8)
+2026-08-04T14:51:01.9381074Z         at writeOrBuffer (node:internal/streams/writable:572:12)
+2026-08-04T14:51:01.9381089Z         at _write (node:internal/streams/writable:501:10)
+2026-08-04T14:51:01.9381106Z         at Writable.write (node:internal/streams/writable:510:10)
+2026-08-04T14:51:01.9381121Z         at Socket.ondata (node:internal/streams/readable:1009:22)
+2026-08-04T14:51:01.9381136Z         at Socket.emit (node:events:524:28)
+2026-08-04T14:51:01.9381151Z         at addChunk (node:internal/streams/readable:561:12)
+2026-08-04T14:51:01.9381167Z         at readableAddChunkPushByteMode (node:internal/streams/readable:512:3) {
+2026-08-04T14:51:01.9381181Z       code: undefined
+2026-08-04T14:51:01.9381193Z     }
+2026-08-04T14:51:01.9381224Z   }
+2026-08-04T14:51:01.9381237Z }
+2026-08-04T14:51:01.9399803Z node:internal/process/promises:391
+2026-08-04T14:51:01.9399979Z     triggerUncaughtException(err, true /* fromPromise */);
+2026-08-04T14:51:01.9400002Z     ^
+2026-08-04T14:51:01.9400022Z 
+2026-08-04T14:51:01.9400040Z ConnectionError: Connection lost - Unable to process incoming packet
+2026-08-04T14:51:01.9400055Z     at /app/node_modules/mssql/lib/tedious/connection-pool.js:86:17
+2026-08-04T14:51:01.9400079Z     at err (/app/node_modules/tedious/src/connection.ts:1823:9)
+2026-08-04T14:51:01.9400095Z     at Object.onceWrapper (node:events:639:26)
+2026-08-04T14:51:01.9400109Z     at Connection.emit (node:events:524:28)
+2026-08-04T14:51:01.9400125Z     at emit (/app/node_modules/tedious/src/connection.ts:1985:18)
+2026-08-04T14:51:01.9400141Z     at <anonymous> (/app/node_modules/tedious/src/connection.ts:1845:14)
+2026-08-04T14:51:01.9400241Z     at process.processTicksAndRejections (node:internal/process/task_queues:77:11) {
+2026-08-04T14:51:01.9400257Z   code: 'ESOCKET',
+2026-08-04T14:51:01.9400273Z   originalError: ConnectionError: Connection lost - Unable to process incoming packet
+2026-08-04T14:51:01.9400289Z       at wrapSocketError (/app/node_modules/tedious/src/connection.ts:2403:14)
+2026-08-04T14:51:01.9400305Z       at err (/app/node_modules/tedious/src/connection.ts:3356:22)
+2026-08-04T14:51:01.9400320Z       at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+2026-08-04T14:51:01.9400340Z       at async Connection.readPreloginResponse (/app/node_modules/tedious/src/connection.ts:3354:23)
+2026-08-04T14:51:01.9400358Z       at async Connection.initialiseConnection (/app/node_modules/tedious/src/connection.ts:2083:36) {
+2026-08-04T14:51:01.9400371Z     code: 'ESOCKET',
+2026-08-04T14:51:01.9400392Z     [cause]: ConnectionError: Unable to process incoming packet
+2026-08-04T14:51:01.9400408Z         at processBufferedData (/app/node_modules/tedious/src/incoming-message-stream.ts:53:25)
+2026-08-04T14:51:01.9400425Z         at _transform (/app/node_modules/tedious/src/incoming-message-stream.ts:100:10)
+2026-08-04T14:51:01.9400462Z         at Transform._write (node:internal/streams/transform:171:8)
+2026-08-04T14:51:01.9400477Z         at writeOrBuffer (node:internal/streams/writable:572:12)
+2026-08-04T14:51:01.9400491Z         at _write (node:internal/streams/writable:501:10)
+2026-08-04T14:51:01.9400506Z         at Writable.write (node:internal/streams/writable:510:10)
+2026-08-04T14:51:01.9400521Z         at Socket.ondata (node:internal/streams/readable:1009:22)
+2026-08-04T14:51:01.9400536Z         at Socket.emit (node:events:524:28)
+2026-08-04T14:51:01.9400552Z         at addChunk (node:internal/streams/readable:561:12)
+2026-08-04T14:51:01.9400568Z         at readableAddChunkPushByteMode (node:internal/streams/readable:512:3) {
+2026-08-04T14:51:01.9400581Z       code: undefined
+2026-08-04T14:51:01.9400593Z     }
+2026-08-04T14:51:01.9400605Z   }
+2026-08-04T14:51:01.9400651Z }
+2026-08-04T14:51:01.9401525Z 
+2026-08-04T14:51:01.9401552Z Node.js v20.20.2

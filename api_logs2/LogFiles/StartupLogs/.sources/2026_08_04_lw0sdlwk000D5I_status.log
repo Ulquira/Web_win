@@ -1,0 +1,43 @@
+2026-08-04T14:51:02.7817733Z State: Stopping, Action: UnmountingVolumes, LastError: ContainerStartupFailure, LastErrorTimestamp: 08/04/2026 14:51:02, LastErrorDetails: Container exited with exit code 1 during startup after 12.6s. Please inspect your container logs for more details., Details: Site container: webwin-api-service terminated during site startup. Cancelling site startup., DetailsLevel: ERR
+2026-08-04T14:51:03.0339964Z State: Stopping, Action: StoppingSiteNetworks, LastError: ContainerStartupFailure, LastErrorTimestamp: 08/04/2026 14:51:02, LastErrorDetails: Container exited with exit code 1 during startup after 12.6s. Please inspect your container logs for more details., Details: Site container: webwin-api-service terminated during site startup. Cancelling site startup., DetailsLevel: ERR
+2026-08-04T14:51:03.2972751Z Site: webwin-api-service will be blocked for 1 minutes till 08/04/2026 14:52:03
+2026-08-04T14:51:03.2981301Z State: Blocked, Action: StoppingSiteNetworks, LastError: ContainerStartupFailure, LastErrorTimestamp: 08/04/2026 14:51:02, LastErrorDetails: Container exited with exit code 1 during startup after 12.6s. Please inspect your container logs for more details., Details: Site: webwin-api-service will be blocked for 1 minutes till 08/04/2026 14:52:03, DetailsLevel: WARN
+2026-08-04T14:51:03.2989914Z State: Stopped, Action: None, LastError: ContainerStartupFailure, LastErrorTimestamp: 08/04/2026 14:51:02, LastErrorDetails: Container exited with exit code 1 during startup after 12.6s. Please inspect your container logs for more details., Details: Site stopped at 08/04/2026 14:51:03 (UTC), DetailsLevel: WARN
+2026-08-04T14:51:03.7846348Z State: Stopped, Action: None, LastError: ContainerStartupFailure, LastErrorTimestamp: 08/04/2026 14:51:02, LastErrorDetails: Container exited with exit code 1 during startup after 12.6s. Please inspect your container logs for more details., Details: Site stopped at 08/04/2026 14:51:03 (UTC), DetailsLevel: WARN
+2026-08-04T14:52:03.2919232Z Site: webwin-api-service is unblocked.
+2026-08-04T14:52:24.9188741Z State: Starting, Action: EstablishingSiteNetworks, LastError: ContainerStartupFailure, LastErrorTimestamp: 08/04/2026 14:51:02, LastErrorDetails: Container exited with exit code 1 during startup after 12.6s. Please inspect your container logs for more details., Details: Site stopped at 08/04/2026 14:51:03 (UTC), DetailsLevel: WARN
+2026-08-04T14:52:28.1671915Z State: Starting, Action: StartingSiteContainers, LastError: ContainerStartupFailure, LastErrorTimestamp: 08/04/2026 14:51:02, LastErrorDetails: Container exited with exit code 1 during startup after 12.6s. Please inspect your container logs for more details., Details: Site stopped at 08/04/2026 14:51:03 (UTC), DetailsLevel: WARN
+2026-08-04T14:52:28.2050304Z Container start method called.
+2026-08-04T14:52:28.2051802Z State: Starting, Action: PullingImage, LastError: ContainerStartupFailure, LastErrorTimestamp: 08/04/2026 14:51:02, LastErrorDetails: Container exited with exit code 1 during startup after 12.6s. Please inspect your container logs for more details., Details: Pulling image webwinacr.azurecr.io/webwin-api:latest for webwin-api-service., DetailsLevel: INFO
+2026-08-04T14:52:28.2053365Z Establishing network.
+2026-08-04T14:52:28.2054164Z Pulling image: webwinacr.azurecr.io/webwin-api:latest.
+2026-08-04T14:52:29.3222237Z Container is starting.
+2026-08-04T14:52:29.3400706Z State: Starting, Action: MountingVolumes, LastError: ContainerStartupFailure, LastErrorTimestamp: 08/04/2026 14:51:02, LastErrorDetails: Container exited with exit code 1 during startup after 12.6s. Please inspect your container logs for more details., Details: Mounting volumes for webwin-api-service., DetailsLevel: INFO
+2026-08-04T14:52:29.3403159Z Establishing user namespace if not established already.
+2026-08-04T14:52:29.3403993Z Establishing network if not established already.
+2026-08-04T14:52:29.3404796Z Mounting volumes.
+2026-08-04T14:52:29.3405994Z Nested mountpoint volatile/logs
+2026-08-04T14:52:29.4300631Z Nested mountpoint 
+2026-08-04T14:52:29.4326432Z Nested mountpoint 
+2026-08-04T14:52:29.6746496Z State: Starting, Action: CreatingContainer, LastError: ContainerStartupFailure, LastErrorTimestamp: 08/04/2026 14:51:02, LastErrorDetails: Container exited with exit code 1 during startup after 12.6s. Please inspect your container logs for more details., Details: Finished pulling container image and mounting volumes for webwin-api-service. Allocatinng the rest of the container resources to finish container creation., DetailsLevel: INFO
+2026-08-04T14:52:29.6748356Z Creating container.
+2026-08-04T14:52:29.6749219Z Creating pipes for streaming container io.
+2026-08-04T14:52:29.6749858Z Creating stdout named pipe at /podr/container/pipe/3a0ce2fdbdfc_webwin-api-service/stdout_6737fdb8701e40eea963d9aa62da8cda.
+2026-08-04T14:52:29.7728133Z Successfully created stdout named pipe at: /podr/container/pipe/3a0ce2fdbdfc_webwin-api-service/stdout_6737fdb8701e40eea963d9aa62da8cda.
+2026-08-04T14:52:29.7736832Z Opening named pipe /podr/container/pipe/3a0ce2fdbdfc_webwin-api-service/stdout_6737fdb8701e40eea963d9aa62da8cda for reading in non-blocking mode.
+2026-08-04T14:52:29.7743202Z Successfully opened named pipe: /podr/container/pipe/3a0ce2fdbdfc_webwin-api-service/stdout_6737fdb8701e40eea963d9aa62da8cda.
+2026-08-04T14:52:29.7748484Z Successfully removed non-blocking flag from /podr/container/pipe/3a0ce2fdbdfc_webwin-api-service/stdout_6737fdb8701e40eea963d9aa62da8cda.
+2026-08-04T14:52:29.8050380Z Creating stderr named pipe at /podr/container/pipe/3a0ce2fdbdfc_webwin-api-service/stderr_29296d01aac14483880909e7719a967d.
+2026-08-04T14:52:29.8140501Z Successfully created stderr named pipe at: /podr/container/pipe/3a0ce2fdbdfc_webwin-api-service/stderr_29296d01aac14483880909e7719a967d.
+2026-08-04T14:52:29.8142398Z Opening named pipe /podr/container/pipe/3a0ce2fdbdfc_webwin-api-service/stderr_29296d01aac14483880909e7719a967d for reading in non-blocking mode.
+2026-08-04T14:52:29.8143542Z Successfully opened named pipe: /podr/container/pipe/3a0ce2fdbdfc_webwin-api-service/stderr_29296d01aac14483880909e7719a967d.
+2026-08-04T14:52:29.8148959Z Successfully removed non-blocking flag from /podr/container/pipe/3a0ce2fdbdfc_webwin-api-service/stderr_29296d01aac14483880909e7719a967d.
+2026-08-04T14:52:29.8245743Z Creating container with image: webwinacr.azurecr.io/webwin-api:latest from registry: webwinacr.azurecr.io and fully qualified image name: webwinacr.azurecr.io/webwin-api:latest
+2026-08-04T14:52:32.3685876Z Starting container: 3a0ce2fdbdfc_webwin-api-service.
+2026-08-04T14:52:32.6008991Z Starting watchers and probes.
+2026-08-04T14:52:32.6103024Z Starting metrics collection.
+2026-08-04T14:52:32.6190523Z Container is running.
+2026-08-04T14:52:32.6196919Z State: Starting, Action: CreatingContainer, LastError: ContainerStartupFailure, LastErrorTimestamp: 08/04/2026 14:51:02, LastErrorDetails: Container exited with exit code 1 during startup after 12.6s. Please inspect your container logs for more details., Details: Container webwin-api-service successfully created and is running., DetailsLevel: INFO
+2026-08-04T14:52:32.7410966Z Container start method finished after 4535 ms.
+2026-08-04T14:52:32.7412710Z State: Starting, Action: InitiatingSiteWarmUpProbe, LastError: ContainerStartupFailure, LastErrorTimestamp: 08/04/2026 14:51:02, LastErrorDetails: Container exited with exit code 1 during startup after 12.6s. Please inspect your container logs for more details., Details: Container webwin-api-service successfully created and is running., DetailsLevel: INFO
+2026-08-04T14:52:32.7413179Z State: Starting, Action: WaitingForSiteWarmUpProbeSuccess, LastError: ContainerStartupFailure, LastErrorTimestamp: 08/04/2026 14:51:02, LastErrorDetails: Container exited with exit code 1 during startup after 12.6s. Please inspect your container logs for more details., Details: Pinging warmup path to ensure container is ready to receive requests., DetailsLevel: INFO

@@ -1,0 +1,1 @@
+import fs from 'fs'; import pdf from 'pdf-parse/lib/pdf-parse.js'; const dataBuffer = fs.readFileSync('C:\\Users\\tonny\\OneDrive - WI-NET TELECOM\\Escritorio\\Web_win\\MI WIN APP MANUAL UI (1).pdf'); pdf(dataBuffer).then(function(data) { console.log(data.text); });

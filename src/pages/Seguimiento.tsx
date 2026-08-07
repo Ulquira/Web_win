@@ -498,19 +498,21 @@ return (
  const extractTechnicianName = (nombre?: string, cuadrilla?: string) => {
    const normalize = (text: string) => toTitleCase(text.replace(/\s+/g, ' ').trim());
 
-   const extractFromString = (text?: string) => {
+   const extractAfterSgi = (text?: string) => {
      if (!text) return null;
-     const match = text.match(/SGI\s+(.+)$/i);
-     if (match && match[1]?.trim()) {
-       return normalize(match[1]);
+     const match = text.match(/\bSGI\b\s+([^\s]+)(?:\s+([^\s]+))?/i);
+     if (match && match[1]) {
+       const first = match[1];
+       const second = match[2];
+       return normalize(`${first}${second ? ' ' + second : ''}`);
      }
      return null;
    };
 
-   const fromNombre = extractFromString(nombre);
+   const fromNombre = extractAfterSgi(nombre);
    if (fromNombre) return fromNombre;
 
-   const fromCuadrilla = extractFromString(cuadrilla);
+   const fromCuadrilla = extractAfterSgi(cuadrilla);
    if (fromCuadrilla) return fromCuadrilla;
 
    if (nombre && nombre.trim()) {
@@ -1202,8 +1204,7 @@ return (
 
  {/* Confirm & Success Modals inside Reprogram flow */}
   <AnimatePresence>
-  {isReprogramModalOpen && reprogramStep 
-=== 'confirm_initial' && (
+  {isReprogramModalOpen && reprogramStep === 'confirm_initial' && (
   <motion.div 
   initial={{ opacity: 0 }}
   animate={{ opacity: 1 }}
@@ -1216,7 +1217,7 @@ return (
   className="bg-white rounded-[20px] p-6 w-[290px] min-h-[350px] flex flex-col items-center text-center shadow-2xl justify-center"
   >
   <img src="/warning.png" alt="Advertencia" className="w-[60px] h-[60px] object-contain mb-5" />
-  <h3 className="text-[20px] font-bold text-[#0F090B] mb-8 leading-tight">{`${String.fromCharCode(191)}Est${String.fromCharCode(225)}s seguro de reprogramar tu visita?`}</h3>
+  <h3 className="text-[20px] font-bold text-[#0F090B] mb-8 leading-tight">¿Estás seguro de reprogramar tu visita?</h3>
   <button 
   onClick={() => setReprogramStep('form')}
   className="w-full bg-[#FF5A0A] text-white font-medium h-[50px] rounded-full text-[18px] mb-3 shadow-[0_4px_8px_rgba(255,90,10,0.24)] active:scale-95 transition-transform"

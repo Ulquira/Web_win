@@ -1,0 +1,95 @@
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%; /* FFFFFF */
+    --foreground: 9 30.4% 4.5%; /* 0F0908 */
+    --card: 0 0% 100%;
+    --card-foreground: 9 30.4% 4.5%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 9 30.4% 4.5%;
+    --primary: 20 100% 52%; /* FF5A0A */
+    --primary-foreground: 0 0% 100%; /* FFFFFF */
+    --primary-light: 20 100% 65%; /* Adjusted lighter orange */
+    --secondary: 46 100% 48%;
+    --secondary-foreground: 9 30.4% 4.5%;
+    --muted: 0 0% 96%;
+    --muted-foreground: 0 0% 40%;
+    --accent: 20 100% 95%; /* Adjusted to match primary hue */
+    --accent-foreground: 20 100% 52%; /* FF5A0A */
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 0 0% 90%;
+    --input: 0 0% 90%;
+    --ring: 20 100% 52%; /* FF5A0A */
+    --radius: 0.5rem;
+  }
+
+  .dark {
+    --background: 9 30.4% 4.5%; /* 0F0908 */
+    --foreground: 0 0% 100%; /* FFFFFF */
+    --card: 9 30.4% 4.5%;
+    --card-foreground: 0 0% 100%;
+    --popover: 9 30.4% 4.5%;
+    --popover-foreground: 0 0% 100%;
+    --primary: 20 100% 52%; /* FF5A0A */
+    --primary-foreground: 0 0% 100%;
+    --primary-light: 20 100% 65%;
+    --secondary: 46 100% 48%;
+    --secondary-foreground: 0 0% 10%;
+    --muted: 0 0% 15%;
+    --muted-foreground: 0 0% 65%;
+    --accent: 0 0% 15%;
+    --accent-foreground: 0 0% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 0 0% 15%;
+    --input: 0 0% 15%;
+    --ring: 20 100% 52%; /* FF5A0A */
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground transition-colors duration-300 font-sans;
+    font-weight: 400; /* Regular fallback */
+  }
+  /* Solo se admiten fuentes homologadas: Helvetica Regular, Helvetica Bold y Corbel Regular */
+  h1, h2, h3, h4, h5, h6, .font-bold {
+    font-family: 'Helvetica', Arial, sans-serif;
+    font-weight: 700 !important; /* Forzar Bold */
+  }
+  p, span, div, .font-normal {
+    font-weight: 400 !important; /* Forzar Regular */
+  }
+  .font-corbel {
+    font-family: 'Corbel', sans-serif;
+    font-weight: 400 !important; /* Corbel solo regular */
+  }
+}
+
+/* Ocultar elementos intrusivos de Leaflet para look Nativo (Uber-style) */
+.leaflet-control-attribution,
+.leaflet-routing-container {
+  display: none !important;
+}
+.leaflet-control-container {
+  display: none !important;
+}
+
+@keyframes flow-line {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+.animated-progress-line {
+  background: linear-gradient(90deg, hsl(var(--primary)) 25%, hsl(var(--secondary)) 50%, hsl(var(--primary)) 75%);
+  background-size: 200% 100%;
+  animation: flow-line 2s linear infinite;
+}

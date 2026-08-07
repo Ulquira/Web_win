@@ -1,0 +1,118 @@
+2026-08-04T14:36:25.1989752Z ◇ injected env (0) from .env // tip: ◈ secrets for agents [www.dotenvx.com]
+2026-08-04T14:36:25.6402763Z ◇ injected env (0) from .env // tip: ◈ encrypted .env [www.dotenvx.com]
+2026-08-04T14:36:25.6506948Z ◇ injected env (0) from .env // tip: ⌁ auth for agents [www.vestauth.com]
+2026-08-04T14:36:25.6699194Z ◇ injected env (0) from .env // tip: ◈ encrypted .env [www.dotenvx.com]
+2026-08-04T14:36:25.7410142Z (node:29) [DEP0118] DeprecationWarning: The provided hostname "" is not a valid hostname, and is supported in the dns module solely for compatibility.
+2026-08-04T14:36:25.7410837Z (Use `node --trace-deprecation ...` to show where the warning was created)
+2026-08-04T14:36:25.7790395Z 🚀 Servidor API corriendo en http://0.0.0.0:3001
+2026-08-04T14:36:26.2492800Z Error al conectar con la base de datos de Azure SQL:  ConnectionError: Failed to connect to :1433 - Could not connect (sequence)
+2026-08-04T14:36:26.2495808Z     at /app/node_modules/mssql/lib/tedious/connection-pool.js:86:17
+2026-08-04T14:36:26.2495845Z     at err (/app/node_modules/tedious/src/connection.ts:1823:9)
+2026-08-04T14:36:26.2495867Z     at Object.onceWrapper (node:events:639:26)
+2026-08-04T14:36:26.2496017Z     at Connection.emit (node:events:524:28)
+2026-08-04T14:36:26.2496056Z     at emit (/app/node_modules/tedious/src/connection.ts:1985:18)
+2026-08-04T14:36:26.2496077Z     at <anonymous> (/app/node_modules/tedious/src/connection.ts:1845:14)
+2026-08-04T14:36:26.2496097Z     at process.processTicksAndRejections (node:internal/process/task_queues:77:11) {
+2026-08-04T14:36:26.2496116Z   code: 'ESOCKET',
+2026-08-04T14:36:26.2496152Z   originalError: ConnectionError: Failed to connect to :1433 - Could not connect (sequence)
+2026-08-04T14:36:26.2496197Z       at wrapSocketError (/app/node_modules/tedious/src/connection.ts:2400:14)
+2026-08-04T14:36:26.2496220Z       at Connection.initialiseConnection (/app/node_modules/tedious/src/connection.ts:2044:20)
+2026-08-04T14:36:26.2496240Z       at process.processTicksAndRejections (node:internal/process/task_queues:95:5) {
+2026-08-04T14:36:26.2496257Z     code: 'ESOCKET',
+2026-08-04T14:36:26.2496276Z     [cause]: AggregateError: Could not connect (sequence)
+2026-08-04T14:36:26.2496297Z         at connectInSequence (/app/node_modules/tedious/src/connector.ts:138:9)
+2026-08-04T14:36:26.2496339Z         at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+2026-08-04T14:36:26.2496364Z         at async Connection.connectOnPort (/app/node_modules/tedious/src/connection.ts:2246:18)
+2026-08-04T14:36:26.2496385Z         at async Connection.initialiseConnection (/app/node_modules/tedious/src/connection.ts:2040:18) {
+2026-08-04T14:36:26.2496403Z       [errors]: []
+2026-08-04T14:36:26.2496419Z     }
+2026-08-04T14:36:26.2496436Z   }
+2026-08-04T14:36:26.2496452Z }
+2026-08-04T14:36:26.3415177Z node:internal/process/promises:391
+2026-08-04T14:36:26.3415741Z     triggerUncaughtException(err, true /* fromPromise */);
+2026-08-04T14:36:26.3415768Z     ^
+2026-08-04T14:36:26.3415798Z 
+2026-08-04T14:36:26.3415823Z ConnectionError: Failed to connect to :1433 - Could not connect (sequence)
+2026-08-04T14:36:26.3415843Z     at /app/node_modules/mssql/lib/tedious/connection-pool.js:86:17
+2026-08-04T14:36:26.3415873Z     at err (/app/node_modules/tedious/src/connection.ts:1823:9)
+2026-08-04T14:36:26.3416036Z     at Object.onceWrapper (node:events:639:26)
+2026-08-04T14:36:26.3416056Z     at Connection.emit (node:events:524:28)
+2026-08-04T14:36:26.3416076Z     at emit (/app/node_modules/tedious/src/connection.ts:1985:18)
+2026-08-04T14:36:26.3416097Z     at <anonymous> (/app/node_modules/tedious/src/connection.ts:1845:14)
+2026-08-04T14:36:26.3416117Z     at process.processTicksAndRejections (node:internal/process/task_queues:77:11) {
+2026-08-04T14:36:26.3416134Z   code: 'ESOCKET',
+2026-08-04T14:36:26.3416155Z   originalError: ConnectionError: Failed to connect to :1433 - Could not connect (sequence)
+2026-08-04T14:36:26.3416209Z       at wrapSocketError (/app/node_modules/tedious/src/connection.ts:2400:14)
+2026-08-04T14:36:26.3416232Z       at Connection.initialiseConnection (/app/node_modules/tedious/src/connection.ts:2044:20)
+2026-08-04T14:36:26.3416252Z       at process.processTicksAndRejections (node:internal/process/task_queues:95:5) {
+2026-08-04T14:36:26.3416271Z     code: 'ESOCKET',
+2026-08-04T14:36:26.3416290Z     [cause]: AggregateError: Could not connect (sequence)
+2026-08-04T14:36:26.3416310Z         at connectInSequence (/app/node_modules/tedious/src/connector.ts:138:9)
+2026-08-04T14:36:26.3416330Z         at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+2026-08-04T14:36:26.3416374Z         at async Connection.connectOnPort (/app/node_modules/tedious/src/connection.ts:2246:18)
+2026-08-04T14:36:26.3416396Z         at async Connection.initialiseConnection (/app/node_modules/tedious/src/connection.ts:2040:18) {
+2026-08-04T14:36:26.3416414Z       [errors]: []
+2026-08-04T14:36:26.3416435Z     }
+2026-08-04T14:36:26.3416452Z   }
+2026-08-04T14:36:26.3416468Z }
+2026-08-04T14:36:26.3599949Z 
+2026-08-04T14:36:26.3600345Z Node.js v20.20.2
+2026-08-04T14:37:08.0085693Z ◇ injected env (0) from .env // tip: ⌘ multiple files { path: ['.env.local', '.env'] }
+2026-08-04T14:37:08.1170272Z ◇ injected env (0) from .env // tip: ⌘ enable debugging { debug: true }
+2026-08-04T14:37:08.1186432Z ◇ injected env (0) from .env // tip: ◈ secrets for agents [www.dotenvx.com]
+2026-08-04T14:37:08.1395162Z ◇ injected env (0) from .env // tip: ⌘ multiple files { path: ['.env.local', '.env'] }
+2026-08-04T14:37:08.1788810Z (node:29) [DEP0118] DeprecationWarning: The provided hostname "" is not a valid hostname, and is supported in the dns module solely for compatibility.
+2026-08-04T14:37:08.1789347Z (Use `node --trace-deprecation ...` to show where the warning was created)
+2026-08-04T14:37:08.1895946Z 🚀 Servidor API corriendo en http://0.0.0.0:3001
+2026-08-04T14:37:08.3877772Z Error al conectar con la base de datos de Azure SQL:  ConnectionError: Failed to connect to :1433 - Could not connect (sequence)
+2026-08-04T14:37:08.3878372Z     at /app/node_modules/mssql/lib/tedious/connection-pool.js:86:17
+2026-08-04T14:37:08.3878398Z     at err (/app/node_modules/tedious/src/connection.ts:1823:9)
+2026-08-04T14:37:08.3878413Z     at Object.onceWrapper (node:events:639:26)
+2026-08-04T14:37:08.3878429Z     at Connection.emit (node:events:524:28)
+2026-08-04T14:37:08.3878449Z     at emit (/app/node_modules/tedious/src/connection.ts:1985:18)
+2026-08-04T14:37:08.3878467Z     at <anonymous> (/app/node_modules/tedious/src/connection.ts:1845:14)
+2026-08-04T14:37:08.3878483Z     at process.processTicksAndRejections (node:internal/process/task_queues:77:11) {
+2026-08-04T14:37:08.3878498Z   code: 'ESOCKET',
+2026-08-04T14:37:08.3878622Z   originalError: ConnectionError: Failed to connect to :1433 - Could not connect (sequence)
+2026-08-04T14:37:08.3878640Z       at wrapSocketError (/app/node_modules/tedious/src/connection.ts:2400:14)
+2026-08-04T14:37:08.3878657Z       at Connection.initialiseConnection (/app/node_modules/tedious/src/connection.ts:2044:20)
+2026-08-04T14:37:08.3878674Z       at process.processTicksAndRejections (node:internal/process/task_queues:95:5) {
+2026-08-04T14:37:08.3878690Z     code: 'ESOCKET',
+2026-08-04T14:37:08.3878705Z     [cause]: AggregateError: Could not connect (sequence)
+2026-08-04T14:37:08.3878721Z         at connectInSequence (/app/node_modules/tedious/src/connector.ts:138:9)
+2026-08-04T14:37:08.3878737Z         at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+2026-08-04T14:37:08.3878755Z         at async Connection.connectOnPort (/app/node_modules/tedious/src/connection.ts:2246:18)
+2026-08-04T14:37:08.3878773Z         at async Connection.initialiseConnection (/app/node_modules/tedious/src/connection.ts:2040:18) {
+2026-08-04T14:37:08.3878786Z       [errors]: []
+2026-08-04T14:37:08.3878799Z     }
+2026-08-04T14:37:08.3878829Z   }
+2026-08-04T14:37:08.3878842Z }
+2026-08-04T14:37:08.4403404Z node:internal/process/promises:391
+2026-08-04T14:37:08.4403678Z     triggerUncaughtException(err, true /* fromPromise */);
+2026-08-04T14:37:08.4403695Z     ^
+2026-08-04T14:37:08.4403709Z 
+2026-08-04T14:37:08.4403728Z ConnectionError: Failed to connect to :1433 - Could not connect (sequence)
+2026-08-04T14:37:08.4403752Z     at /app/node_modules/mssql/lib/tedious/connection-pool.js:86:17
+2026-08-04T14:37:08.4403772Z     at err (/app/node_modules/tedious/src/connection.ts:1823:9)
+2026-08-04T14:37:08.4403789Z     at Object.onceWrapper (node:events:639:26)
+2026-08-04T14:37:08.4403805Z     at Connection.emit (node:events:524:28)
+2026-08-04T14:37:08.4403820Z     at emit (/app/node_modules/tedious/src/connection.ts:1985:18)
+2026-08-04T14:37:08.4403836Z     at <anonymous> (/app/node_modules/tedious/src/connection.ts:1845:14)
+2026-08-04T14:37:08.4403938Z     at process.processTicksAndRejections (node:internal/process/task_queues:77:11) {
+2026-08-04T14:37:08.4403954Z   code: 'ESOCKET',
+2026-08-04T14:37:08.4403970Z   originalError: ConnectionError: Failed to connect to :1433 - Could not connect (sequence)
+2026-08-04T14:37:08.4403986Z       at wrapSocketError (/app/node_modules/tedious/src/connection.ts:2400:14)
+2026-08-04T14:37:08.4404004Z       at Connection.initialiseConnection (/app/node_modules/tedious/src/connection.ts:2044:20)
+2026-08-04T14:37:08.4404020Z       at process.processTicksAndRejections (node:internal/process/task_queues:95:5) {
+2026-08-04T14:37:08.4404033Z     code: 'ESOCKET',
+2026-08-04T14:37:08.4404049Z     [cause]: AggregateError: Could not connect (sequence)
+2026-08-04T14:37:08.4404065Z         at connectInSequence (/app/node_modules/tedious/src/connector.ts:138:9)
+2026-08-04T14:37:08.4404081Z         at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+2026-08-04T14:37:08.4404098Z         at async Connection.connectOnPort (/app/node_modules/tedious/src/connection.ts:2246:18)
+2026-08-04T14:37:08.4404114Z         at async Connection.initialiseConnection (/app/node_modules/tedious/src/connection.ts:2040:18) {
+2026-08-04T14:37:08.4404148Z       [errors]: []
+2026-08-04T14:37:08.4404162Z     }
+2026-08-04T14:37:08.4404189Z   }
+2026-08-04T14:37:08.4404202Z }
+2026-08-04T14:37:08.4404213Z 
+2026-08-04T14:37:08.4404227Z Node.js v20.20.2
