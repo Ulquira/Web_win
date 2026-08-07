@@ -500,7 +500,8 @@ return (
 
    const extractAfterSgi = (text?: string) => {
      if (!text) return null;
-     const match = text.match(/\bSGI\b\s+([^\s]+)(?:\s+([^\s]+))?/i);
+     // Busca SGI seguido opcionalmente de caracteres no alfanuméricos, luego extrae las siguientes 1 o 2 palabras
+     const match = text.match(/SGI[^\w]*\s+([a-zA-ZÁÉÍÓÚáéíóúÑñ]+)(?:\s+([a-zA-ZÁÉÍÓÚáéíóúÑñ]+))?/i);
      if (match && match[1]) {
        const first = match[1];
        const second = match[2];
@@ -509,19 +510,29 @@ return (
      return null;
    };
 
-   const fromNombre = extractAfterSgi(nombre);
-   if (fromNombre) return fromNombre;
-
+   // Priorizar siempre buscar "SGI" en la cuadrilla primero
    const fromCuadrilla = extractAfterSgi(cuadrilla);
    if (fromCuadrilla) return fromCuadrilla;
 
-   if (nombre && nombre.trim()) {
-     return normalize(nombre);
+   const fromNombre = extractAfterSgi(nombre);
+   if (fromNombre) return fromNombre;
+
+   // Si no hay SGI pero nombre existe y no es el nombre de la contrata (ej. ALFITELL)
+   if (nombre && nombre.trim() && !nombre.toLowerCase().includes('alfitell')) {
+     const words = nombre.trim().split(/\s+/);
+     return normalize(words.slice(0, 2).join(' ')); // Devolver máximo 2 palabras
    }
+
+   // Si cuadrilla existe pero no tiene SGI
    if (cuadrilla && cuadrilla.trim()) {
-     return normalize(cuadrilla);
+     const cleanCuadrilla = cuadrilla.replace(/P\s*\d+/i, '').replace(/ALFITELL/i, '').trim();
+     if (cleanCuadrilla) {
+       const words = cleanCuadrilla.split(/\s+/);
+       return normalize(words.slice(0, 2).join(' '));
+     }
    }
-   return 'Técnico';
+   
+   return 'Técnico Asignado';
  };
  
  const formatAddress = (address?: string) => {
