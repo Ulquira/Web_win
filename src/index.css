@@ -1,3 +1,7 @@
+@font-face { font-family: 'Made Tommy'; src: url('/fonts/MADETOMMY-Light.otf') format('opentype'); font-weight: 300; }
+@font-face { font-family: 'Made Tommy'; src: url('/fonts/MADETOMMY-Regular.otf') format('opentype'); font-weight: 400; }
+@font-face { font-family: 'Made Tommy'; src: url('/fonts/MADETOMMY-Medium.otf') format('opentype'); font-weight: 500; }
+@font-face { font-family: 'Made Tommy'; src: url('/fonts/MADETOMMY-Bold.otf') format('opentype'); font-weight: 700; }
 @font-face { font-family: 'Made Tommy'; src: local('Made Tommy'), local('MADETommy-Regular'); font-weight: 400; }
 @font-face { font-family: 'Made Tommy'; src: local('Made Tommy Medium'), local('MADETommy-Medium'); font-weight: 500; }
 @font-face { font-family: 'Made Tommy'; src: local('Made Tommy Bold'), local('MADETommy-Bold'); font-weight: 700; }
@@ -96,3 +100,4 @@
   background-size: 200% 100%;
   animation: flow-line 2s linear infinite;
 }
+
