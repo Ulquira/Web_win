@@ -520,7 +520,7 @@ return (
    // Si no hay SGI pero nombre existe y no es el nombre de la contrata (ej. ALFITELL)
    if (nombre && nombre.trim()) {
      const n = nombre.toLowerCase();
-     if (!n.includes('alfitell') && !n.includes('sgi') && !n.includes('sga') && !n.includes('m&d')) {
+     if (!n.includes('alfitell') && !n.includes('sgi') && !n.includes('sga') && !n.includes('m&d') && !n.includes('datantenna') && !n.includes('oni') && !n.includes('cobra') && !n.includes('yevizacom') && !n.includes('visual') && !n.includes('tli') && !n.includes('comfica')) {
        const words = nombre.trim().split(/\s+/);
        return normalize(words.slice(0, 2).join(' ')); // Devolver máximo 2 palabras
      }
@@ -529,8 +529,8 @@ return (
    // Si cuadrilla existe pero no tiene SGI
    if (cuadrilla && cuadrilla.trim()) {
      const c = cuadrilla.toLowerCase();
-     if (!c.includes('sgi') && !c.includes('sga') && !c.includes('m&d')) {
-       const cleanCuadrilla = cuadrilla.replace(/P\s*\d+/i, '').replace(/ALFITELL/i, '').trim();
+     if (!c.includes('sgi') && !c.includes('sga') && !c.includes('m&d') && !c.includes('datantenna') && !c.includes('oni') && !c.includes('cobra') && !c.includes('yevizacom') && !c.includes('visual') && !c.includes('tli') && !c.includes('comfica')) {
+       const cleanCuadrilla = cuadrilla.replace(/P\s*\d+/i, '').replace(/K\s*\d+/i, '').replace(/ALFITELL/i, '').trim();
        if (cleanCuadrilla) {
          const words = cleanCuadrilla.split(/\s+/);
          return normalize(words.slice(0, 2).join(' '));
