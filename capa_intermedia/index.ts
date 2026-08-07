@@ -131,7 +131,7 @@ app.get('/api/v1/terceros/instalaciones/:token', verificarTercero, async (req, r
       tipo: isTicket ? 'ticket' : 'instalacion'
     };
 
-    const cuadrillaData = op.Cuadrilla || op.Proveedeor;
+    const cuadrillaData = op.Cuadrilla;
     if (cuadrillaData) {
       let nombreLimpio = cuadrillaData;
       // Extraemos todo lo que está después de SGI
@@ -147,7 +147,7 @@ app.get('/api/v1/terceros/instalaciones/:token', verificarTercero, async (req, r
 
       responseData.tecnico = {
         nombre: nombreLimpio || 'Técnico Asignado',
-        cuadrilla: op.Cuadrilla || op.Proveedeor,
+        cuadrilla: op.Cuadrilla,
         telefono: op.telefono || 'Central'
       };
     }
