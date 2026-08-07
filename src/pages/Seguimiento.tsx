@@ -495,6 +495,13 @@ return (
    return text.toLowerCase().replace(/(?:^|\s)\S/g, (a) => a.toUpperCase());
  };
  
+ const extractTechnicianName = (nombre?: string, cuadrilla?: string) => {
+    if (nombre && nombre.trim() && nombre !== "Técnico Asignado") {
+      return toTitleCase(nombre.trim());
+    }
+    return "Técnico Asignado";
+  };;
+ 
  const formatAddress = (address?: string) => {
    if (!address) return 'Cargando...';
    // Limpiar campos vacíos al final como "DPTO/INTERIOR -"
@@ -952,7 +959,7 @@ return (
  </div>
  <div className="flex-1">
  <p className="font-bold text-gray-900 text-[14px] leading-tight mb-0.5">
- {toTitleCase(tecnico.nombre)}
+ {extractTechnicianName(tecnico.nombre, tecnico.cuadrilla)}
  </p>
  <div className="flex items-center gap-1 mt-0.5">
  <Star className="w-3 h-3 text-primary fill-primary" />
