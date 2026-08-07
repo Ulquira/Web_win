@@ -62,7 +62,7 @@
   }
   /* Solo se admiten fuentes homologadas: Helvetica Regular, Helvetica Bold y Corbel Regular */
   h1, h2, h3, h4, h5, h6, .font-bold {
-    font-family: 'Helvetica', Arial, sans-serif;
+    font-family: 'Made Tommy', Helvetica, Arial, sans-serif;
     font-weight: 700 !important; /* Forzar Bold */
   }
   p, span, div, .font-normal {
