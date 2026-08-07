@@ -594,7 +594,7 @@ return (
  
  {/* Top Banner Orange (Always visible if no map) */}
  {status !== 'en_camino' && (
- <div className="bg-primary w-full pt-10 pb-5 px-6 text-white shrink-0 relative z-30 shadow-sm flex flex-col justify-center">
+ <div className="bg-primary w-full py-6 px-6 text-white shrink-0 relative z-30 shadow-sm flex flex-col justify-center">
  <div className="flex justify-between items-center w-full">
  <div className="flex flex-col items-start gap-0.5">
  <MainLogo white className="h-8 sm:h-10" />
