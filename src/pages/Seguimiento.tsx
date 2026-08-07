@@ -495,13 +495,31 @@ return (
    return text.toLowerCase().replace(/(?:^|\s)\S/g, (a) => a.toUpperCase());
  };
  
- const extractTechnicianName = (nombre?: string) => {
-   if (!nombre) return 'Técnico';
-   const match = nombre.match(/SGI\s+(.+)$/i);
-   if (match && match[1]?.trim()) {
-     return toTitleCase(match[1].trim());
+ const extractTechnicianName = (nombre?: string, cuadrilla?: string) => {
+   const normalize = (text: string) => toTitleCase(text.replace(/\s+/g, ' ').trim());
+
+   const extractFromString = (text?: string) => {
+     if (!text) return null;
+     const match = text.match(/SGI\s+(.+)$/i);
+     if (match && match[1]?.trim()) {
+       return normalize(match[1]);
+     }
+     return null;
+   };
+
+   const fromNombre = extractFromString(nombre);
+   if (fromNombre) return fromNombre;
+
+   const fromCuadrilla = extractFromString(cuadrilla);
+   if (fromCuadrilla) return fromCuadrilla;
+
+   if (nombre && nombre.trim()) {
+     return normalize(nombre);
    }
-   return toTitleCase(nombre.trim());
+   if (cuadrilla && cuadrilla.trim()) {
+     return normalize(cuadrilla);
+   }
+   return 'Técnico';
  };
  
  const formatAddress = (address?: string) => {
@@ -961,7 +979,7 @@ return (
  </div>
  <div className="flex-1">
  <p className="font-bold text-gray-900 text-[14px] leading-tight mb-0.5">
- {extractTechnicianName(tecnico.nombre)}
+ {extractTechnicianName(tecnico.nombre, tecnico.cuadrilla)}
  </p>
  <div className="flex items-center gap-1 mt-0.5">
  <Star className="w-3 h-3 text-primary fill-primary" />
