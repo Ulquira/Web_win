@@ -1189,7 +1189,7 @@ return (
   className="bg-white rounded-[20px] p-6 w-[290px] min-h-[350px] flex flex-col items-center text-center shadow-2xl justify-center"
   >
   <img src="/warning.png" alt="Advertencia" className="w-[60px] h-[60px] object-contain mb-5" />
-  <h3 className="text-[20px] font-bold text-[#0F090B] mb-8 leading-tight">�%Estás seguro de reprogramar tu visita?</h3>
+  <h3 className="text-[20px] font-bold text-[#0F090B] mb-8 leading-tight">{`${String.fromCharCode(191)}Est${String.fromCharCode(225)}s seguro de reprogramar tu visita?`}</h3>
   <button 
   onClick={() => setReprogramStep('form')}
   className="w-full bg-[#FF5A0A] text-white font-medium h-[50px] rounded-full text-[18px] mb-3 shadow-[0_4px_8px_rgba(255,90,10,0.24)] active:scale-95 transition-transform"
