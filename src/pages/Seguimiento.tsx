@@ -594,22 +594,25 @@ return (
  
  {/* Top Banner Orange (Always visible if no map) */}
  {status !== 'en_camino' && (
- <div className="bg-primary w-full pt-8 pb-3 px-6 text-white shrink-0 relative z-30 shadow-sm">
- <div className="flex justify-between items-start mb-0">
- <div className="flex items-center">
- <MainLogo white className="h-12 sm:h-14 -ml-2" />
+ <div className="bg-primary w-full pt-10 pb-5 px-6 text-white shrink-0 relative z-30 shadow-sm flex flex-col justify-center">
+ <div className="flex justify-between items-center w-full">
+ <div className="flex flex-col items-start gap-0.5">
+ <MainLogo white className="h-8 sm:h-10" />
+ <h1 className="text-[20px] font-bold tracking-tight leading-tight mt-1">
+   {data?.cliente_nombre ? `Hola, ${data.cliente_nombre.split(' ')[0].toUpperCase()}` : 'Detalle de visita'}
+ </h1>
  </div>
- <div className="relative mt-3">
+ <div className="relative">
  <button 
  onClick={() => {
  setShowNotifications(!showNotifications);
  setNotifications(prev => prev.map(n => ({...n, read: true})));
  }} 
- className="relative p-1 hover:bg-white/10 rounded-full transition-colors"
+ className="relative p-2 hover:bg-white/10 rounded-full transition-colors"
  >
  <Bell className="w-6 h-6 text-white fill-white" />
  {notifications.some(n => !n.read) && (
- <div className="absolute top-1 right-1 w-2.5 h-2.5 bg-yellow-400 rounded-full border-2 border-primary"></div>
+ <div className="absolute top-2 right-2 w-2.5 h-2.5 bg-yellow-400 rounded-full border-2 border-primary"></div>
  )}
  </button>
  
@@ -643,9 +646,6 @@ return (
  </AnimatePresence>
  </div>
  </div>
- <h1 className="text-xl font-bold mt-0">
- {data?.cliente_nombre ? `Hola, ${data.cliente_nombre.split(' ')[0].toUpperCase()}` : 'Detalle de visita'}
- </h1>
  </div>
  )}
 
@@ -887,19 +887,20 @@ return (
            </div>
          )}
          
-         {/* Burbujas Secundarias: SVAs (Con Scroll Horizontal) */}
-         {parsedPlan.svas.length > 0 && (
-           <div className="mt-4 overflow-hidden -mx-5 px-5">
-             <p className="text-[12px] text-gray-500 font-semibold mb-2 ml-1">Servicios Adicionales</p>
-             <div className="flex overflow-x-auto gap-2 pb-3" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
-               <style>{`
-                 .flex.overflow-x-auto::-webkit-scrollbar { display: none; }
-               `}</style>
-               {parsedPlan.svas.map((sva, idx) => (
-                 <span key={idx} className="bg-gray-50 border border-gray-200 text-gray-700 px-4 py-2 rounded-xl text-[13px] font-semibold flex items-center shadow-sm whitespace-nowrap shrink-0">
-                   <span className="w-2 h-2 rounded-full bg-yellow-400 mr-2"></span>
-                   {toTitleCase(sva)}
-                 </span>
+{/* Burbujas Secundarias: SVAs (Lista Vertical Homologada) */}
+          {parsedPlan.svas.length > 0 && (
+            <div className="mt-3 bg-[#f2f2f2] rounded-2xl p-4 border border-[#e8e7e8]">
+              <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-3">
+                Servicios Adicionales
+              </p>
+              <div className="flex flex-col gap-2.5">
+                {parsedPlan.svas.map((sva, idx) => (
+                  <div key={idx} className="flex items-center gap-2">
+                    <div className="w-1.5 h-1.5 rounded-full bg-[#FF5A0A] shrink-0"></div>
+                    <span className="text-[14px] font-medium text-gray-800 leading-tight">
+                      {toTitleCase(sva)}
+                    </span>
+                  </div>
                ))}
              </div>
            </div>
