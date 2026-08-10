@@ -44,7 +44,7 @@ app.get('/api/v1/terceros/instalaciones/:token', verificarTercero, async (req, r
          Cuadrilla_nombre,
          Proveedeor, 
          Georeferencia AS coordenadas_direccion, 
-         NULL AS Ubi_TEC, 
+         Georeferencia_tecnico AS Ubi_TEC, 
          TeleMovilNume AS telefono, 
          DATE(\`F.Soli\`) AS fecha_programacion, 
          TIME(\`F.Soli\`) AS Tramo_Atencio, 
