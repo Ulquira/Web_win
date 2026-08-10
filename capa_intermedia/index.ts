@@ -92,12 +92,24 @@ app.get('/api/v1/terceros/instalaciones/:token', verificarTercero, async (req, r
 
     try {
       if (op.coordenadas_direccion) {
-        const parts = op.coordenadas_direccion.split(',');
-        if (parts.length === 2) coordsCliente = [parseFloat(parts[0]), parseFloat(parts[1])];
+        const str = op.coordenadas_direccion.replace(/\s/g, '');
+        const match = str.match(/(-?\d+\.\d+)(-?\d+\.\d+)/);
+        if (match) {
+          coordsCliente = [parseFloat(match[1]), parseFloat(match[2])];
+        } else {
+          const parts = str.split(',');
+          if (parts.length === 2) coordsCliente = [parseFloat(parts[0]), parseFloat(parts[1])];
+        }
       }
       if (op.Ubi_TEC) {
-        const parts = op.Ubi_TEC.split(',');
-        if (parts.length === 2) coordsTecnico = [parseFloat(parts[0]), parseFloat(parts[1])];
+        const str = op.Ubi_TEC.replace(/\s/g, '');
+        const match = str.match(/(-?\d+\.\d+)(-?\d+\.\d+)/);
+        if (match) {
+          coordsTecnico = [parseFloat(match[1]), parseFloat(match[2])];
+        } else {
+          const parts = str.split(',');
+          if (parts.length === 2) coordsTecnico = [parseFloat(parts[0]), parseFloat(parts[1])];
+        }
       }
     } catch(e) {}
 
