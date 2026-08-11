@@ -1181,9 +1181,9 @@ return (
   <div className="w-[60px] h-[60px] bg-white border-2 border-[#FF5A0A] rounded-full flex items-center justify-center mb-5">
   <Check className="w-[30px] h-[30px] text-[#FF5A0A]" strokeWidth={2.5} />
   </div>
-  <h3 className="text-[18px] font-bold text-[#0F090B] mb-3 leading-tight">Visita reprogramada</h3>
+  <h3 className="text-[20px] font-bold text-[#0F090B] mb-8 leading-tight">Visita reprogramada</h3>
   <p className="text-[14px] text-[#8e8e8e] mb-8 font-normal leading-snug">
-  Tu nueva visita ha sido confirmada. Revisa todos los detalles desde el historial de solicitudes.
+  Tu solicitud de reprogramación se ha enviado con éxito.
   </p>
   <button 
   onClick={() => {
