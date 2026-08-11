@@ -9,7 +9,6 @@ import { es } from "date-fns/locale";
 import { motion, AnimatePresence } from "framer-motion";
 import { MainLogo } from "@/components/MainLogo";
 import { trackEvent } from "@/lib/firebaseConfig";
-import { useInstalacion } from "@/hooks/useSeguimientoData";
 import TrackingMap from "@/components/seguimiento/TrackingMap";
 
 const parseSafeDate = (dateStr?: string) => {
@@ -55,7 +54,7 @@ const Seguimiento = () => {
 
  const [routePoints, setRoutePoints] = useState<[number, number][]>([]);
  const [calculatedEta, setCalculatedEta] = useState<string | null>(null);
- const [calculatedDurationSec, setCalculatedDurationSec] = useState<number>(0);
+ const [, setCalculatedDurationSec] = useState<number>(0);
  // Estado para manejar el tiempo restante actual en segundos
  const [remainingSeconds, setRemainingSeconds] = useState<number | null>(null);
  

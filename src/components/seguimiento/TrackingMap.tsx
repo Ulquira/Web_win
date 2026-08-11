@@ -67,21 +67,24 @@ const TrackingMap: React.FC<TrackingMapProps> = ({
           <Routing 
             start={vehiclePosition} 
             end={position} 
-            onRouteFound={(durationSec, points) => {
-              setCalculatedDurationSec(durationSec);
-              setRoutePoints(points);
-              etaReferenceTimeRef.current = Date.now();
-              setRemainingSeconds(durationSec);
+            onRouteCalculated={(coords: [number, number][], timeInSeconds: number) => {
+              setRoutePoints(coords);
+              setCalculatedDurationSec(timeInSeconds);
+              
+              if (etaReferenceTimeRef.current === null) {
+                setRemainingSeconds(timeInSeconds);
+                etaReferenceTimeRef.current = Date.now();
+              }
             }} 
           />
         )}
         
         {status === 'en_camino' && routePoints.length > 0 ? (
           <AnimatedMarker 
-            position={routePoints[0]} 
-            path={routePoints} 
+            routePoints={routePoints} 
+            durationSeconds={120} 
             icon={vehicleIcon} 
-            duration={20000} 
+            popupText="El técnico está en camino"
           />
         ) : (
           ['asignado', 'en_camino', 'en_proceso'].includes(status) && (
