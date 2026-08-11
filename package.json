@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite --host",
     "build": "tsc -b && vite build",
+    "build:server": "tsc -p tsconfig.server.json",
     "preview": "vite preview",
     "api": "nodemon --exec npx tsx server/index.ts",
     "capa": "nodemon --exec npx tsx capa_intermedia/index.ts",

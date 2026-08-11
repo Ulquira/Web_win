@@ -1,10 +1,27 @@
+# ETAPA 1: Construcción
+FROM node:20-alpine AS builder
+
+WORKDIR /app
+COPY package*.json ./
+# Instalar TODAS las dependencias (necesitamos TypeScript para compilar)
+RUN npm ci
+
+COPY . .
+# Compilar el backend a JS puro en la carpeta dist/
+RUN npm run build:server
+
+# ETAPA 2: Producción (Ultra ligera)
 FROM node:20-alpine
 
 WORKDIR /app
 COPY package*.json ./
-RUN npm install
-COPY . .
+# Instalar solo dependencias de producción (omite typescript, vite, tailwind, etc.)
+RUN npm ci --omit=dev
+
+# Copiar solo el código compilado desde la etapa de construcción
+COPY --from=builder /app/dist ./dist
 
 EXPOSE 3001
 
-CMD ["npx", "tsx", "server/index.ts"]
+# Ejecutar Node directamente sobre el JS compilado (consume menos RAM y CPU)
+CMD ["node", "dist/server/index.js"]
