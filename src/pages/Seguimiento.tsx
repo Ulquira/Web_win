@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 
-import { Phone, CheckCircle2, User, XCircle, Star, Bell, Check, MapPin, AlertTriangle, ArrowLeft, CalendarDays } from "lucide-react";
+import { Phone, CheckCircle2, User, XCircle, Star, Bell, Check, MapPin, AlertTriangle, ArrowLeft, CalendarDays, ChevronDown } from "lucide-react";
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import 'leaflet-routing-machine/dist/leaflet-routing-machine.css';
@@ -243,8 +243,17 @@ const Seguimiento = () => {
  };
 
  const handleEncuestaSubmit = async () => {
- if (!encuesta.instalacion_concretada || !encuesta.satisfaccion_general || !encuesta.facilidad_gestion) {
- alert("Por favor responde las preguntas principales antes de enviar.");
+ if (
+   !encuesta.instalacion_concretada || 
+   !encuesta.tecnico_trato || 
+   !encuesta.tecnico_puntualidad || 
+   !encuesta.tecnico_claridad || 
+   !encuesta.tecnico_orden || 
+   !encuesta.tecnico_efectividad || 
+   !encuesta.satisfaccion_general || 
+   !encuesta.facilidad_gestion
+ ) {
+ alert("Por favor responde todas las preguntas antes de enviar.");
  return;
  }
 
@@ -1111,7 +1120,7 @@ return (
  <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
  <h3 className="font-bold text-[15px] text-gray-900 mb-4">Selecciona el tramo horario</h3>
  <div className="flex flex-wrap gap-2">
- {['08:00 - 12:00', '12:00 - 16:00', '16:00 - 20:00'].map(turno => (
+ {['8am - 12pm', '12pm - 4pm', '4pm - 8pm'].map(turno => (
  <label key={turno} className="flex-[1_1_30%]">
  <input 
  type="radio" 
@@ -1135,11 +1144,11 @@ return (
  <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
  <h3 className="font-bold text-[15px] text-gray-900 mb-4">Motivo de Reprogramación</h3>
  
- <div className="mb-4">
+ <div className="mb-4 relative">
  <select
  value={reprogramData.motivoSeleccionado}
  onChange={(e) => setReprogramData({...reprogramData, motivoSeleccionado: e.target.value})}
- className="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 text-sm text-gray-700 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+ className="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 pr-10 text-sm text-gray-700 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary appearance-none"
  >
  <option value="" disabled>Selecciona un motivo...</option>
  <option value="emergencia_personal">Emergencia personal / familiar</option>
@@ -1149,6 +1158,9 @@ return (
  <option value="olvido">Olvidé la cita original</option>
  <option value="otro">Otro motivo</option>
  </select>
+ <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-4">
+   <ChevronDown className="w-4 h-4 text-gray-400" />
+ </div>
  </div>
 
  <h3 className="font-bold text-[14px] text-gray-900 mb-3">Detalle adicional (Opcional)</h3>
