@@ -3,18 +3,14 @@ import { useParams, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 
 import { Phone, CheckCircle2, User, XCircle, Star, Bell, Check, MapPin, AlertTriangle, ArrowLeft, CalendarDays, ChevronDown } from "lucide-react";
-import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
-import 'leaflet/dist/leaflet.css';
-import 'leaflet-routing-machine/dist/leaflet-routing-machine.css';
-import L from 'leaflet';
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 
-import Routing from "@/components/Routing";
-import AnimatedMarker from "@/components/AnimatedMarker";
 import { motion, AnimatePresence } from "framer-motion";
 import { MainLogo } from "@/components/MainLogo";
 import { trackEvent } from "@/lib/firebaseConfig";
+import { useInstalacion } from "@/hooks/useSeguimientoData";
+import TrackingMap from "@/components/seguimiento/TrackingMap";
 
 const parseSafeDate = (dateStr?: string) => {
   if (!dateStr) return null;
@@ -26,34 +22,6 @@ const parseSafeDate = (dateStr?: string) => {
   const d = new Date(dateStr);
   return isNaN(d.getTime()) ? null : d;
 };
-
-
-delete (L.Icon.Default.prototype as any)._getIconUrl;
-L.Icon.Default.mergeOptions({
- iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
- iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
- shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
-});
-
-const vehicleIcon = L.divIcon({
- className: 'custom-vehicle-icon',
- html: `<div style="background-color: #FF5A0A; border-radius: 50%; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; border: 3px solid white; box-shadow: 0 4px 12px rgba(255, 90, 10, 0.4); transition: transform 0.3s ease;">
- <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2"/><path d="M15 18H9"/><path d="M19 18h2a1 1 0 0 0 1-1v-3.65a1 1 0 0 0-.22-.624l-3.48-4.35A1 1 0 0 0 17.52 8H14"/><circle cx="17" cy="18" r="2"/><circle cx="7" cy="18" r="2"/></svg>
- </div>`,
- iconSize: [44, 44],
- iconAnchor: [22, 22],
- popupAnchor: [0, -22],
-});
-
-const destIcon = L.divIcon({
- className: 'custom-dest-icon',
- html: `<div style="background-color: #111827; border-radius: 50%; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; border: 3px solid white; box-shadow: 0 4px 12px rgba(0,0,0,0.3);">
- <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
- </div>`,
- iconSize: [40, 40],
- iconAnchor: [20, 40],
- popupAnchor: [0, -40],
-});
 
 // Componente para animar elementos al entrar
 export interface InstalacionData {
@@ -545,41 +513,17 @@ return (
  {/* Map Layer (Background) */}
  {status === 'en_camino' && (
  <div className="absolute top-0 left-0 w-full h-full z-0 bg-muted">
- <MapContainer center={position} zoom={15} zoomControl={false} scrollWheelZoom={false} className="h-full w-full">
-    <TileLayer url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png" />
- 
-
- {status === 'en_camino' && (
- <Routing 
- start={vehiclePosition} 
- end={position} 
- onRouteCalculated={(coords, timeInSeconds) => {
- setRoutePoints(coords);
- setCalculatedDurationSec(timeInSeconds);
- 
- // Solo seteamos el tiempo restante si es la primera vez o si la nueva estimación de Google
- // difiere por más de 5 minutos (300 segundos) de lo que nos queda, para evitar resetear el 
- // contador por pequeñas fluctuaciones del GPS.
- if (remainingSeconds === null || Math.abs(remainingSeconds - timeInSeconds) > 300) {
-   setRemainingSeconds(timeInSeconds);
-   etaReferenceTime.current = Date.now();
- }
- }} 
- />
- )}
- {routePoints.length > 0 && status === 'en_camino' ? (
- <AnimatedMarker 
- routePoints={routePoints} 
- durationSeconds={calculatedDurationSec}
- icon={vehicleIcon} 
- popupText="El técnico está en camino" 
- />
- ) : (
- <Marker position={status === 'en_camino' ? vehiclePosition : position} icon={status === 'en_camino' ? vehicleIcon : destIcon}>
-   <Popup>{status === 'en_camino' ? 'El técnico' : 'Tu dirección'}</Popup>
- </Marker>
- )}
- </MapContainer>
+  <TrackingMap 
+    status={status}
+    position={position}
+    vehiclePosition={vehiclePosition}
+    setCalculatedDurationSec={setCalculatedDurationSec}
+    setRoutePoints={setRoutePoints}
+    etaReferenceTimeRef={etaReferenceTime}
+    setRemainingSeconds={setRemainingSeconds}
+    clienteNombre={data.cliente_nombre}
+    routePoints={routePoints}
+  />
 
  {/* Mensaje Referencial superpuesto en el mapa */}
  <div className="absolute bottom-[26vh] left-4 z-[400] bg-white/90 backdrop-blur-sm px-3.5 py-2.5 rounded-xl shadow-md border border-gray-100 max-w-[200px]">
