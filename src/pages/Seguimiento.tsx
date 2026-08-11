@@ -451,17 +451,16 @@ return (
  const statusIndex = ['programada', 'asignado', 'en_camino', 'en_proceso', 'finalizada', 'cerrada'].indexOf(status);
 
  const formatTramoToRange = (tramoStr?: string) => {
-   if (!tramoStr) return '08:00 - 12:00';
-   
-   // Si el string ya tiene el formato de rango (contiene un guion o la palabra " a ") lo dejamos tal cual
-   if (tramoStr.includes('-') || tramoStr.toLowerCase().includes(' a ')) return tramoStr;
+   if (!tramoStr) return '8am - 12pm';
    
    const t = tramoStr.toLowerCase();
-   if (t.includes('8') || t.includes('08')) return '08:00 - 12:00';
-   if (t.includes('12')) return '12:00 - 16:00';
-   if (t.includes('16') || t.includes('4')) return '16:00 - 20:00';
+   if (t.startsWith('08') || t.startsWith('8')) return '8am - 12pm';
+   if (t.startsWith('12')) return '12pm - 4pm';
+   if (t.startsWith('16') || t.startsWith('4')) return '4pm - 8pm';
    
-   return tramoStr; // Por defecto retorna lo que venga si no coincide con los 3 tramos
+   if (tramoStr.includes('-') || tramoStr.toLowerCase().includes(' a ')) return tramoStr;
+   
+   return tramoStr;
  };
 
  const parsePlanData = (campana?: string) => {
@@ -862,7 +861,7 @@ return (
    </div>
    {status !== 'en_camino' && (
      <div className="flex justify-between items-center">
-       <span className="text-gray-500 text-[14px] font-normal">Horario programado</span>
+       <span className="text-gray-500 text-[14px] font-normal">Rango horario</span>
        <span className="font-bold text-gray-900 text-[14px]">
        {formatTramoToRange(data.tramo)}
        </span>
