@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # ETAPA 1: Construcción
 FROM node:20-alpine AS builder
 
@@ -20,6 +21,27 @@ RUN npm ci --omit=dev
 
 # Copiar solo el código compilado desde la etapa de construcción
 COPY --from=builder /app/dist ./dist
+=======
+# Stage 1: Dependencias
+FROM node:20-alpine AS deps
+WORKDIR /app
+COPY package*.json ./
+# Instalamos TODO (incluyendo devDependencies como tsx)
+RUN npm ci
+
+# Stage 2: Producción
+FROM node:20-alpine AS runner
+WORKDIR /app
+
+# Copiamos package.json
+COPY package*.json ./
+# Instalamos SOLO producción, excluyendo dependencias pesadas como playwright
+RUN npm ci --omit=dev && npm install tsx --no-save
+
+# Copiamos solo el backend
+COPY ./server ./server
+COPY ./capa_intermedia ./capa_intermedia
+>>>>>>> c2ceac1216aeb59bbc7711474b2d68c3ef73b270
 
 EXPOSE 3001
 
