@@ -93,6 +93,7 @@ const Seguimiento = () => {
  
  const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
  const [isReprogramModalOpen, setIsReprogramModalOpen] = useState(false);
+ const [isReprogramCompletada, setIsReprogramCompletada] = useState(false);
  const [reprogramStep, setReprogramStep] = useState<'confirm_initial' | 'form' | 'success'>('confirm_initial');
  const [reprogramData, setReprogramData] = useState({ fecha: '', turno: '', motivo: '', motivoSeleccionado: '' });
  const [isSubmittingReprogram, setIsSubmittingReprogram] = useState(false);
@@ -231,7 +232,10 @@ const Seguimiento = () => {
  const result = await response.json();
  if (result.success) {
  trackEvent('reprogramar_solicitud_completada', { token, motivo: reprogramData.motivoSeleccionado });
- setReprogramStep('success');
+ localStorage.setItem(`reprogramacion_completada_${token}`, 'true');
+ setIsReprogramCompletada(true);
+ setIsReprogramModalOpen(false);
+ setReprogramStep('confirm_initial');
  } else {
  alert("Ocurrió un error. Por favor intenta de nuevo más tarde.");
  }
@@ -366,7 +370,12 @@ const Seguimiento = () => {
           fetchedData.status = mappedStatus;
 
           const hasCompletedSurveyLocal = localStorage.getItem(`encuesta_completada_${token}`);
+          const hasCompletedReprogramLocal = localStorage.getItem(`reprogramacion_completada_${token}`);
           
+          if (hasCompletedReprogramLocal === 'true') {
+            setIsReprogramCompletada(true);
+          }
+
           if (hasCompletedSurveyLocal === 'true') {
             fetchedData.status = 'cerrada';
           } else {
@@ -442,6 +451,50 @@ return (
  <Button onClick={() => navigate('/')} className="mt-4 rounded-2xl h-14 px-8 bg-primary hover:bg-primary-light text-white font-bold text-lg">Volver al inicio</Button>
  </div>
  );
+ }
+
+ if (isReprogramCompletada) {
+   return (
+     <div className="min-h-[100dvh] w-full bg-[#f3f4f6] flex flex-col font-sans">
+       {/* Header WIN */}
+       <div className="bg-primary w-full py-6 px-6 text-white shrink-0 relative z-30 shadow-sm flex flex-col justify-center">
+         <div className="flex justify-between items-center w-full">
+           <div className="flex flex-col items-start gap-0.5">
+             <MainLogo white className="h-8 sm:h-10" />
+             <h1 className="text-[20px] font-bold tracking-tight leading-tight mt-1">
+               {data?.cliente_nombre ? `Hola, ${data.cliente_nombre.split(' ')[0].toUpperCase()}` : 'Detalle de visita'}
+             </h1>
+           </div>
+         </div>
+       </div>
+
+       {/* Full Screen Completion Body */}
+       <div className="flex-1 flex items-center justify-center p-6">
+         <motion.div 
+           initial={{ opacity: 0, scale: 0.95, y: 10 }}
+           animate={{ opacity: 1, scale: 1, y: 0 }}
+           className="bg-white rounded-[24px] p-8 w-full max-w-[340px] flex flex-col items-center text-center shadow-[0_4px_20px_rgba(0,0,0,0.08)] border border-gray-100"
+         >
+           <div className="w-16 h-16 bg-[#FFF7ED] border-2 border-[#FF5A0A] rounded-full flex items-center justify-center mb-5 shadow-sm">
+             <Check className="w-8 h-8 text-[#FF5A0A]" strokeWidth={3} />
+           </div>
+           <h2 className="text-[18px] font-bold text-[#0F090B] mb-2 leading-snug">
+             Solicitud de reprogramación enviada
+           </h2>
+           <p className="text-[13px] text-gray-600 font-normal leading-relaxed mb-6">
+             Tu solicitud de reprogramación se ha enviado con éxito.
+           </p>
+           <div className="w-full bg-gray-50 border border-gray-100 rounded-2xl p-4 text-left space-y-1.5">
+             <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wide">Estado de la atención</p>
+             <div className="flex items-center gap-2">
+               <span className="w-2.5 h-2.5 rounded-full bg-[#FF5A0A] animate-pulse"></span>
+               <p className="text-[13px] font-bold text-[#0F090B]">Reprogramación en gestión</p>
+             </div>
+           </div>
+         </motion.div>
+       </div>
+     </div>
+   );
  }
 
  const { status, tecnico, eta, fecha_programacion } = data;
