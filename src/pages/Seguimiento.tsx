@@ -2,14 +2,19 @@ import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 
-import { Phone, CheckCircle2, User, XCircle, Star, Bell, Check, MapPin, AlertTriangle, ArrowLeft, CalendarDays, ChevronDown } from "lucide-react";
+import { Phone, CheckCircle2, User, XCircle, Star, Bell, Check, MapPin, AlertTriangle, ArrowLeft, CalendarDays, ChevronDown, X } from "lucide-react";
+import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
+import 'leaflet/dist/leaflet.css';
+import 'leaflet-routing-machine/dist/leaflet-routing-machine.css';
+import L from 'leaflet';
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 
+import Routing from "@/components/Routing";
+import AnimatedMarker from "@/components/AnimatedMarker";
 import { motion, AnimatePresence } from "framer-motion";
 import { MainLogo } from "@/components/MainLogo";
 import { trackEvent } from "@/lib/firebaseConfig";
-import TrackingMap from "@/components/seguimiento/TrackingMap";
 
 const parseSafeDate = (dateStr?: string) => {
   if (!dateStr) return null;
@@ -21,6 +26,34 @@ const parseSafeDate = (dateStr?: string) => {
   const d = new Date(dateStr);
   return isNaN(d.getTime()) ? null : d;
 };
+
+
+delete (L.Icon.Default.prototype as any)._getIconUrl;
+L.Icon.Default.mergeOptions({
+ iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
+ iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
+ shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
+});
+
+const vehicleIcon = L.divIcon({
+ className: 'custom-vehicle-icon',
+ html: `<div style="background-color: #FF5A0A; border-radius: 50%; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; border: 3px solid white; box-shadow: 0 4px 12px rgba(255, 90, 10, 0.4); transition: transform 0.3s ease;">
+ <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2"/><path d="M15 18H9"/><path d="M19 18h2a1 1 0 0 0 1-1v-3.65a1 1 0 0 0-.22-.624l-3.48-4.35A1 1 0 0 0 17.52 8H14"/><circle cx="17" cy="18" r="2"/><circle cx="7" cy="18" r="2"/></svg>
+ </div>`,
+ iconSize: [44, 44],
+ iconAnchor: [22, 22],
+ popupAnchor: [0, -22],
+});
+
+const destIcon = L.divIcon({
+ className: 'custom-dest-icon',
+ html: `<div style="background-color: #111827; border-radius: 50%; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; border: 3px solid white; box-shadow: 0 4px 12px rgba(0,0,0,0.3);">
+ <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+ </div>`,
+ iconSize: [40, 40],
+ iconAnchor: [20, 40],
+ popupAnchor: [0, -40],
+});
 
 // Componente para animar elementos al entrar
 export interface InstalacionData {
@@ -54,7 +87,7 @@ const Seguimiento = () => {
 
  const [routePoints, setRoutePoints] = useState<[number, number][]>([]);
  const [calculatedEta, setCalculatedEta] = useState<string | null>(null);
- const [, setCalculatedDurationSec] = useState<number>(0);
+ const [calculatedDurationSec, setCalculatedDurationSec] = useState<number>(0);
  // Estado para manejar el tiempo restante actual en segundos
  const [remainingSeconds, setRemainingSeconds] = useState<number | null>(null);
  
@@ -512,17 +545,41 @@ return (
  {/* Map Layer (Background) */}
  {status === 'en_camino' && (
  <div className="absolute top-0 left-0 w-full h-full z-0 bg-muted">
-  <TrackingMap 
-    status={status}
-    position={position}
-    vehiclePosition={vehiclePosition}
-    setCalculatedDurationSec={setCalculatedDurationSec}
-    setRoutePoints={setRoutePoints}
-    etaReferenceTimeRef={etaReferenceTime}
-    setRemainingSeconds={setRemainingSeconds}
-    clienteNombre={data.cliente_nombre}
-    routePoints={routePoints}
-  />
+ <MapContainer center={position} zoom={15} zoomControl={false} scrollWheelZoom={false} className="h-full w-full">
+    <TileLayer url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png" />
+ 
+
+ {status === 'en_camino' && (
+ <Routing 
+ start={vehiclePosition} 
+ end={position} 
+ onRouteCalculated={(coords, timeInSeconds) => {
+ setRoutePoints(coords);
+ setCalculatedDurationSec(timeInSeconds);
+ 
+ // Solo seteamos el tiempo restante si es la primera vez o si la nueva estimación de Google
+ // difiere por más de 5 minutos (300 segundos) de lo que nos queda, para evitar resetear el 
+ // contador por pequeñas fluctuaciones del GPS.
+ if (remainingSeconds === null || Math.abs(remainingSeconds - timeInSeconds) > 300) {
+   setRemainingSeconds(timeInSeconds);
+   etaReferenceTime.current = Date.now();
+ }
+ }} 
+ />
+ )}
+ {routePoints.length > 0 && status === 'en_camino' ? (
+ <AnimatedMarker 
+ routePoints={routePoints} 
+ durationSeconds={calculatedDurationSec}
+ icon={vehicleIcon} 
+ popupText="El técnico está en camino" 
+ />
+ ) : (
+ <Marker position={status === 'en_camino' ? vehiclePosition : position} icon={status === 'en_camino' ? vehicleIcon : destIcon}>
+   <Popup>{status === 'en_camino' ? 'El técnico' : 'Tu dirección'}</Popup>
+ </Marker>
+ )}
+ </MapContainer>
 
  {/* Mensaje Referencial superpuesto en el mapa */}
  <div className="absolute bottom-[26vh] left-4 z-[400] bg-white/90 backdrop-blur-sm px-3.5 py-2.5 rounded-xl shadow-md border border-gray-100 max-w-[200px]">
@@ -967,36 +1024,40 @@ return (
  initial={{ opacity: 0 }}
  animate={{ opacity: 1 }}
  exit={{ opacity: 0 }}
- className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+ className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm"
  >
  <motion.div
  initial={{ scale: 0.9, opacity: 0, y: 20 }}
  animate={{ scale: 1, opacity: 1, y: 0 }}
  exit={{ scale: 0.9, opacity: 0, y: 20 }}
- className="bg-white p-8 rounded-3xl shadow-2xl max-w-md w-full"
+ className="bg-white rounded-[20px] p-6 w-[290px] relative flex flex-col items-center text-center shadow-[0_4px_20px_rgba(0,0,0,0.15)]"
  >
- <div className="flex flex-col items-center text-center">
- <div className="w-16 h-16 bg-primary/20 rounded-full flex items-center justify-center mb-6">
- <XCircle className="w-8 h-8 text-primary" />
- </div>
- <h3 className="text-2xl font-bold text-gray-900 mb-2">¿Deseas cancelar?</h3>
- <p className="text-gray-500 mb-8 text-sm">
+ <button 
+ onClick={() => setIsCancelModalOpen(false)}
+ className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors"
+ aria-label="Cerrar"
+ >
+ <X className="w-5 h-5 stroke-[2]" />
+ </button>
+
+ <AlertTriangle className="w-12 h-12 text-[#FF5A0A] mb-4 stroke-[1.8]" />
+ <h3 className="text-[16px] font-bold text-[#0F090B] mb-2 leading-tight">¿Deseas cancelar?</h3>
+ <p className="text-[13px] text-gray-500 mb-6 font-normal leading-relaxed">
  Si deseas cancelar tu atención por favor comunícate a nuestros canales de atención.
  </p>
- <div className="flex flex-col w-full gap-3">
+ <div className="flex flex-col w-full gap-2.5">
  <button 
- className="w-full bg-primary text-white rounded-2xl h-12 text-sm font-bold shadow-lg shadow-red-500/20" 
+ className="w-full bg-[#FF5A0A] text-white rounded-full h-[44px] text-[14px] font-bold shadow-[0_4px_12px_rgba(255,90,10,0.25)] active:scale-95 transition-transform" 
  onClick={() => window.open('tel:017546000')}
  >
  Llamar a Central
  </button>
  <button 
- className="w-full rounded-2xl h-12 text-sm font-bold text-gray-500 bg-gray-100 " 
+ className="w-full rounded-full h-[44px] text-[14px] font-bold text-[#0F090B] bg-[#f2f2f2] hover:bg-[#e8e7e8] active:scale-95 transition-transform" 
  onClick={() => setIsCancelModalOpen(false)}
  >
  Volver al seguimiento
  </button>
- </div>
  </div>
  </motion.div>
  </motion.div>
@@ -1141,24 +1202,32 @@ return (
   initial={{ opacity: 0 }}
   animate={{ opacity: 1 }}
   exit={{ opacity: 0 }}
-  className="fixed inset-0 z-[110] bg-black/40 flex items-center justify-center p-6 backdrop-blur-sm"
+  className="fixed inset-0 z-[110] bg-black/40 flex items-center justify-center p-4 backdrop-blur-sm"
   >
   <motion.div 
   initial={{ scale: 0.9, y: 20 }}
   animate={{ scale: 1, y: 0 }}
-  className="bg-white rounded-[20px] p-6 w-[290px] min-h-[350px] flex flex-col items-center text-center shadow-2xl justify-center"
+  className="bg-white rounded-[20px] p-6 w-[290px] relative flex flex-col items-center text-center shadow-[0_4px_20px_rgba(0,0,0,0.15)]"
   >
-  <img src="/warning.png" alt="Advertencia" className="w-[60px] h-[60px] object-contain mb-5" />
-  <h3 className="text-[20px] font-bold text-[#0F090B] mb-8 leading-tight">¿Estás seguro de reprogramar tu visita?</h3>
+  <button 
+  onClick={() => setIsReprogramModalOpen(false)}
+  className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors"
+  aria-label="Cerrar"
+  >
+  <X className="w-5 h-5 stroke-[2]" />
+  </button>
+
+  <AlertTriangle className="w-12 h-12 text-[#FF5A0A] mb-4 stroke-[1.8]" />
+  <h3 className="text-[16px] font-bold text-[#0F090B] mb-6 leading-snug px-1">¿Estás seguro de reprogramar tu visita?</h3>
   <button 
   onClick={() => setReprogramStep('form')}
-  className="w-full bg-[#FF5A0A] text-white font-medium h-[50px] rounded-full text-[18px] mb-3 shadow-[0_4px_8px_rgba(255,90,10,0.24)] active:scale-95 transition-transform"
+  className="w-full bg-[#FF5A0A] text-white font-bold h-[44px] rounded-full text-[14px] mb-2.5 shadow-[0_4px_12px_rgba(255,90,10,0.25)] active:scale-95 transition-transform"
   >
   Confirmar
   </button>
   <button 
   onClick={() => setIsReprogramModalOpen(false)}
-  className="w-full bg-[#f2f2f2] text-[#0F090B] font-medium h-[50px] rounded-full text-[18px] active:scale-95 transition-transform shadow-[0_4px_8px_rgba(0,0,0,0.1)] hover:bg-[#e8e7e8]"
+  className="w-full bg-[#f2f2f2] text-[#0F090B] font-bold h-[44px] rounded-full text-[14px] hover:bg-[#e8e7e8] active:scale-95 transition-transform"
   >
   Volver
   </button>
@@ -1171,18 +1240,27 @@ return (
   initial={{ opacity: 0 }}
   animate={{ opacity: 1 }}
   exit={{ opacity: 0 }}
-  className="fixed inset-0 z-[120] bg-black/40 flex items-center justify-center p-6 backdrop-blur-sm"
+  className="fixed inset-0 z-[120] bg-black/40 flex items-center justify-center p-4 backdrop-blur-sm"
   >
   <motion.div 
   initial={{ scale: 0.9, y: 20 }}
   animate={{ scale: 1, y: 0 }}
-  className="bg-white rounded-[20px] p-6 w-[290px] min-h-[350px] flex flex-col items-center text-center shadow-2xl justify-center"
+  className="bg-white rounded-[20px] p-6 w-[290px] relative flex flex-col items-center text-center shadow-[0_4px_20px_rgba(0,0,0,0.15)]"
   >
-  <div className="w-[60px] h-[60px] bg-white border-2 border-[#FF5A0A] rounded-full flex items-center justify-center mb-5">
-  <Check className="w-[30px] h-[30px] text-[#FF5A0A]" strokeWidth={2.5} />
-  </div>
-  <h3 className="text-[20px] font-bold text-[#0F090B] mb-8 leading-tight">Visita reprogramada</h3>
-  <p className="text-[14px] text-[#8e8e8e] mb-8 font-normal leading-snug">
+  <button 
+  onClick={() => {
+    setIsReprogramModalOpen(false);
+    setReprogramStep('confirm_initial');
+  }}
+  className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors"
+  aria-label="Cerrar"
+  >
+  <X className="w-5 h-5 stroke-[2]" />
+  </button>
+
+  <CheckCircle2 className="w-12 h-12 text-[#FF5A0A] mb-4 stroke-[1.8]" />
+  <h3 className="text-[16px] font-bold text-[#0F090B] mb-2 leading-tight">Visita reprogramada</h3>
+  <p className="text-[13px] text-gray-500 mb-6 font-normal leading-relaxed">
   Tu solicitud de reprogramación se ha enviado con éxito.
   </p>
   <button 
@@ -1190,7 +1268,7 @@ return (
     setIsReprogramModalOpen(false);
     setReprogramStep('confirm_initial');
   }}
-  className="w-full bg-[#FF5A0A] text-white font-medium h-[50px] rounded-full text-[18px] shadow-[0_4px_8px_rgba(255,90,10,0.24)] active:scale-95 transition-transform"
+  className="w-full bg-[#FF5A0A] text-white font-bold h-[44px] rounded-full text-[14px] shadow-[0_4px_12px_rgba(255,90,10,0.25)] active:scale-95 transition-transform"
   >
   Aceptar
   </button>
