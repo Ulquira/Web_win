@@ -47,12 +47,12 @@ const vehicleIcon = L.divIcon({
 
 const destIcon = L.divIcon({
  className: 'custom-dest-icon',
- html: `<div style="background-color: #111827; border-radius: 50%; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; border: 3px solid white; box-shadow: 0 4px 12px rgba(0,0,0,0.3);">
- <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+ html: `<div style="background-color: #0F090B; border-radius: 50%; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; border: 3px solid #FF5A0A; box-shadow: 0 4px 12px rgba(0,0,0,0.4);">
+ <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
  </div>`,
  iconSize: [40, 40],
- iconAnchor: [20, 40],
- popupAnchor: [0, -40],
+ iconAnchor: [20, 20],
+ popupAnchor: [0, -20],
 });
 
 // Componente para animar elementos al entrar
@@ -117,7 +117,7 @@ const Seguimiento = () => {
  const etaReferenceTime = useRef<number | null>(null);
  const [notifications, setNotifications] = useState<{title: string, body: string, time: Date, read: boolean}[]>([]);
  const [showNotifications, setShowNotifications] = useState(false);
- const [sheetHeight, setSheetHeight] = useState(22);
+ const [sheetHeight, setSheetHeight] = useState(13);
 
  useEffect(() => {
  if ("Notification" in window && Notification.permission === "default") {
@@ -576,10 +576,16 @@ return (
  };
 
  const handleDragEnd = (_e: any, info: any) => {
-   if (info.offset.y < -50) {
+   if (info.offset.y < -30) {
      setSheetHeight(85);
-   } else if (info.offset.y > 50) {
-     setSheetHeight(22);
+   } else if (info.offset.y > 30) {
+     setSheetHeight(13);
+   }
+ };
+
+ const toggleSheet = () => {
+   if (status === 'en_camino') {
+     setSheetHeight(prev => (prev > 30 ? 13 : 85));
    }
  };
 
@@ -623,6 +629,13 @@ return (
  }} 
  />
  )}
+
+ {/* Pin de la casa del cliente (Destino de la ruta) - Siempre visible */}
+ <Marker position={position} icon={destIcon}>
+   <Popup>Tu dirección</Popup>
+ </Marker>
+
+ {/* Marcador del vehículo del técnico */}
  {routePoints.length > 0 && status === 'en_camino' ? (
  <AnimatedMarker 
  routePoints={routePoints} 
@@ -631,14 +644,14 @@ return (
  popupText="El técnico está en camino" 
  />
  ) : (
- <Marker position={status === 'en_camino' ? vehiclePosition : position} icon={status === 'en_camino' ? vehicleIcon : destIcon}>
-   <Popup>{status === 'en_camino' ? 'El técnico' : 'Tu dirección'}</Popup>
+ <Marker position={vehiclePosition} icon={vehicleIcon}>
+   <Popup>El técnico</Popup>
  </Marker>
  )}
  </MapContainer>
 
  {/* Mensaje Referencial superpuesto en el mapa */}
- <div className="absolute bottom-[26vh] left-4 z-[400] bg-white/90 backdrop-blur-sm px-3.5 py-2.5 rounded-xl shadow-md border border-gray-100 max-w-[200px]">
+ <div className="absolute bottom-[15vh] left-4 z-[400] bg-white/90 backdrop-blur-sm px-3.5 py-2.5 rounded-xl shadow-md border border-gray-100 max-w-[200px]">
    <div className="flex items-center gap-1.5">
      <AlertTriangle className="w-5 h-5 text-primary shrink-0" />
      <p className="text-[11px] text-gray-600 font-normal leading-tight">
@@ -722,8 +735,11 @@ return (
 
  {/* Drag Handle (Only when map is visible) */}
  {status === 'en_camino' && (
- <div className="w-full flex flex-col items-center justify-center pt-3 pb-1 shrink-0 cursor-grab active:cursor-grabbing hover:bg-gray-50 rounded-t-[2.5rem] transition-colors">
- <div className="w-12 h-1.5 bg-gray-300 rounded-full mb-1 mt-1"></div>
+ <div 
+   onClick={toggleSheet}
+   className="w-full flex flex-col items-center justify-center pt-3 pb-1 shrink-0 cursor-pointer hover:bg-gray-50 rounded-t-[2.5rem] transition-colors"
+ >
+   <div className="w-12 h-1.5 bg-gray-300 rounded-full mb-1 mt-1"></div>
  </div>
  )}
 
@@ -897,7 +913,10 @@ return (
  <>
  {/* Llegada del técnico separada del Info Card */}
  {status === 'en_camino' && (eta || calculatedEta) && (
- <div className="flex justify-between items-center mb-3 bg-primary/10 px-4 py-3.5 rounded-2xl gap-2">
+ <div 
+   onClick={toggleSheet}
+   className="flex justify-between items-center mb-3 bg-primary/10 px-4 py-3.5 rounded-2xl gap-2 cursor-pointer active:scale-[0.99] transition-transform"
+ >
    <div className="flex items-center gap-2">
       <span className="relative flex h-2 w-2">
         <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
