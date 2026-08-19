@@ -33,21 +33,8 @@ app.use(cors({
 }));
 app.use(express.json());
 
-<<<<<<< HEAD
 // Registrar rutas de replicación en tiempo real (puede actuar como receptor)
 app.use(replicationRouter);
-
-// Endpoint para guardar reprogramaciones en BD
-app.post('/api/reprogramar', async (req, res) => {
-  const { token, fecha, turno, motivo } = req.body;
-=======
-const apiLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 150,
-  message: { success: false, message: 'Demasiadas peticiones, intenta más tarde' }
-});
-app.use('/api/', apiLimiter);
->>>>>>> c2ceac1216aeb59bbc7711474b2d68c3ef73b270
 
 // Endpoint para guardar reprogramaciones en BD
 const reprogramarSchema = z.object({
