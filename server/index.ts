@@ -296,6 +296,20 @@ app.get('/api/instalaciones/:token', async (req, res) => {
   const { token } = req.params;
 
   try {
+    // Verificar si la orden ya cuenta con una solicitud de reprogramación en la BD
+    let reprogramadaBD = false;
+    try {
+      const [reprogRows]: any = await pool.query(
+        'SELECT id FROM REPROGRAMACIONES WHERE token = ? LIMIT 1',
+        [token]
+      );
+      if (reprogRows && reprogRows.length > 0) {
+        reprogramadaBD = true;
+      }
+    } catch (dbErr) {
+      console.error('Error al verificar reprogramación en BD:', dbErr);
+    }
+
     // Este servidor ahora llama a la capa intermedia segura
     const response = await fetch(`${CAPA_INTERMEDIA_URL}/api/v1/terceros/instalaciones/${token}`, {
       headers: {
@@ -309,6 +323,9 @@ app.get('/api/instalaciones/:token', async (req, res) => {
     }
 
     const data = await response.json();
+    if (data && data.data) {
+      data.data.reprogramada = reprogramadaBD;
+    }
     res.json(data);
 
   } catch (error) {

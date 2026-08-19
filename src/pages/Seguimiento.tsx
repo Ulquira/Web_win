@@ -372,8 +372,11 @@ const Seguimiento = () => {
           const hasCompletedSurveyLocal = localStorage.getItem(`encuesta_completada_${token}`);
           const hasCompletedReprogramLocal = localStorage.getItem(`reprogramacion_completada_${token}`);
           
-          if (hasCompletedReprogramLocal === 'true') {
+          if (hasCompletedReprogramLocal === 'true' || fetchedData.reprogramada) {
             setIsReprogramCompletada(true);
+            if (fetchedData.reprogramada) {
+              localStorage.setItem(`reprogramacion_completada_${token}`, 'true');
+            }
           }
 
           if (hasCompletedSurveyLocal === 'true') {
