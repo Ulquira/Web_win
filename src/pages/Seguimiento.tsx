@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 
-import { Phone, CheckCircle2, User, Star, Bell, Check, MapPin, AlertTriangle, ArrowLeft, CalendarDays, ChevronDown, X, PackageOpen, MonitorPlay, Box, Wifi, ShieldCheck, Zap } from "lucide-react";
+import { Phone, CheckCircle2, User, Star, Bell, Check, MapPin, AlertTriangle, ArrowLeft, CalendarDays, ChevronDown, X } from "lucide-react";
 import { FaWhatsapp } from "react-icons/fa";
 import { PiTelevisionSimple, PiPackage, PiWifiHigh, PiShieldCheck, PiLightning } from "react-icons/pi";
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
