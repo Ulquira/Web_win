@@ -956,7 +956,7 @@ return (
  )}
 
  {/* Info Card Minimalista */}
- <div className={`border border-gray-200 rounded-[20px] p-5 mb-6 bg-white shadow-sm ${status === 'en_camino' && (data.token_inicio || eta || calculatedEta) ? '' : 'mt-4'}`}>
+ <div className={`border border-gray-100 rounded-3xl p-6 mb-6 bg-white shadow-[inset_0px_2px_8px_rgba(0,0,0,0.02),0_4px_16px_rgba(0,0,0,0.04)] ${status === 'en_camino' && (data.token_inicio || eta || calculatedEta) ? '' : 'mt-4'}`}>
  <div className="flex flex-col gap-4">
    <div className="flex justify-between items-center">
      <span className="text-gray-500 text-[14px] font-normal">Día</span>
@@ -991,9 +991,9 @@ return (
          
          {/* Burbuja Principal: Paquete */}
          {parsedPlan.paquete && (
-           <div className="mb-4 text-center">
-             <p className="text-[12px] font-bold text-gray-400 uppercase tracking-widest mb-1">Paquete de Internet</p>
-             <p className="text-[22px] font-black text-[#FF5A0A] tracking-tight">{toTitleCase(parsedPlan.paquete)}</p>
+           <div className="mb-4 text-left px-1">
+             <p className="text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-1">Paquete de Internet</p>
+             <p className="text-[18px] font-bold text-gray-900 tracking-tight">{toTitleCase(parsedPlan.paquete)}</p>
            </div>
          )}
          
@@ -1100,9 +1100,9 @@ return (
    trackEvent('click_contactar_soporte', { token });
    window.open('https://wa.me/51937096003');
  }}
- className="w-full flex items-center justify-center gap-2 border border-[#25D366] text-[#25D366] h-12 rounded-[16px] text-[14px] font-bold hover:bg-[#25D366]/5 active:scale-95 transition-all flex-row-reverse"
+ className="w-full flex items-center justify-center gap-2 border border-primary text-primary h-12 rounded-full text-[14px] font-bold hover:bg-primary/5 active:scale-95 transition-all flex-row-reverse"
  >
- Contactar por WhatsApp
+ Contactar soporte
  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21l1.65-3.8a9 9 0 1 1 3.4 2.9L3 21" /><path d="M9 10a.5.5 0 0 0 1 0V9a.5.5 0 0 0-1 0v1Z" /><path d="M14 10a.5.5 0 0 0 1 0V9a.5.5 0 0 0-1 0v1Z" /><path d="M9.5 13.5c1.5 1 3.5 1 5 0" /></svg>
  </button>
  {status !== 'finalizada' && status !== 'cerrada' && (
