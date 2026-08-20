@@ -3,6 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 
 import { Phone, CheckCircle2, User, Star, Bell, Check, MapPin, AlertTriangle, ArrowLeft, CalendarDays, ChevronDown, X, PackageOpen, MonitorPlay, Box, Wifi, ShieldCheck, Zap } from "lucide-react";
+import { FaWhatsapp } from "react-icons/fa";
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import 'leaflet-routing-machine/dist/leaflet-routing-machine.css';
@@ -1102,8 +1103,8 @@ return (
  }}
  className="w-full flex items-center justify-center gap-2 border border-primary text-primary h-12 rounded-full text-[14px] font-bold hover:bg-primary/5 active:scale-95 transition-all flex-row-reverse"
  >
- Contactar soporte
- <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21l1.65-3.8a9 9 0 1 1 3.4 2.9L3 21" /><path d="M9 10a.5.5 0 0 0 1 0V9a.5.5 0 0 0-1 0v1Z" /><path d="M14 10a.5.5 0 0 0 1 0V9a.5.5 0 0 0-1 0v1Z" /><path d="M9.5 13.5c1.5 1 3.5 1 5 0" /></svg>
+ Contactar por WhatsApp
+ <FaWhatsapp className="w-[18px] h-[18px]" />
  </button>
  {status !== 'finalizada' && status !== 'cerrada' && (
  <button 
