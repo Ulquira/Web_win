@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 
-import { Phone, CheckCircle2, User, Star, Bell, Check, MapPin, AlertTriangle, ArrowLeft, CalendarDays, ChevronDown, X } from "lucide-react";
+import { Phone, CheckCircle2, User, Star, Bell, Check, MapPin, AlertTriangle, ArrowLeft, CalendarDays, ChevronDown, X, PackageOpen, MonitorPlay, Box, Wifi, ShieldCheck, Zap } from "lucide-react";
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import 'leaflet-routing-machine/dist/leaflet-routing-machine.css';
@@ -535,6 +535,8 @@ return (
    const parts = campana.split('|');
    let paquete = '';
    let svas: string[] = [];
+   let cantidadMesh = 0;
+   let instalacionMesh = false;
    
    parts.forEach(part => {
      const [key, ...valueParts] = part.split(':');
@@ -548,7 +550,28 @@ return (
         svas = value.split('+')
           .map(s => s.trim())
           .filter(s => s.length > 0 && !/^(ninguno|no|n\/a|na|no aplica|-|0|null|sin\s*sva|sin\s*sva's)$/i.test(s));
+     } else if (cleanKey === 'cantidad de mesh') {
+       const match = value.match(/\d+/);
+       if (match) cantidadMesh = parseInt(match[0], 10);
+     } else if (cleanKey === 'instalacion de mesh' || cleanKey === 'instalación de mesh') {
+       const match = value.match(/\d+/);
+       if (match && parseInt(match[0], 10) > 0) instalacionMesh = true;
      }
+   });
+
+   svas = svas.map(s => {
+     let text = s;
+     // Limpiar "(en comodato)" o "(en alquiler)"
+     text = text.replace(/\(?en\s+(comodato|alquiler)\)?/i, '').trim();
+     
+     // Formatear Mesh con la cantidad
+     if (/mesh/i.test(text) && cantidadMesh > 0) {
+       text = `${cantidadMesh} Mesh`;
+       if (instalacionMesh) {
+         text += ' + Instalación cableada';
+       }
+     }
+     return text;
    });
 
    return { paquete, svas };
@@ -964,34 +987,43 @@ return (
    {data.tipo !== 'ticket' && (() => {
      const parsedPlan = parsePlanData(data.campana);
      return (
-       <div className="flex flex-col w-full mt-2 pt-4 border-t border-gray-100">
-         <span className="text-gray-500 text-[14px] font-normal mb-3">Plan y Servicios Contratados</span>
+       <div className="flex flex-col w-full mt-4 pt-6 border-t border-gray-100">
          
          {/* Burbuja Principal: Paquete */}
          {parsedPlan.paquete && (
-           <div className="bg-[#FF5A0A]/10 border border-[#FF5A0A]/20 text-gray-900 px-4 py-3 rounded-2xl flex items-center shadow-sm">
-             <div className="pr-2">
-               <p className="text-[11px] font-bold text-[#FF5A0A] uppercase tracking-wider mb-0.5">Paquete de Internet</p>
-               <p className="text-[14px] font-bold">{toTitleCase(parsedPlan.paquete)}</p>
-             </div>
+           <div className="mb-4 text-center">
+             <p className="text-[12px] font-bold text-gray-400 uppercase tracking-widest mb-1">Paquete de Internet</p>
+             <p className="text-[22px] font-black text-[#FF5A0A] tracking-tight">{toTitleCase(parsedPlan.paquete)}</p>
            </div>
          )}
          
 {/* Burbujas Secundarias: SVAs (Lista Vertical Homologada) */}
           {parsedPlan.svas.length > 0 && (
-            <div className="mt-3 bg-[#f2f2f2] rounded-2xl p-4 border border-[#e8e7e8]">
-              <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-3">
+            <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-[inset_0px_2px_8px_rgba(0,0,0,0.02),0_4px_16px_rgba(0,0,0,0.04)]">
+              <p className="text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-4">
                 Servicios Adicionales
               </p>
-              <div className="flex flex-col gap-2.5">
-                {parsedPlan.svas.map((sva, idx) => (
-                  <div key={idx} className="flex items-center gap-2">
-                    <div className="w-1.5 h-1.5 rounded-full bg-[#FF5A0A] shrink-0"></div>
-                    <span className="text-[14px] font-medium text-gray-800 leading-tight">
-                      {toTitleCase(sva)}
-                    </span>
-                  </div>
-               ))}
+              <div className="flex flex-col gap-3.5">
+                {parsedPlan.svas.map((sva, idx) => {
+                  let SvaIcon = PackageOpen;
+                  const svaLower = sva.toLowerCase();
+                  if (svaLower.includes('tv') || svaLower.includes('l1max')) SvaIcon = MonitorPlay;
+                  else if (svaLower.includes('box')) SvaIcon = Box;
+                  else if (svaLower.includes('mesh')) SvaIcon = Wifi;
+                  else if (svaLower.includes('antivirus') || svaLower.includes('seguridad')) SvaIcon = ShieldCheck;
+                  else if (svaLower.includes('aumento')) SvaIcon = Zap;
+
+                  return (
+                    <div key={idx} className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-full bg-[#FF5A0A]/10 flex items-center justify-center shrink-0">
+                        <SvaIcon className="w-4 h-4 text-[#FF5A0A]" strokeWidth={2.5} />
+                      </div>
+                      <span className="text-[14px] font-semibold text-gray-800 leading-tight">
+                        {toTitleCase(sva)}
+                      </span>
+                    </div>
+                  );
+                })}
              </div>
            </div>
          )}
@@ -1068,10 +1100,10 @@ return (
    trackEvent('click_contactar_soporte', { token });
    window.open('https://wa.me/51937096003');
  }}
- className="w-full flex items-center justify-center gap-2 border border-primary text-primary h-12 rounded-full text-[14px] font-bold hover:bg-primary/5 active:scale-95 transition-all flex-row-reverse"
+ className="w-full flex items-center justify-center gap-2 border border-[#25D366] text-[#25D366] h-12 rounded-[16px] text-[14px] font-bold hover:bg-[#25D366]/5 active:scale-95 transition-all flex-row-reverse"
  >
- Contactar soporte
- <Phone className="w-4 h-4" />
+ Contactar por WhatsApp
+ <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21l1.65-3.8a9 9 0 1 1 3.4 2.9L3 21" /><path d="M9 10a.5.5 0 0 0 1 0V9a.5.5 0 0 0-1 0v1Z" /><path d="M14 10a.5.5 0 0 0 1 0V9a.5.5 0 0 0-1 0v1Z" /><path d="M9.5 13.5c1.5 1 3.5 1 5 0" /></svg>
  </button>
  {status !== 'finalizada' && status !== 'cerrada' && (
  <button 
