@@ -769,7 +769,7 @@ return (
  )}
 
  {/* Scrollable Content inside Sheet */}
- <div className="flex-1 overflow-y-auto px-5 pb-32 scrollbar-hide pt-0">
+ <div className="flex-1 overflow-y-auto px-5 pb-10 scrollbar-hide pt-0">
  
  {status === 'cerrada' && !encuestaEnviada && localStorage.getItem(`encuesta_completada_${token}`) !== 'true' ? (
  <div className="py-6">
