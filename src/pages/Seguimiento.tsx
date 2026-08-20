@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 
 import { Phone, CheckCircle2, User, Star, Bell, Check, MapPin, AlertTriangle, ArrowLeft, CalendarDays, ChevronDown, X, PackageOpen, MonitorPlay, Box, Wifi, ShieldCheck, Zap } from "lucide-react";
 import { FaWhatsapp } from "react-icons/fa";
+import { PiTelevisionSimple, PiPackage, PiWifiHigh, PiShieldCheck, PiLightning } from "react-icons/pi";
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import 'leaflet-routing-machine/dist/leaflet-routing-machine.css';
@@ -783,7 +784,7 @@ return (
  <button 
  onClick={() => {
   trackEvent('click_contactar_soporte_cerrada', { token });
-  window.open('https://wa.me/51937096003');
+  window.open('https://wa.me/51923229369');
 }} 
  className="w-full bg-primary text-white font-bold rounded-2xl h-14 shadow-lg text-[15px] flex items-center justify-center gap-2 transition-transform active:scale-95"
  >
@@ -1006,18 +1007,18 @@ return (
               </p>
               <div className="flex flex-col gap-3.5">
                 {parsedPlan.svas.map((sva, idx) => {
-                  let SvaIcon = PackageOpen;
+                  let SvaIcon = PiPackage;
                   const svaLower = sva.toLowerCase();
-                  if (svaLower.includes('tv') || svaLower.includes('l1max')) SvaIcon = MonitorPlay;
-                  else if (svaLower.includes('box')) SvaIcon = Box;
-                  else if (svaLower.includes('mesh')) SvaIcon = Wifi;
-                  else if (svaLower.includes('antivirus') || svaLower.includes('seguridad')) SvaIcon = ShieldCheck;
-                  else if (svaLower.includes('aumento')) SvaIcon = Zap;
+                  if (svaLower.includes('tv') || svaLower.includes('l1max')) SvaIcon = PiTelevisionSimple;
+                  else if (svaLower.includes('box')) SvaIcon = PiPackage;
+                  else if (svaLower.includes('mesh')) SvaIcon = PiWifiHigh;
+                  else if (svaLower.includes('antivirus') || svaLower.includes('seguridad')) SvaIcon = PiShieldCheck;
+                  else if (svaLower.includes('aumento')) SvaIcon = PiLightning;
 
                   return (
                     <div key={idx} className="flex items-center gap-3">
                       <div className="w-8 h-8 rounded-full bg-[#FF5A0A]/10 flex items-center justify-center shrink-0">
-                        <SvaIcon className="w-4 h-4 text-[#FF5A0A]" strokeWidth={2.5} />
+                        <SvaIcon className="w-[18px] h-[18px] text-[#FF5A0A]" />
                       </div>
                       <span className="text-[14px] font-semibold text-gray-800 leading-tight">
                         {toTitleCase(sva)}
@@ -1099,7 +1100,7 @@ return (
  <button 
  onClick={() => {
    trackEvent('click_contactar_soporte', { token });
-   window.open('https://wa.me/51937096003');
+   window.open('https://wa.me/51923229369');
  }}
  className="w-full flex items-center justify-center gap-2 border border-primary text-primary h-12 rounded-full text-[14px] font-bold hover:bg-primary/5 active:scale-95 transition-all flex-row-reverse"
  >
