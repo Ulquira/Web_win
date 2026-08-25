@@ -296,35 +296,40 @@ app.get('/api/instalaciones/:token', async (req, res) => {
   const { token } = req.params;
 
   try {
-    // Verificar si la orden ya cuenta con una solicitud de reprogramación en la BD
+    // 1. Ejecutamos las verificaciones locales (Reprogramación y Encuesta) en paralelo con Promise.all
+    const [reprogResult, encuestaResult, capaResponse] = await Promise.allSettled([
+      pool.query('SELECT id FROM REPROGRAMACIONES WHERE token = ? LIMIT 1', [token]),
+      pool.query('SELECT id FROM ENCUESTAS WHERE token = ? LIMIT 1', [token]),
+      fetch(`${CAPA_INTERMEDIA_URL}/api/v1/terceros/instalaciones/${token}`, {
+        headers: { 'Authorization': `Bearer ${SECRET_API_KEY}` }
+      })
+    ]);
+
+    // Evaluación de reprogramación
     let reprogramadaBD = false;
-    try {
-      const [reprogRows]: any = await pool.query(
-        'SELECT id FROM REPROGRAMACIONES WHERE token = ? LIMIT 1',
-        [token]
-      );
-      if (reprogRows && reprogRows.length > 0) {
-        reprogramadaBD = true;
-      }
-    } catch (dbErr) {
-      console.error('Error al verificar reprogramación en BD:', dbErr);
+    if (reprogResult.status === 'fulfilled') {
+      const [reprogRows]: any = reprogResult.value;
+      if (reprogRows && reprogRows.length > 0) reprogramadaBD = true;
     }
 
-    // Este servidor ahora llama a la capa intermedia segura
-    const response = await fetch(`${CAPA_INTERMEDIA_URL}/api/v1/terceros/instalaciones/${token}`, {
-      headers: {
-        'Authorization': `Bearer ${SECRET_API_KEY}`
-      }
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      return res.status(response.status).json(errorData);
+    // Evaluación de encuesta completada
+    let encuestaCompletadaBD = false;
+    if (encuestaResult.status === 'fulfilled') {
+      const [encuestaRows]: any = encuestaResult.value;
+      if (encuestaRows && encuestaRows.length > 0) encuestaCompletadaBD = true;
     }
 
-    const data = await response.json();
+    // Evaluación de respuesta de Capa Intermedia
+    if (capaResponse.status !== 'fulfilled' || !capaResponse.value.ok) {
+      const errorMsg = capaResponse.status === 'rejected' ? capaResponse.reason : 'Error en la capa intermedia';
+      console.error('Error capa intermedia:', errorMsg);
+      return res.status(500).json({ success: false, message: 'Error consultando la orden' });
+    }
+
+    const data = await capaResponse.value.json();
     if (data && data.data) {
       data.data.reprogramada = reprogramadaBD;
+      data.data.encuesta_completada = encuestaCompletadaBD;
     }
     res.json(data);
 

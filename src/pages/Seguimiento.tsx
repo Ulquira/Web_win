@@ -381,19 +381,10 @@ const Seguimiento = () => {
             }
           }
 
-          if (hasCompletedSurveyLocal === 'true') {
+          if (hasCompletedSurveyLocal === 'true' || fetchedData.encuesta_completada) {
             fetchedData.status = 'cerrada';
-          } else {
-            try {
-              const checkResponse = await fetch(`${import.meta.env.VITE_API_URL}/api/encuesta/verificar/${token}`);
-              const checkResult = await checkResponse.json();
-              
-              if (checkResult.success && checkResult.completada) {
-                localStorage.setItem(`encuesta_completada_${token}`, 'true');
-                fetchedData.status = 'cerrada';
-              }
-            } catch (e) {
-              console.error("Error verificando encuesta en servidor", e);
+            if (fetchedData.encuesta_completada) {
+              localStorage.setItem(`encuesta_completada_${token}`, 'true');
             }
           }
           
@@ -785,7 +776,7 @@ return (
  onClick={() => {
   trackEvent('click_contactar_soporte_cerrada', { token });
   const msg = encodeURIComponent("Hola, necesito soporte sobre mi atención cerrada.");
-  window.open(`https://wa.me/51937096003?text=${msg}`);
+  window.open(`https://wa.me/51923229369?text=${msg}`);
 }} 
  className="w-full bg-primary text-white font-bold rounded-2xl h-14 shadow-lg text-[15px] flex items-center justify-center gap-2 transition-transform active:scale-95"
  >
@@ -1102,7 +1093,7 @@ return (
  onClick={() => {
    trackEvent('click_contactar_soporte', { token });
    const msg = encodeURIComponent("Hola, necesito soporte con mi instalación.");
-   window.open(`https://wa.me/51937096003?text=${msg}`);
+   window.open(`https://wa.me/51923229369?text=${msg}`);
  }}
  className="w-full flex items-center justify-center gap-2 border border-primary text-primary h-12 rounded-full text-[14px] font-bold hover:bg-primary/5 active:scale-95 transition-all flex-row-reverse"
  >
