@@ -40,8 +40,9 @@ app.use(replicationRouter);
 const reprogramarSchema = z.object({
   token: z.string().min(5).max(150),
   fecha: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-  turno: z.enum(['Mañana', 'Tarde']),
-  motivo: z.string().max(500).optional().default('')
+  turno: z.string().min(1).max(100),
+  motivo: z.string().max(500).optional().default(''),
+  motivoSeleccionado: z.string().max(200).optional().default('')
 });
 
 app.post('/api/reprogramar', async (req, res) => {
@@ -51,21 +52,22 @@ app.post('/api/reprogramar', async (req, res) => {
     return res.status(400).json({ success: false, message: 'Datos inválidos', errors: parseResult.error.format() });
   }
 
-  const { token, fecha, turno, motivo } = parseResult.data;
+  const { token, fecha, turno, motivo, motivoSeleccionado } = parseResult.data;
+  const motivoDetalle = [motivoSeleccionado, motivo].filter(Boolean).join(' - ') || 'Sin motivo';
 
   try {
     const query = `
       INSERT INTO REPROGRAMACIONES (token, fecha_solicitada, turno, motivo)
       VALUES (?, ?, ?, ?)
     `;
-    await pool.query(query, [token, fecha, turno, motivo || '']);
+    await pool.query(query, [token, fecha, turno, motivoDetalle]);
 
     // Replicar cambio a la base de datos secundaria en tiempo real
     replicateChange('REPROGRAMACIONES', 'INSERT', {
       token,
       fecha_solicitada: fecha,
       turno,
-      motivo: motivo || ''
+      motivo: motivoDetalle
     });
 
     res.json({ success: true, message: 'Reprogramación guardada con éxito' });
@@ -78,15 +80,15 @@ app.post('/api/reprogramar', async (req, res) => {
 // Endpoint para guardar Encuestas en BD
 const encuestaSchema = z.object({
   token: z.string().min(5).max(150),
-  instalacion_concretada: z.enum(['Si', 'No']),
-  tecnico_trato: z.number().int().min(1).max(5).optional(),
-  tecnico_puntualidad: z.number().int().min(1).max(5).optional(),
-  tecnico_claridad: z.number().int().min(1).max(5).optional(),
-  tecnico_orden: z.number().int().min(1).max(5).optional(),
-  tecnico_efectividad: z.number().int().min(1).max(5).optional(),
-  satisfaccion_general: z.number().int().min(1).max(5),
+  instalacion_concretada: z.string().min(1).max(50),
+  tecnico_trato: z.union([z.number(), z.string()]).optional(),
+  tecnico_puntualidad: z.union([z.number(), z.string()]).optional(),
+  tecnico_claridad: z.union([z.number(), z.string()]).optional(),
+  tecnico_orden: z.union([z.number(), z.string()]).optional(),
+  tecnico_efectividad: z.union([z.number(), z.string()]).optional(),
+  satisfaccion_general: z.union([z.number(), z.string()]),
   satisfaccion_comentario: z.string().max(1000).optional().default(''),
-  facilidad_gestion: z.number().int().min(1).max(5).optional(),
+  facilidad_gestion: z.union([z.number(), z.string()]).optional(),
   facilidad_motivo: z.string().max(500).optional().default('')
 });
 

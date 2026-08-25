@@ -211,10 +211,17 @@ const Seguimiento = () => {
  };
 
  const getTomorrowLocal = () => {
- const tomorrow = new Date();
- tomorrow.setDate(tomorrow.getDate() + 1);
- const localDate = new Date(tomorrow.getTime() - (tomorrow.getTimezoneOffset() * 60000));
- return localDate.toISOString().split('T')[0];
+   const tomorrow = new Date();
+   tomorrow.setDate(tomorrow.getDate() + 1);
+   const localDate = new Date(tomorrow.getTime() - (tomorrow.getTimezoneOffset() * 60000));
+   return localDate.toISOString().split('T')[0];
+ };
+
+ const getMaxDateLocal = () => {
+   const maxDate = new Date();
+   maxDate.setDate(maxDate.getDate() + 7);
+   const localDate = new Date(maxDate.getTime() - (maxDate.getTimezoneOffset() * 60000));
+   return localDate.toISOString().split('T')[0];
  };
 
  const handleReprogramSubmit = async () => {
@@ -1214,6 +1221,7 @@ return (
  <input 
  type="date"
  min={getTomorrowLocal()}
+ max={getMaxDateLocal()}
  value={reprogramData.fecha}
  onChange={(e) => setReprogramData({...reprogramData, fecha: e.target.value})}
  className="w-full bg-transparent text-[14px] font-normal text-gray-900 focus:outline-none"
