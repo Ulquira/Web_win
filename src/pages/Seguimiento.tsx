@@ -193,19 +193,25 @@ const Seguimiento = () => {
  setNotifications(prev => [{ title, body, time: new Date(), read: false }, ...prev]);
 
  if ("Notification" in window && Notification.permission === "granted") {
+   const notificationOptions: NotificationOptions = { 
+     body,
+     icon: '/win-icon.png',
+     badge: '/win-icon.png',
+     tag: 'win-seguimiento-status',
+     renotify: true,
+     vibrate: [200, 100, 200],
+     data: { url: window.location.href }
+   };
+
    if ('serviceWorker' in navigator) {
      navigator.serviceWorker.ready.then(registration => {
-       registration.showNotification(title, { 
-         body,
-         icon: '/favicon.ico',
-         vibrate: [200, 100, 200]
-       } as NotificationOptions);
+       registration.showNotification(title, notificationOptions);
      }).catch(() => {
        // Fallback for non-sw environments
-       new Notification(title, { body });
+       new Notification(title, notificationOptions);
      });
    } else {
-     new Notification(title, { body });
+     new Notification(title, notificationOptions);
    }
  }
  };

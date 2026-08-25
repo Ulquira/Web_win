@@ -23,7 +23,12 @@ export function useInstalacion(token: string | undefined) {
 
     // Lanzar Notificación Nativa del Sistema Operativo/Navegador
     if ("Notification" in window && Notification.permission === "granted") {
-      new Notification(title, { body, icon: logoImg });
+      new Notification(title, { 
+        body, 
+        icon: '/win-icon.png',
+        badge: '/win-icon.png',
+        tag: 'win-seguimiento-status'
+      });
     }
     
     return { title, body, time: new Date(), read: false };
