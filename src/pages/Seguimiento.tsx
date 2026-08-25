@@ -759,7 +759,7 @@ return (
  <button 
  onClick={() => {
   trackEvent('click_contactar_soporte_cerrada', { token });
-  const msg = encodeURIComponent(`Hola, necesito soporte sobre mi atención cerrada. ID Operación: ${data?.idoperacion || token}`);
+  const msg = encodeURIComponent("Hola, necesito soporte sobre mi atención cerrada.");
   window.open(`https://wa.me/51937096003?text=${msg}`);
 }} 
  className="w-full bg-primary text-white font-bold rounded-2xl h-14 shadow-lg text-[15px] flex items-center justify-center gap-2 transition-transform active:scale-95"
@@ -1067,7 +1067,7 @@ return (
  <button 
  onClick={() => {
    trackEvent('click_contactar_soporte', { token });
-   const msg = encodeURIComponent(`Hola, necesito soporte con mi instalación. ID Operación: ${data?.idoperacion || token}`);
+   const msg = encodeURIComponent("Hola, necesito soporte con mi instalación.");
    window.open(`https://wa.me/51937096003?text=${msg}`);
  }}
  className="w-full flex items-center justify-center gap-2 border border-primary text-primary h-12 rounded-full text-[14px] font-bold hover:bg-primary/5 active:scale-95 transition-all flex-row-reverse"
@@ -1075,7 +1075,7 @@ return (
  Contactar soporte
  <Phone className="w-4 h-4" />
  </button>
- {status !== 'finalizada' && status !== 'cerrada' && (
+ {(status === 'programada' || status === 'asignado') && (
  <button 
  onClick={() => {
    trackEvent('click_iniciar_reprogramacion', { token, estado_actual: status });
