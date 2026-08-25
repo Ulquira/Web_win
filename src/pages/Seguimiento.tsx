@@ -3,6 +3,8 @@ import { useParams, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 
 import { Phone, CheckCircle2, User, Star, Bell, Check, MapPin, AlertTriangle, ArrowLeft, CalendarDays, ChevronDown, X } from "lucide-react";
+import { FaWhatsapp } from "react-icons/fa";
+import { PiTelevisionSimple, PiPackage, PiWifiHigh, PiShieldCheck, PiLightning } from "react-icons/pi";
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import 'leaflet-routing-machine/dist/leaflet-routing-machine.css';
@@ -535,6 +537,8 @@ return (
    const parts = campana.split('|');
    let paquete = '';
    let svas: string[] = [];
+   let cantidadMesh = 0;
+   let instalacionMesh = false;
    
    parts.forEach(part => {
      const [key, ...valueParts] = part.split(':');
@@ -548,7 +552,28 @@ return (
         svas = value.split('+')
           .map(s => s.trim())
           .filter(s => s.length > 0 && !/^(ninguno|no|n\/a|na|no aplica|-|0|null|sin\s*sva|sin\s*sva's)$/i.test(s));
+     } else if (cleanKey === 'cantidad de mesh') {
+       const match = value.match(/\d+/);
+       if (match) cantidadMesh = parseInt(match[0], 10);
+     } else if (cleanKey === 'instalacion de mesh' || cleanKey === 'instalación de mesh') {
+       const match = value.match(/\d+/);
+       if (match && parseInt(match[0], 10) > 0) instalacionMesh = true;
      }
+   });
+
+   svas = svas.map(s => {
+     let text = s;
+     // Limpiar "(en comodato)" o "(en alquiler)"
+     text = text.replace(/\(?en\s+(comodato|alquiler)\)?/i, '').trim();
+     
+     // Formatear Mesh con la cantidad
+     if (/mesh/i.test(text) && cantidadMesh > 0) {
+       text = `${cantidadMesh} Mesh`;
+       if (instalacionMesh) {
+         text += ' + Instalación cableada';
+       }
+     }
+     return text;
    });
 
    return { paquete, svas };
@@ -934,7 +959,7 @@ return (
  )}
 
  {/* Info Card Minimalista */}
- <div className={`border border-gray-200 rounded-[20px] p-5 mb-6 bg-white shadow-sm ${status === 'en_camino' && (data.token_inicio || eta || calculatedEta) ? '' : 'mt-4'}`}>
+ <div className={`border border-gray-100 rounded-3xl p-6 mb-6 bg-white shadow-[inset_0px_2px_8px_rgba(0,0,0,0.02),0_4px_16px_rgba(0,0,0,0.04)] ${status === 'en_camino' && (data.token_inicio || eta || calculatedEta) ? '' : 'mt-4'}`}>
  <div className="flex flex-col gap-4">
    <div className="flex justify-between items-center">
      <span className="text-gray-500 text-[14px] font-normal">Día</span>
@@ -965,34 +990,43 @@ return (
    {data.tipo !== 'ticket' && (() => {
      const parsedPlan = parsePlanData(data.campana);
      return (
-       <div className="flex flex-col w-full mt-2 pt-4 border-t border-gray-100">
-         <span className="text-gray-500 text-[14px] font-normal mb-3">Plan y Servicios Contratados</span>
+       <div className="flex flex-col w-full mt-4 pt-6 border-t border-gray-100">
          
          {/* Burbuja Principal: Paquete */}
          {parsedPlan.paquete && (
-           <div className="bg-[#FF5A0A]/10 border border-[#FF5A0A]/20 text-gray-900 px-4 py-3 rounded-2xl flex items-center shadow-sm">
-             <div className="pr-2">
-               <p className="text-[11px] font-bold text-[#FF5A0A] uppercase tracking-wider mb-0.5">Paquete de Internet</p>
-               <p className="text-[14px] font-bold">{toTitleCase(parsedPlan.paquete)}</p>
-             </div>
+           <div className="mb-4 text-left px-1">
+             <p className="text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-1">Paquete de Internet</p>
+             <p className="text-[18px] font-bold text-gray-900 tracking-tight">{toTitleCase(parsedPlan.paquete)}</p>
            </div>
          )}
          
-{/* Burbujas Secundarias: SVAs (Lista Vertical Homologada) */}
+         {/* Burbujas Secundarias: SVAs (Lista Vertical Homologada) */}
           {parsedPlan.svas.length > 0 && (
-            <div className="mt-3 bg-[#f2f2f2] rounded-2xl p-4 border border-[#e8e7e8]">
-              <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-3">
+            <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-[inset_0px_2px_8px_rgba(0,0,0,0.02),0_4px_16px_rgba(0,0,0,0.04)]">
+              <p className="text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-4">
                 Servicios Adicionales
               </p>
-              <div className="flex flex-col gap-2.5">
-                {parsedPlan.svas.map((sva, idx) => (
-                  <div key={idx} className="flex items-center gap-2">
-                    <div className="w-1.5 h-1.5 rounded-full bg-[#FF5A0A] shrink-0"></div>
-                    <span className="text-[14px] font-medium text-gray-800 leading-tight">
-                      {toTitleCase(sva)}
-                    </span>
-                  </div>
-               ))}
+              <div className="flex flex-col gap-3.5">
+                {parsedPlan.svas.map((sva, idx) => {
+                  let SvaIcon = PiPackage;
+                  const svaLower = sva.toLowerCase();
+                  if (svaLower.includes('tv') || svaLower.includes('l1max')) SvaIcon = PiTelevisionSimple;
+                  else if (svaLower.includes('box')) SvaIcon = PiPackage;
+                  else if (svaLower.includes('mesh')) SvaIcon = PiWifiHigh;
+                  else if (svaLower.includes('antivirus') || svaLower.includes('seguridad')) SvaIcon = PiShieldCheck;
+                  else if (svaLower.includes('aumento')) SvaIcon = PiLightning;
+
+                  return (
+                    <div key={idx} className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-full bg-[#FF5A0A]/10 flex items-center justify-center shrink-0">
+                        <SvaIcon className="w-[18px] h-[18px] text-[#FF5A0A]" />
+                      </div>
+                      <span className="text-[14px] font-semibold text-gray-800 leading-tight">
+                        {toTitleCase(sva)}
+                      </span>
+                    </div>
+                  );
+                })}
              </div>
            </div>
          )}
@@ -1072,8 +1106,8 @@ return (
  }}
  className="w-full flex items-center justify-center gap-2 border border-primary text-primary h-12 rounded-full text-[14px] font-bold hover:bg-primary/5 active:scale-95 transition-all flex-row-reverse"
  >
- Contactar soporte
- <Phone className="w-4 h-4" />
+ Contactar por WhatsApp
+ <FaWhatsapp className="w-[18px] h-[18px]" />
  </button>
  {(status === 'programada' || status === 'asignado') && (
  <button 
