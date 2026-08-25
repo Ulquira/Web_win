@@ -9,7 +9,7 @@ export function useInstalacion(token: string | undefined) {
   const [error, setError] = useState(false);
   const previousStatus = useRef<string | null>(null);
 
-  const triggerNotification = (newStatus: string, tecnicoData: any, logoImg: string) => {
+  const triggerNotification = (newStatus: string, tecnicoData: any, logoImg?: string) => {
     let title = "¡Actualización de tu servicio!";
     let body = "";
 
@@ -25,7 +25,7 @@ export function useInstalacion(token: string | undefined) {
     if ("Notification" in window && Notification.permission === "granted") {
       new Notification(title, { 
         body, 
-        icon: '/win-icon.png',
+        icon: logoImg || '/win-icon.png',
         badge: '/win-icon.png',
         tag: 'win-seguimiento-status'
       });

@@ -193,7 +193,7 @@ const Seguimiento = () => {
  setNotifications(prev => [{ title, body, time: new Date(), read: false }, ...prev]);
 
  if ("Notification" in window && Notification.permission === "granted") {
-   const notificationOptions: NotificationOptions = { 
+   const notificationOptions: any = { 
      body,
      icon: '/win-icon.png',
      badge: '/win-icon.png',
