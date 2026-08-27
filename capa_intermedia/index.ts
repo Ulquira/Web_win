@@ -35,7 +35,7 @@ app.get('/api/v1/terceros/instalaciones/:token', verificarTercero, async (req, r
 
   try {
     // ESTA CAPA ES LA ÚNICA QUE TOCA MYSQL
-    const [rows] = await pool.query(
+    let [rows] = await pool.query(
       `SELECT 
          OrdenId AS idoperacion, 
          Estado, 
@@ -59,7 +59,35 @@ app.get('/api/v1/terceros/instalaciones/:token', verificarTercero, async (req, r
       [token]
     );
 
-    const instalaciones = rows as any[];
+    let instalaciones = rows as any[];
+    
+    // Fallback: Si la orden no existe en la vista principal o es un token de pruebas, buscar en Testmantra
+    if (instalaciones.length === 0) {
+      const [testRows] = await pool.query(
+        `SELECT 
+           OrdenId AS idoperacion, 
+           Estado, 
+           \`Estado OT\` AS SubEstado, 
+           Cuadrilla,
+           Cuadrilla_nombre,
+           Proveedeor, 
+           Georeferencia AS coordenadas_direccion, 
+           Georeferencia_tecnico AS Ubi_TEC, 
+           TeleMovilNume AS telefono, 
+           DATE(\`F.Soli\`) AS fecha_programacion, 
+           TIME(\`F.Soli\`) AS Tramo_Atencio, 
+           ClienteFinal AS nom_cliente, 
+           Direccion AS direccion_cliente, 
+           IdenServi AS Campaña, 
+           token AS Token_inicio,
+           link 
+         FROM Testmantra 
+         WHERE token = ? 
+         ORDER BY \`F.Soli\` DESC LIMIT 1`, 
+        [token]
+      );
+      instalaciones = testRows as any[];
+    }
     
     if (instalaciones.length === 0) {
       return res.status(404).json({ success: false, message: 'Operación no encontrada' });
