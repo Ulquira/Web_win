@@ -49,7 +49,7 @@ async function sendMantraNotification(orden) {
       custom_3: orden.IdenServi ? orden.IdenServi.split('|')[0].trim() : "tu plan Win",
       custom_1: fechaFormateada,
       custom_2: rangoHorario,
-      custom_10: `https://go.win.pe/seguimiento/${orden.token}`
+      custom_10: orden.link || `https://go.win.pe/seguimiento/${orden.token}`
     }
   };
 

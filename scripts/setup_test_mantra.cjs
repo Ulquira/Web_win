@@ -13,10 +13,12 @@ async function run() {
 
     console.log('Actualizando tabla Testmantra para la prueba...');
     
-    // 1. Cambiamos el estado a "Agendada" y ponemos tu número de teléfono (937096003)
+    // 1. Cambiamos el estado a "Agendada", ponemos tu número de teléfono y aseguramos el link
     await conn.query(`
       UPDATE Testmantra 
-      SET Estado = 'Agendada', TeleMovilNume = '937096003'
+      SET Estado = 'Agendada', 
+          TeleMovilNume = '937096003',
+          link = IF(link IS NULL OR link = '', CONCAT('https://go.win.pe/seguimiento/', token), link)
     `);
 
     // 2. Limpiamos cualquier log de pruebas anteriores
