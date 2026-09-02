@@ -3,7 +3,6 @@ import { useParams, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 
 import { Phone, CheckCircle2, User, Star, Bell, Check, MapPin, AlertTriangle, ArrowLeft, CalendarDays, ChevronDown, X } from "lucide-react";
-import { FaWhatsapp } from "react-icons/fa";
 import { PiTelevisionSimple, PiPackage, PiWifiHigh, PiShieldCheck, PiLightning } from "react-icons/pi";
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -1100,19 +1099,7 @@ return (
  </div>
 
  {/* Action Buttons and Help Center CTA (Bottom) */}
- <div className="flex flex-col gap-3 pt-6 pb-2 border-t border-gray-100 mt-2">
- <p className="text-[14px] text-gray-500 text-center mb-2">¿Necesitas ayuda?</p>
- <button 
- onClick={() => {
-   trackEvent('click_contactar_soporte', { token });
-   const msg = encodeURIComponent("Hola, necesito soporte con mi instalación.");
-   window.open(`https://wa.me/51923229369?text=${msg}`);
- }}
- className="w-full flex items-center justify-center gap-2 border border-primary text-primary h-12 rounded-full text-[14px] font-bold hover:bg-primary/5 active:scale-95 transition-all flex-row-reverse"
- >
- Contactar por WhatsApp
- <FaWhatsapp className="w-[18px] h-[18px]" />
- </button>
+ <div className="flex flex-col items-center gap-3 pt-4 pb-2 border-t border-gray-100 mt-2">
  {(status === 'programada' || status === 'asignado') && (
  <button 
  onClick={() => {
@@ -1120,12 +1107,22 @@ return (
    setIsReprogramModalOpen(true);
    setReprogramStep('confirm_initial');
  }}
- className="w-full bg-[#1a202c] text-white h-12 rounded-full text-[14px] font-bold flex items-center justify-center gap-2 active:scale-95 transition-transform shadow-md flex-row-reverse"
+ className="w-full bg-[#2d2d2d] hover:bg-[#1a202c] text-white h-12 rounded-full text-[14px] font-bold flex items-center justify-center gap-2.5 active:scale-95 transition-transform shadow-md"
  >
- Reprogramar visita
- <CalendarDays className="w-5 h-5" />
+ <CalendarDays className="w-5 h-5 text-white" />
+ Reprogramar Visita
  </button>
  )}
+ <button 
+ onClick={() => {
+   trackEvent('click_contactar_soporte', { token });
+   const msg = encodeURIComponent("Hola, necesito soporte con mi instalación.");
+   window.open(`https://wa.me/51923229369?text=${msg}`);
+ }}
+ className="text-[13px] text-gray-600 hover:text-primary font-normal text-center py-1 transition-colors cursor-pointer hover:underline"
+ >
+ ¿Necesitas ayuda?
+ </button>
  </div>
  </>
  )}
