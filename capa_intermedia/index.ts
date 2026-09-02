@@ -37,25 +37,29 @@ app.get('/api/v1/terceros/instalaciones/:token', verificarTercero, async (req, r
     // ESTA CAPA ES LA ÚNICA QUE TOCA MYSQL
     let [rows] = await pool.query(
       `SELECT 
-         OrdenId AS idoperacion, 
-         Estado, 
-         \`Estado OT\` AS SubEstado, 
-         Cuadrilla,
-         Cuadrilla_nombre,
-         Proveedeor, 
-         Georeferencia AS coordenadas_direccion, 
-         Georeferencia_tecnico AS Ubi_TEC, 
-         TeleMovilNume AS telefono, 
-         DATE(\`F.Soli\`) AS fecha_programacion, 
-         TIME(\`F.Soli\`) AS Tramo_Atencio, 
-         ClienteFinal AS nom_cliente, 
-         Direccion AS direccion_cliente, 
-         IdenServi AS Campaña, 
-         token AS Token_inicio,
-         link 
-       FROM VW_WinORdeTraba 
-       WHERE token = ? 
-       ORDER BY \`F.Soli\` DESC LIMIT 1`, 
+         w.OrdenId AS idoperacion, 
+         w.Estado, 
+         w.\`Estado OT\` AS SubEstado, 
+         w.Cuadrilla,
+         w.Cuadrilla_nombre,
+         w.Proveedeor, 
+         w.Georeferencia AS coordenadas_direccion, 
+         w.Georeferencia_tecnico AS Ubi_TEC, 
+         w.TeleMovilNume AS telefono, 
+         DATE(w.\`F.Soli\`) AS fecha_programacion, 
+         TIME(w.\`F.Soli\`) AS Tramo_Atencio, 
+         w.ClienteFinal AS nom_cliente, 
+         w.Direccion AS direccion_cliente, 
+         w.IdenServi AS Campaña, 
+         w.token AS Token_inicio,
+         w.link,
+         w.CodiSegui AS codisegui,
+         w.Producto AS producto,
+         ts.Tipo AS tipo_servicio
+       FROM VW_WinORdeTraba w
+       LEFT JOIN tiposervicio ts ON UPPER(TRIM(w.Producto)) = UPPER(TRIM(ts.Servicio))
+       WHERE w.token = ? 
+       ORDER BY w.\`F.Soli\` DESC LIMIT 1`, 
       [token]
     );
 
@@ -65,25 +69,29 @@ app.get('/api/v1/terceros/instalaciones/:token', verificarTercero, async (req, r
     if (instalaciones.length === 0) {
       const [testRows] = await pool.query(
         `SELECT 
-           OrdenId AS idoperacion, 
-           Estado, 
-           \`Estado OT\` AS SubEstado, 
-           Cuadrilla,
-           Cuadrilla_nombre,
-           Proveedeor, 
-           Georeferencia AS coordenadas_direccion, 
-           Georeferencia_tecnico AS Ubi_TEC, 
-           TeleMovilNume AS telefono, 
-           DATE(\`F.Soli\`) AS fecha_programacion, 
-           TIME(\`F.Soli\`) AS Tramo_Atencio, 
-           ClienteFinal AS nom_cliente, 
-           Direccion AS direccion_cliente, 
-           IdenServi AS Campaña, 
-           token AS Token_inicio,
-           link 
-         FROM Testmantra 
-         WHERE token = ? 
-         ORDER BY \`F.Soli\` DESC LIMIT 1`, 
+           t.OrdenId AS idoperacion, 
+           t.Estado, 
+           t.\`Estado OT\` AS SubEstado, 
+           t.Cuadrilla,
+           t.Cuadrilla_nombre,
+           t.Proveedeor, 
+           t.Georeferencia AS coordenadas_direccion, 
+           t.Georeferencia_tecnico AS Ubi_TEC, 
+           t.TeleMovilNume AS telefono, 
+           DATE(t.\`F.Soli\`) AS fecha_programacion, 
+           TIME(t.\`F.Soli\`) AS Tramo_Atencio, 
+           t.ClienteFinal AS nom_cliente, 
+           t.Direccion AS direccion_cliente, 
+           t.IdenServi AS Campaña, 
+           t.token AS Token_inicio,
+           t.link,
+           t.CodiSegui AS codisegui,
+           t.Producto AS producto,
+           ts.Tipo AS tipo_servicio
+         FROM Testmantra t
+         LEFT JOIN tiposervicio ts ON UPPER(TRIM(t.Producto)) = UPPER(TRIM(ts.Servicio))
+         WHERE t.token = ? 
+         ORDER BY t.\`F.Soli\` DESC LIMIT 1`, 
         [token]
       );
       instalaciones = testRows as any[];
@@ -94,7 +102,9 @@ app.get('/api/v1/terceros/instalaciones/:token', verificarTercero, async (req, r
     }
 
     const op = instalaciones[0];
-    const isTicket = false; // Mantenemos la variable por compatibilidad con el frontend
+    const tipoServicioUpper = (op.tipo_servicio || '').toUpperCase().trim();
+    const productoUpper = (op.producto || '').toUpperCase().trim();
+    const isTicket = tipoServicioUpper === 'AVERIAS' || productoUpper.includes('AVERIA') || productoUpper === 'MOTOWIN';
 
     // Mapeamos el estado real de tu BBDD a los estados que entiende el frontend del tercero
     let statusFront = 'programada';
@@ -158,6 +168,7 @@ app.get('/api/v1/terceros/instalaciones/:token', verificarTercero, async (req, r
 
     const responseData: any = {
       idoperacion: op.idoperacion,
+      codisegui: op.codisegui || null,
       status: statusFront,
       eta: op.SubEstado ? op.SubEstado : null, 
       trafico: null,

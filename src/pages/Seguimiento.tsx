@@ -75,6 +75,7 @@ export interface InstalacionData {
  tramo?: string;
  token_inicio?: string;
  campana?: string;
+ codisegui?: string;
  tipo?: 'instalacion' | 'ticket';
 }
 
@@ -989,8 +990,15 @@ return (
      </span>
    </div>
 
-   {/* Plan y Servicios */}
-   {data.tipo !== 'ticket' && (() => {
+   {/* Plan y Servicios o Ticket Asignado */}
+   {data.tipo === 'ticket' ? (
+     <div className="flex flex-col w-full mt-4 pt-6 border-t border-gray-100">
+       <div className="bg-[#f2f2f2] border border-[#e8e7e8] text-gray-900 px-4 py-3.5 rounded-2xl flex flex-col shadow-sm">
+         <p className="text-[11px] font-bold text-gray-500 uppercase tracking-widest mb-1">Ticket Asignado</p>
+         <p className="text-[16px] font-bold text-gray-900 tracking-tight">{data.codisegui || data.idoperacion || 'No especificado'}</p>
+       </div>
+     </div>
+   ) : (() => {
      const parsedPlan = parsePlanData(data.campana);
      return (
        <div className="flex flex-col w-full mt-4 pt-6 border-t border-gray-100">
