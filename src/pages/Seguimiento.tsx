@@ -788,8 +788,10 @@ return (
  <button 
  onClick={() => {
   trackEvent('click_contactar_soporte_cerrada', { token });
-  const msg = encodeURIComponent("Hola, necesito soporte sobre mi atención cerrada.");
-  window.open(`https://wa.me/51923229369?text=${msg}`);
+  const isVt = data?.tipo === 'ticket';
+  const wspNumber = isVt ? '51922863186' : '51923229369';
+  const msg = encodeURIComponent(isVt ? "Hola, necesito soporte sobre mi Visita Técnica cerrada." : "Hola, necesito soporte sobre mi atención cerrada.");
+  window.open(`https://wa.me/${wspNumber}?text=${msg}`);
 }} 
  className="w-full bg-primary text-white font-bold rounded-2xl h-14 shadow-lg text-[15px] flex items-center justify-center gap-2 transition-transform active:scale-95"
  >
@@ -1124,8 +1126,10 @@ return (
  <button 
  onClick={() => {
    trackEvent('click_contactar_soporte', { token });
-   const msg = encodeURIComponent("Hola, necesito soporte con mi instalación.");
-   window.open(`https://wa.me/51923229369?text=${msg}`);
+   const isVt = data?.tipo === 'ticket';
+   const wspNumber = isVt ? '51922863186' : '51923229369';
+   const msg = encodeURIComponent(isVt ? "Hola, necesito soporte con mi Visita Técnica." : "Hola, necesito soporte con mi instalación.");
+   window.open(`https://wa.me/${wspNumber}?text=${msg}`);
  }}
  className="text-[13px] text-gray-600 hover:text-primary font-normal text-center py-1 transition-colors cursor-pointer hover:underline"
  >
