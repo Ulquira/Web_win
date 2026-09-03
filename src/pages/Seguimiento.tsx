@@ -260,10 +260,40 @@ const Seguimiento = () => {
    return localDate.toISOString().split('T')[0];
  };
 
- const handleReprogramSubmit = async () => {
- 
+ const getAvailableDays = () => {
+   const days = [];
+   const diasSemana = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
+   const meses = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
 
- setIsSubmittingReprogram(true);
+   for (let i = 1; i <= 7; i++) {
+     const d = new Date();
+     d.setDate(d.getDate() + i);
+     const localDate = new Date(d.getTime() - (d.getTimezoneOffset() * 60000));
+     const isoString = localDate.toISOString().split('T')[0];
+     const dayOfWeek = diasSemana[d.getDay()];
+     const dayNum = d.getDate();
+     const monthName = meses[d.getMonth()];
+
+     days.push({
+       iso: isoString,
+       dayOfWeek,
+       dayNum,
+       monthName,
+       isTomorrow: i === 1
+     });
+   }
+   return days;
+ };
+
+ const handleReprogramSubmit = async () => {
+   const minDate = getTomorrowLocal();
+   const maxDate = getMaxDateLocal();
+   if (!reprogramData.fecha || reprogramData.fecha < minDate || reprogramData.fecha > maxDate) {
+     alert("Por favor selecciona una fecha válida dentro de los próximos 7 días.");
+     return;
+   }
+
+   setIsSubmittingReprogram(true);
  try {
  const response = await fetch(`${import.meta.env.VITE_API_URL}/api/reprogramar`, {
  method: 'POST',
@@ -1275,23 +1305,44 @@ return (
 
  {/* Date Box */}
  <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
- <h3 className="font-bold text-[15px] text-gray-900 mb-2">Selecciona la fecha</h3>
- <div className="flex items-start gap-2 mb-4">
+ <div className="flex justify-between items-center mb-2">
+   <h3 className="font-bold text-[15px] text-gray-900">Selecciona la fecha</h3>
+   <span className="text-[11px] font-bold text-primary bg-primary/10 px-2.5 py-0.5 rounded-full">Próximos 7 días</span>
+ </div>
+ <div className="flex items-start gap-2 mb-3.5">
  <div className="w-4 h-4 rounded-full border border-primary text-primary flex items-center justify-center shrink-0 mt-0.5">
  <span className="text-[10px] font-bold">i</span>
  </div>
  <p className="text-[11px] text-primary leading-tight font-normal">Ten en cuenta que depende de la disponibilidad de cupos.</p>
  </div>
- <div className="bg-gray-50 rounded-xl px-4 py-2 border border-gray-100">
- <p className="text-[10px] text-gray-400 mb-0.5">Fecha de Programación</p>
- <input 
- type="date"
- min={getTomorrowLocal()}
- max={getMaxDateLocal()}
- value={reprogramData.fecha}
- onChange={(e) => setReprogramData({...reprogramData, fecha: e.target.value})}
- className="w-full bg-transparent text-[14px] font-normal text-gray-900 focus:outline-none"
- />
+
+ {/* Selector interactivo de los 7 días */}
+ <div className="grid grid-cols-4 gap-2">
+   {getAvailableDays().map((day) => {
+     const isSelected = reprogramData.fecha === day.iso;
+     return (
+       <button
+         key={day.iso}
+         type="button"
+         onClick={() => setReprogramData({ ...reprogramData, fecha: day.iso })}
+         className={`flex flex-col items-center justify-center py-2.5 px-1 rounded-xl border transition-all cursor-pointer ${
+           isSelected
+             ? 'border-primary bg-[#FFF7ED] text-primary shadow-sm scale-[1.02]'
+             : 'border-gray-200 bg-white text-gray-700 hover:border-primary/50'
+         }`}
+       >
+         <span className={`text-[10px] font-bold uppercase ${isSelected ? 'text-primary' : 'text-gray-400'}`}>
+           {day.isTomorrow ? 'Mañana' : day.dayOfWeek}
+         </span>
+         <span className={`text-[16px] font-bold my-0.5 ${isSelected ? 'text-primary' : 'text-gray-900'}`}>
+           {day.dayNum}
+         </span>
+         <span className={`text-[10px] font-medium ${isSelected ? 'text-primary' : 'text-gray-500'}`}>
+           {day.monthName}
+         </span>
+       </button>
+     );
+   })}
  </div>
  </div>
 
