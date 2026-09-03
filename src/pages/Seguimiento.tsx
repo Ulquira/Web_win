@@ -116,6 +116,7 @@ const Seguimiento = () => {
  const [encuestaEnviada, setEncuestaEnviada] = useState(false);
 
  const previousStatus = useRef<string | null>(null);
+ const previousTechnician = useRef<string | null>(null);
  const etaReferenceTime = useRef<number | null>(null);
  const [notifications, setNotifications] = useState<{title: string, body: string, time: Date, read: boolean}[]>([]);
  const [showNotifications, setShowNotifications] = useState(false);
@@ -214,6 +215,35 @@ const Seguimiento = () => {
      new Notification(title, notificationOptions);
    }
  }
+ };
+
+ const triggerTechnicianChangeNotification = (newTechName: string) => {
+   const title = "¡Actualización de técnico!";
+   const body = `Tu atención ha sido asignada al técnico ${toTitleCase(newTechName)}.`;
+
+   setNotifications(prev => [{ title, body, time: new Date(), read: false }, ...prev]);
+
+   if ("Notification" in window && Notification.permission === "granted") {
+     const notificationOptions: any = { 
+       body,
+       icon: '/win-icon.png',
+       badge: '/win-icon.png',
+       tag: 'win-seguimiento-tech-change',
+       renotify: true,
+       vibrate: [200, 100, 200],
+       data: { url: window.location.href }
+     };
+
+     if ('serviceWorker' in navigator) {
+       navigator.serviceWorker.ready.then(registration => {
+         registration.showNotification(title, notificationOptions);
+       }).catch(() => {
+         new Notification(title, notificationOptions);
+       });
+     } else {
+       new Notification(title, notificationOptions);
+     }
+   }
  };
 
  const getTomorrowLocal = () => {
@@ -416,6 +446,27 @@ const Seguimiento = () => {
             });
           }
           previousStatus.current = fetchedData.status;
+
+          const currentTechName = fetchedData.tecnico?.nombre?.trim() || '';
+
+          // Detectar si hubo cambio de técnico asignado
+          if (
+            previousTechnician.current && 
+            currentTechName && 
+            previousTechnician.current !== currentTechName && 
+            currentTechName !== 'Técnico Asignado'
+          ) {
+            trackEvent('cambio_tecnico_detectado', {
+              token,
+              tecnico_anterior: previousTechnician.current,
+              tecnico_nuevo: currentTechName
+            });
+            triggerTechnicianChangeNotification(currentTechName);
+          }
+
+          if (currentTechName && currentTechName !== 'Técnico Asignado') {
+            previousTechnician.current = currentTechName;
+          }
 
           setData(fetchedData);
           setError(false);
