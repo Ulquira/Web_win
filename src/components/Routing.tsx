@@ -108,15 +108,15 @@ export default function Routing({ start, end, onRouteCalculated }: RoutingProps)
 
   return (
     <>
-      {/* Sombra/Borde oscuro grueso para efecto 3D */}
+      {/* Sombra/Borde base grueso para efecto 3D */}
       <Polyline 
         positions={routePath} 
-        pathOptions={{ color: '#1e3a8a', weight: 8, opacity: 0.6, lineCap: 'round', lineJoin: 'round' }} 
+        pathOptions={{ color: '#0F090B', weight: 8, opacity: 0.2, lineCap: 'round', lineJoin: 'round' }} 
       />
-      {/* Línea principal azul sólida */}
+      {/* Línea principal naranja WIN sólida */}
       <Polyline 
         positions={routePath} 
-        pathOptions={{ color: '#3b82f6', weight: 5, opacity: 1, lineCap: 'round', lineJoin: 'round' }} 
+        pathOptions={{ color: '#FF5A0A', weight: 5, opacity: 1, lineCap: 'round', lineJoin: 'round' }} 
       />
     </>
   );
