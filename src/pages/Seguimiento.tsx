@@ -4,15 +4,10 @@ import { Button } from "@/components/ui/button";
 
 import { Phone, CheckCircle2, User, Star, Bell, Check, MapPin, AlertTriangle, ArrowLeft, CalendarDays, ChevronDown, X } from "lucide-react";
 import { PiTelevisionSimple, PiPackage, PiWifiHigh, PiShieldCheck, PiLightning } from "react-icons/pi";
-import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
-import 'leaflet/dist/leaflet.css';
-import 'leaflet-routing-machine/dist/leaflet-routing-machine.css';
-import L from 'leaflet';
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 
-import Routing from "@/components/Routing";
-import AnimatedMarker from "@/components/AnimatedMarker";
+import GoogleTrackingMap from "@/components/GoogleTrackingMap";
 import { motion, AnimatePresence } from "framer-motion";
 import { MainLogo } from "@/components/MainLogo";
 import { trackEvent } from "@/lib/firebaseConfig";
@@ -27,34 +22,6 @@ const parseSafeDate = (dateStr?: string) => {
   const d = new Date(dateStr);
   return isNaN(d.getTime()) ? null : d;
 };
-
-
-delete (L.Icon.Default.prototype as any)._getIconUrl;
-L.Icon.Default.mergeOptions({
- iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
- iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
- shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
-});
-
-const vehicleIcon = L.divIcon({
- className: 'custom-vehicle-icon',
- html: `<div style="background-color: #FF5A0A; border-radius: 50%; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; border: 3px solid white; box-shadow: 0 4px 12px rgba(255, 90, 10, 0.4); transition: transform 0.3s ease;">
- <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2"/><path d="M15 18H9"/><path d="M19 18h2a1 1 0 0 0 1-1v-3.65a1 1 0 0 0-.22-.624l-3.48-4.35A1 1 0 0 0 17.52 8H14"/><circle cx="17" cy="18" r="2"/><circle cx="7" cy="18" r="2"/></svg>
- </div>`,
- iconSize: [44, 44],
- iconAnchor: [22, 22],
- popupAnchor: [0, -22],
-});
-
-const destIcon = L.divIcon({
- className: 'custom-dest-icon',
- html: `<div style="background-color: #0F090B; border-radius: 50%; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; border: 3px solid #FF5A0A; box-shadow: 0 4px 12px rgba(0,0,0,0.4);">
- <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
- </div>`,
- iconSize: [40, 40],
- iconAnchor: [20, 20],
- popupAnchor: [0, -20],
-});
 
 // Componente para animar elementos al entrar
 export interface InstalacionData {
@@ -87,9 +54,7 @@ const Seguimiento = () => {
  const [loading, setLoading] = useState(true);
  const [error, setError] = useState(false);
 
- const [routePoints, setRoutePoints] = useState<[number, number][]>([]);
  const [calculatedEta, setCalculatedEta] = useState<string | null>(null);
- const [calculatedDurationSec, setCalculatedDurationSec] = useState<number>(0);
  // Estado para manejar el tiempo restante actual en segundos
  const [remainingSeconds, setRemainingSeconds] = useState<number | null>(null);
  
@@ -714,57 +679,23 @@ return (
  </div>
  )}
 
- {/* Map Layer (Background) */}
+ {/* Map Layer (Background - Google Maps Minimalista estilo Uber) */}
  {status === 'en_camino' && (
- <div className="absolute top-0 left-0 w-full h-full z-0 bg-muted">
- <MapContainer center={position} zoom={15} zoomControl={false} scrollWheelZoom={false} className="h-full w-full">
-    <TileLayer 
-      url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" 
-      attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-    />
- 
-
- {status === 'en_camino' && (
- <Routing 
- start={vehiclePosition} 
- end={position} 
- onRouteCalculated={(coords, timeInSeconds) => {
- setRoutePoints(coords);
- setCalculatedDurationSec(timeInSeconds);
- 
- // Solo seteamos el tiempo restante si es la primera vez o si la nueva estimación de Google
- // difiere por más de 5 minutos (300 segundos) de lo que nos queda, para evitar resetear el 
- // contador por pequeñas fluctuaciones del GPS.
- if (remainingSeconds === null || Math.abs(remainingSeconds - timeInSeconds) > 300) {
-   setRemainingSeconds(timeInSeconds);
-   etaReferenceTime.current = Date.now();
- }
- }} 
- />
- )}
-
- {/* Pin de la casa del cliente (Destino de la ruta) - Siempre visible */}
- <Marker position={position} icon={destIcon}>
-   <Popup>Tu dirección</Popup>
- </Marker>
-
- {/* Marcador del vehículo del técnico */}
- {routePoints.length > 0 && status === 'en_camino' ? (
- <AnimatedMarker 
- routePoints={routePoints} 
- durationSeconds={calculatedDurationSec}
- icon={vehicleIcon} 
- popupText="El técnico está en camino" 
- />
- ) : (
- <Marker position={vehiclePosition} icon={vehicleIcon}>
-   <Popup>El técnico</Popup>
- </Marker>
- )}
- </MapContainer>
+ <div className="absolute top-0 left-0 w-full h-full z-0 bg-[#f5f5f5]">
+   <GoogleTrackingMap
+     customerCoords={position}
+     technicianCoords={vehiclePosition}
+     onRouteCalculated={(_coords, timeInSeconds) => {
+       if (remainingSeconds === null || Math.abs(remainingSeconds - timeInSeconds) > 300) {
+         setRemainingSeconds(timeInSeconds);
+         etaReferenceTime.current = Date.now();
+       }
+     }}
+     className="h-full w-full"
+   />
 
  {/* Mensaje Referencial superpuesto en el mapa */}
- <div className="absolute bottom-[15vh] left-4 z-[400] bg-white/90 backdrop-blur-sm px-3.5 py-2.5 rounded-xl shadow-md border border-gray-100 max-w-[200px]">
+ <div className="absolute bottom-[15vh] left-4 z-[400] bg-white/95 backdrop-blur-sm px-3.5 py-2.5 rounded-xl shadow-md border border-gray-100 max-w-[200px]">
    <div className="flex items-center gap-1.5">
      <AlertTriangle className="w-5 h-5 text-primary shrink-0" />
      <p className="text-[11px] text-gray-600 font-normal leading-tight">
