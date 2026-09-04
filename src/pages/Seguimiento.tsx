@@ -718,7 +718,10 @@ return (
  {status === 'en_camino' && (
  <div className="absolute top-0 left-0 w-full h-full z-0 bg-muted">
  <MapContainer center={position} zoom={15} zoomControl={false} scrollWheelZoom={false} className="h-full w-full">
-    <TileLayer url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png" />
+    <TileLayer 
+      url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" 
+      attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+    />
  
 
  {status === 'en_camino' && (
