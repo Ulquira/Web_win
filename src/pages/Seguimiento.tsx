@@ -815,6 +815,12 @@ return (
  </div>
  </div>
  ) : status === 'finalizada' && !encuestaEnviada && localStorage.getItem(`encuesta_completada_${token}`) !== 'true' ? (
+ (() => {
+ const isVt = data.tipo === 'ticket';
+ const terminoServicio = isVt ? 'la visita técnica' : 'la instalación';
+ const terminoServicioCap = isVt ? 'La visita técnica' : 'La instalación';
+
+ return (
  <div className="py-4">
  <div className="mb-6">
  <h2 className="text-[22px] font-black text-gray-900 leading-tight">
@@ -825,7 +831,7 @@ return (
  <div className="space-y-4">
  {/* Pregunta 1 */}
  <div className="bg-white border border-gray-100 shadow-sm rounded-2xl p-5">
- <p className="font-bold text-[14px] mb-3 text-gray-900">1. ¿La instalación se concretó correctamente?</p>
+ <p className="font-bold text-[14px] mb-3 text-gray-900">1. ¿{terminoServicioCap} se concretó correctamente?</p>
  <div className="flex gap-3">
  <label className="flex items-center justify-center gap-2 cursor-pointer bg-gray-50 px-4 py-2.5 rounded-xl border border-gray-100 flex-1 hover:bg-gray-100 transition-colors has-[:checked]:border-primary has-[:checked]:bg-primary/5">
  <input type="radio" name="q1" value="Sí" onChange={(e) => setEncuesta({...encuesta, instalacion_concretada: e.target.value})} className="accent-primary w-4 h-4" /> 
@@ -845,7 +851,7 @@ return (
  
  {[
    { key: 'tecnico_trato', label: 'Trato y respeto' },
-   { key: 'tecnico_puntualidad', label: 'Puntualidad y cumplimiento de la instalación' },
+   { key: 'tecnico_puntualidad', label: `Puntualidad y cumplimiento de ${terminoServicio}` },
    { key: 'tecnico_claridad', label: 'Claridad de la explicación (Uso, recomendaciones, cuidados)' },
    { key: 'tecnico_orden', label: 'Orden y cuidado del espacio (limpieza, cableado prolijo)' },
    { key: 'tecnico_efectividad', label: 'Efectividad del trabajo realizado' }
@@ -868,7 +874,7 @@ return (
 
  {/* Pregunta 3 */}
  <div className="bg-white border border-gray-100 shadow-sm rounded-2xl p-5">
- <p className="font-bold text-[14px] mb-1 text-gray-900">3. En general, ¿Qué tan satisfecho(a) estás con la atención recibida durante la instalación?</p>
+ <p className="font-bold text-[14px] mb-1 text-gray-900">3. En general, ¿Qué tan satisfecho(a) estás con la atención recibida durante {terminoServicio}?</p>
  <p className="text-[11px] text-gray-400 mb-4 font-normal">1 = Totalmente Insatisfecho, 5 = Totalmente Satisfecho</p>
  <div className="flex justify-between gap-1 mb-4">
  {[1,2,3,4,5].map(num => (
@@ -903,7 +909,7 @@ return (
 
  {/* Pregunta 4 */}
  <div className="bg-white border border-gray-100 shadow-sm rounded-2xl p-5 mb-4">
- <p className="font-bold text-[14px] mb-1 text-gray-900">4. ¿Qué tan fácil fue gestionar tu solicitud de instalación?</p>
+ <p className="font-bold text-[14px] mb-1 text-gray-900">4. ¿Qué tan fácil fue gestionar tu solicitud de {isVt ? 'visita técnica' : 'instalación'}?</p>
  <p className="text-[11px] text-gray-400 mb-4 font-normal">1 = Muy difícil, 5 = Muy fácil</p>
  <div className="flex justify-between gap-1 mb-4">
  {[1,2,3,4,5].map(num => (
@@ -920,9 +926,9 @@ return (
 
  {(encuesta.facilidad_gestion === '1' || encuesta.facilidad_gestion === '2') && (
    <div className="animate-in fade-in slide-in-from-top-2 duration-300 mt-4">
-     <p className="font-bold text-[13px] text-gray-900 mb-3">¿Qué fue lo más difícil o incómodo del proceso de instalación?</p>
+     <p className="font-bold text-[13px] text-gray-900 mb-3">¿Qué fue lo más difícil o incómodo del proceso de {terminoServicio}?</p>
      <div className="flex flex-col gap-2">
-       {['Coordinar la visita', 'Tiempo de espera', 'Información o tracking poco claro', 'Atención del técnico', 'Duración de la instalación', 'Otro'].map(opcion => (
+       {['Coordinar la visita', 'Tiempo de espera', 'Información o tracking poco claro', 'Atención del técnico', isVt ? 'Duración de la visita técnica' : 'Duración de la instalación', 'Otro'].map(opcion => (
          <label key={opcion} className="flex items-center gap-3 cursor-pointer p-2 rounded-lg hover:bg-gray-50 border border-transparent has-[:checked]:border-primary has-[:checked]:bg-primary/5">
            <input type="radio" name="facilidad_motivo" value={opcion} onChange={(e) => setEncuesta({...encuesta, facilidad_motivo: e.target.value})} className="accent-primary w-4 h-4" />
            <span className="text-[13px] font-normal text-gray-700">{opcion}</span>
@@ -941,6 +947,8 @@ return (
  </Button>
  </div>
  </div>
+ );
+ })()
  ) : (encuestaEnviada || localStorage.getItem(`encuesta_completada_${token}`) === 'true') && (status === 'finalizada' || status === 'cerrada') ? (
  <div className="py-6">
  <div className="bg-white border border-gray-200 rounded-[24px] p-8 shadow-sm text-center">
