@@ -378,6 +378,9 @@ const Seguimiento = () => {
         
         if (result.success) {
           const fetchedData = result.data;
+          if (token) {
+            localStorage.setItem('win_last_token', token);
+          }
           
           // MAPEO DE NUEVOS ESTADOS DE BD A ESTADOS INTERNOS DE UI
           const dbStatus = fetchedData.status ? fetchedData.status.toLowerCase().trim() : '';
