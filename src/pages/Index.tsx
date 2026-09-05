@@ -1,63 +1,20 @@
-import React, { useState, useEffect } from "react";
+import { useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { motion, AnimatePresence } from "framer-motion";
-import { Check, Search, ArrowRight, MessageCircle, X, ShieldCheck } from "lucide-react";
+import { motion } from "framer-motion";
+import { Check, ShieldCheck, MessageCircle } from "lucide-react";
 import { PortadaIlustracion } from "@/components/PortadaIlustracion";
 
 const Index = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [tokenInput, setTokenInput] = useState("");
-  const [inputError, setInputError] = useState("");
-  const [lastToken, setLastToken] = useState<string | null>(null);
 
   useEffect(() => {
     // Si la URL contiene un token directo como query param (?token=... o ?t=...)
     const queryToken = searchParams.get("token") || searchParams.get("t");
     if (queryToken) {
       navigate(`/seguimiento/${queryToken.trim()}`);
-      return;
-    }
-
-    // Verificar si hay un token previo guardado en el navegador
-    const saved = localStorage.getItem("win_last_token");
-    if (saved) {
-      setLastToken(saved);
     }
   }, [searchParams, navigate]);
-
-  const handleCtaClick = () => {
-    if (lastToken) {
-      navigate(`/seguimiento/${lastToken}`);
-    } else {
-      setIsModalOpen(true);
-    }
-  };
-
-  const handleSearchSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    const cleanToken = tokenInput.trim();
-    if (!cleanToken) {
-      setInputError("Por favor ingresa un código de seguimiento o token válido.");
-      return;
-    }
-    
-    // Si pegaron un URL completo, extraer solo el token final
-    let parsedToken = cleanToken;
-    if (cleanToken.includes("/")) {
-      const parts = cleanToken.split("/");
-      parsedToken = parts[parts.length - 1].split("?")[0];
-    }
-
-    if (parsedToken.length < 4) {
-      setInputError("El código ingresado parece demasiado corto. Revisa tu mensaje de WhatsApp.");
-      return;
-    }
-
-    setInputError("");
-    navigate(`/seguimiento/${parsedToken}`);
-  };
 
   const openWhatsAppSupport = () => {
     const text = encodeURIComponent(
@@ -77,7 +34,7 @@ const Index = () => {
       <div className="w-full max-w-sm sm:max-w-md flex flex-col items-center flex-1 justify-between my-auto">
         
         {/* Header con Logo Oficial WIN */}
-        <header className="w-full flex justify-center items-center pt-2 pb-4">
+        <header className="w-full flex justify-center items-center pt-2 pb-3">
           <div className="w-28 sm:w-32 h-auto flex items-center justify-center">
             <svg
               viewBox="140 78 95 40"
@@ -114,7 +71,7 @@ const Index = () => {
           initial={{ y: 20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ duration: 0.6 }}
-          className="w-full flex items-center justify-center my-3 sm:my-5"
+          className="w-full flex items-center justify-center my-2 sm:my-4"
         >
           <PortadaIlustracion className="w-full max-w-[270px] sm:max-w-[310px] flex items-center justify-center" />
         </motion.div>
@@ -124,7 +81,7 @@ const Index = () => {
           initial={{ y: 20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ duration: 0.6, delay: 0.15 }}
-          className="text-center px-2 space-y-2 mb-6"
+          className="text-center px-2 space-y-2 mb-5"
         >
           <h1 className="text-2xl sm:text-[28px] font-black text-[#1E293B] tracking-tight leading-tight">
             Sigue tu instalación
@@ -140,7 +97,7 @@ const Index = () => {
           initial={{ y: 20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ duration: 0.6, delay: 0.25 }}
-          className="w-full max-w-[310px] sm:max-w-[330px] mx-auto mb-8 px-2"
+          className="w-full max-w-[310px] sm:max-w-[330px] mx-auto mb-6 px-2"
         >
           <div className="flex items-center justify-between relative">
             
@@ -183,116 +140,38 @@ const Index = () => {
           </div>
         </motion.div>
 
-        {/* Botón Principal de Acción */}
+        {/* Tarjeta Informativa de Acceso Seguro (Sin inputs manuales) */}
         <motion.div
           initial={{ y: 20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ duration: 0.6, delay: 0.35 }}
           className="w-full max-w-sm px-2 pb-2"
         >
-          <button
-            onClick={handleCtaClick}
-            className="w-full py-3.5 sm:py-4 bg-[#FF5A0A] hover:bg-[#E04E07] active:scale-[0.98] text-white font-bold text-sm sm:text-base rounded-2xl shadow-lg shadow-orange-500/25 transition-all flex items-center justify-center gap-2 cursor-pointer"
-          >
-            <span>Seguir mi instalación</span>
-            <ArrowRight className="w-4 h-4 stroke-[2.5]" />
-          </button>
-
-          {lastToken && (
-            <p className="text-[11px] text-gray-400 text-center mt-2.5">
-              Tienes una sesión de seguimiento activa.{" "}
-              <button
-                onClick={() => setIsModalOpen(true)}
-                className="text-[#FF5A0A] underline font-medium hover:text-orange-600"
-              >
-                Ingresar otro código
-              </button>
+          <div className="bg-orange-50/70 border border-orange-100 rounded-2xl p-4 sm:p-5 text-center shadow-sm">
+            <div className="w-9 h-9 rounded-xl bg-[#FF5A0A] text-white flex items-center justify-center mx-auto mb-2.5 shadow-sm">
+              <ShieldCheck className="w-5 h-5" />
+            </div>
+            <h3 className="text-sm font-bold text-gray-900 mb-1">
+              Acceso Seguro y Privado
+            </h3>
+            <p className="text-xs text-gray-600 leading-relaxed max-w-xs mx-auto mb-3.5">
+              Para seguir tu instalación en tiempo real, ingresa directamente a través del <span className="font-bold text-[#FF5A0A]">enlace único</span> que te enviamos por WhatsApp o SMS.
             </p>
-          )}
+
+            <button
+              onClick={openWhatsAppSupport}
+              className="w-full py-2.5 px-3 bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98] text-white rounded-xl font-semibold text-xs transition-all flex items-center justify-center gap-2 shadow-sm shadow-emerald-600/20 cursor-pointer"
+            >
+              <MessageCircle className="w-4 h-4" />
+              <span>¿Necesitas ayuda? Escríbenos a WhatsApp</span>
+            </button>
+          </div>
         </motion.div>
 
       </div>
 
       {/* Indicador inferior tipo iOS Home Bar */}
       <div className="w-32 h-1 bg-gray-900/80 rounded-full mx-auto mt-4 shrink-0" />
-
-      {/* Modal / Bottom Sheet para Ingresar Token Manualmente */}
-      <AnimatePresence>
-        {isModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm p-0 sm:p-4">
-            <motion.div
-              initial={{ opacity: 0, y: 100 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: 100 }}
-              className="bg-white w-full max-w-md rounded-t-3xl sm:rounded-3xl p-6 shadow-2xl relative"
-            >
-              <button
-                onClick={() => setIsModalOpen(false)}
-                className="absolute top-4 right-4 p-2 rounded-full hover:bg-gray-100 text-gray-400 hover:text-gray-700 transition-colors"
-              >
-                <X className="w-5 h-5" />
-              </button>
-
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-10 h-10 rounded-2xl bg-orange-50 text-[#FF5A0A] flex items-center justify-center">
-                  <ShieldCheck className="w-6 h-6" />
-                </div>
-                <div>
-                  <h3 className="text-lg font-bold text-gray-900">Acceso a tu Seguimiento</h3>
-                  <p className="text-xs text-gray-500">Ingresa tu código o enlace recibido</p>
-                </div>
-              </div>
-
-              <form onSubmit={handleSearchSubmit} className="space-y-4">
-                <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1.5">
-                    Código de seguimiento o token:
-                  </label>
-                  <div className="relative">
-                    <input
-                      type="text"
-                      value={tokenInput}
-                      onChange={(e) => {
-                        setTokenInput(e.target.value);
-                        setInputError("");
-                      }}
-                      placeholder="Ej: 8129381-abcd o pega tu enlace de WhatsApp"
-                      className="w-full pl-3.5 pr-10 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#FF5A0A] focus:border-transparent transition-all"
-                      autoFocus
-                    />
-                    <Search className="w-4 h-4 text-gray-400 absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-                  </div>
-                  {inputError && (
-                    <p className="text-xs text-red-500 font-medium mt-1.5">{inputError}</p>
-                  )}
-                </div>
-
-                <button
-                  type="submit"
-                  className="w-full py-3.5 bg-[#FF5A0A] hover:bg-[#E04E07] active:scale-[0.98] text-white font-bold text-sm rounded-xl shadow-md shadow-orange-500/20 transition-all flex items-center justify-center gap-2"
-                >
-                  <span>Consultar instalación</span>
-                  <ArrowRight className="w-4 h-4" />
-                </button>
-              </form>
-
-              <div className="mt-5 pt-4 border-t border-gray-100 flex flex-col items-center gap-3">
-                <p className="text-xs text-gray-500 text-center">
-                  ¿No recibiste tu enlace por WhatsApp o SMS?
-                </p>
-                <button
-                  type="button"
-                  onClick={openWhatsAppSupport}
-                  className="w-full py-2.5 px-4 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-xl font-semibold text-xs transition-colors flex items-center justify-center gap-2"
-                >
-                  <MessageCircle className="w-4 h-4" />
-                  <span>Contactar a Soporte por WhatsApp</span>
-                </button>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
     </motion.div>
   );
 };
