@@ -957,7 +957,7 @@ return (
  </div>
  <h2 className="text-2xl font-bold text-gray-900 mb-3">¡Encuesta enviada!</h2>
  <p className="text-[15px] text-gray-500 mb-6 font-normal leading-relaxed px-2">
- Muchas gracias por tomarte el tiempo de responder. Tu opinión es súper valiosa y nos ayuda a seguir mejorando el servicio de PerúFibra para ti.
+ Muchas gracias por tomarte el tiempo de responder. Tu opinión es súper valiosa y nos ayuda a seguir mejorando el servicio de WIN para ti.
  </p>
  <div className="inline-flex items-center justify-center px-6 py-3 bg-gray-50 rounded-xl border border-gray-100">
  <span className="text-[13px] font-bold text-gray-700">¡Que disfrutes tu conexión! 🚀</span>
