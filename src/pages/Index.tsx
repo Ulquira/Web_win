@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Check, Search, ArrowRight, MessageCircle, X, ShieldCheck } from "lucide-react";
-import portadaIlustracion from "../assets/portada-ilustracion.svg";
+import { PortadaIlustracion } from "@/components/PortadaIlustracion";
 
 const Index = () => {
   const navigate = useNavigate();
@@ -116,11 +116,7 @@ const Index = () => {
           transition={{ duration: 0.6 }}
           className="w-full flex items-center justify-center my-3 sm:my-5"
         >
-          <img
-            src={portadaIlustracion}
-            alt="WIN Seguimiento de Instalación"
-            className="w-full max-w-[290px] sm:max-w-[340px] h-auto object-contain drop-shadow-sm"
-          />
+          <PortadaIlustracion className="w-full max-w-[270px] sm:max-w-[310px] flex items-center justify-center" />
         </motion.div>
 
         {/* Bloque de Textos */}
