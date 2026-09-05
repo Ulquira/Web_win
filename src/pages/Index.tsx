@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Check, ShieldCheck, MessageCircle } from "lucide-react";
+import { Check, ShieldCheck } from "lucide-react";
 import { PortadaIlustracion } from "@/components/PortadaIlustracion";
 
 const Index = () => {
@@ -15,13 +15,6 @@ const Index = () => {
       navigate(`/seguimiento/${queryToken.trim()}`);
     }
   }, [searchParams, navigate]);
-
-  const openWhatsAppSupport = () => {
-    const text = encodeURIComponent(
-      "Hola WIN, deseo consultar el estado y seguimiento en vivo de mi instalación."
-    );
-    window.open(`https://wa.me/51923229369?text=${text}`, "_blank");
-  };
 
   return (
     <motion.div
@@ -140,7 +133,7 @@ const Index = () => {
           </div>
         </motion.div>
 
-        {/* Tarjeta Informativa de Acceso Seguro (Sin inputs manuales) */}
+        {/* Tarjeta Informativa de Acceso Seguro */}
         <motion.div
           initial={{ y: 20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
@@ -154,17 +147,9 @@ const Index = () => {
             <h3 className="text-sm font-bold text-gray-900 mb-1">
               Acceso Seguro y Privado
             </h3>
-            <p className="text-xs text-gray-600 leading-relaxed max-w-xs mx-auto mb-3.5">
-              Para seguir tu instalación en tiempo real, ingresa directamente a través del <span className="font-bold text-[#FF5A0A]">enlace único</span> que te enviamos por WhatsApp o SMS.
+            <p className="text-xs text-gray-600 leading-relaxed max-w-xs mx-auto">
+              Para seguir tu instalación en tiempo real, ingresa directamente a través del <span className="font-bold text-[#FF5A0A]">enlace único</span> que te enviamos por WhatsApp.
             </p>
-
-            <button
-              onClick={openWhatsAppSupport}
-              className="w-full py-2.5 px-3 bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98] text-white rounded-xl font-semibold text-xs transition-all flex items-center justify-center gap-2 shadow-sm shadow-emerald-600/20 cursor-pointer"
-            >
-              <MessageCircle className="w-4 h-4" />
-              <span>¿Necesitas ayuda? Escríbenos a WhatsApp</span>
-            </button>
           </div>
         </motion.div>
 
