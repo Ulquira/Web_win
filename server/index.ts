@@ -210,6 +210,35 @@ const parseUserAgent = (ua: string) => {
   return { sistema_operativo, navegador };
 };
 
+// Caché en memoria para metadatos de token (CodiSegui, Zona, Producto)
+const tokenMetaCache = new Map<string, { codisegui: string | null, zona: string | null, producto: string | null, expiresAt: number }>();
+
+async function getTokenMetadata(token: string) {
+  const cached = tokenMetaCache.get(token);
+  if (cached && cached.expiresAt > Date.now()) {
+    return cached;
+  }
+  try {
+    const [rows]: any = await pool.query(
+      'SELECT CodiSegui, Zona, Producto FROM VW_WinORdeTraba WHERE token = ? LIMIT 1',
+      [token]
+    );
+    if (rows && rows.length > 0) {
+      const meta = {
+        codisegui: rows[0].CodiSegui || null,
+        zona: rows[0].Zona || null,
+        producto: rows[0].Producto || null,
+        expiresAt: Date.now() + 5 * 60 * 1000 // 5 minutos
+      };
+      tokenMetaCache.set(token, meta);
+      return meta;
+    }
+  } catch (err) {
+    console.error('Error obteniendo metadata de token para logs:', err);
+  }
+  return { codisegui: null, zona: null, producto: null, expiresAt: Date.now() + 60000 };
+}
+
 // Endpoint para guardar Logs de Interacción en BD
 const logSchema = z.object({
   token: z.string().min(5).max(150),
@@ -240,6 +269,9 @@ app.post('/api/log', async (req, res) => {
   const limaTime = getLimaDateTime();
 
   try {
+    // Obtener CodiSegui, Zona y Producto asociados al token
+    const meta = await getTokenMetadata(token);
+
     // Verificar si es la primera visita absoluta de este token a la web
     let esPrimeraVisita = false;
     if (evento === 'ver_seguimiento_instalacion') {
@@ -255,11 +287,14 @@ app.post('/api/log', async (req, res) => {
     // Si es la primera vez que abre el enlace, insertamos el evento de 'primera_visita'
     if (esPrimeraVisita) {
       const insertPrimeraQuery = `
-        INSERT INTO LOGS_TRAKING (token, evento, ip_address, detalles, sistema_operativo, timestamp, created_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO LOGS_TRAKING (token, codisegui, zona, producto, evento, ip_address, detalles, sistema_operativo, timestamp, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `;
       await pool.query(insertPrimeraQuery, [
         token, 
+        meta.codisegui,
+        meta.zona,
+        meta.producto,
         'primera_visita', 
         ip_address, 
         detalles ? JSON.stringify(detalles) : null,
@@ -271,6 +306,9 @@ app.post('/api/log', async (req, res) => {
       // Replicar en tiempo real a la BD secundaria
       replicateChange('LOGS_TRAKING', 'INSERT', {
         token,
+        codisegui: meta.codisegui,
+        zona: meta.zona,
+        producto: meta.producto,
         evento: 'primera_visita',
         ip_address,
         detalles: detalles ? JSON.stringify(detalles) : null,
@@ -282,11 +320,14 @@ app.post('/api/log', async (req, res) => {
 
     // Insertar el evento actual normalmente
     const query = `
-      INSERT INTO LOGS_TRAKING (token, evento, ip_address, detalles, sistema_operativo, timestamp, created_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO LOGS_TRAKING (token, codisegui, zona, producto, evento, ip_address, detalles, sistema_operativo, timestamp, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
     await pool.query(query, [
       token, 
+      meta.codisegui,
+      meta.zona,
+      meta.producto,
       evento, 
       ip_address, 
       detalles ? JSON.stringify(detalles) : null,
@@ -298,6 +339,9 @@ app.post('/api/log', async (req, res) => {
     // Replicar en tiempo real a la BD secundaria
     replicateChange('LOGS_TRAKING', 'INSERT', {
       token,
+      codisegui: meta.codisegui,
+      zona: meta.zona,
+      producto: meta.producto,
       evento,
       ip_address,
       detalles: detalles ? JSON.stringify(detalles) : null,
