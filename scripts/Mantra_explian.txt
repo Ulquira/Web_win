@@ -1,0 +1,44 @@
+Especificación Técnica: Microservicio de Notificaciones WhatsApp (Mantra)
+Nombre del Servicio: api-mantra-wsp (Azure App Service / Node.js 22 LTS)
+Propósito: Automatizar y orquestar el envío de notificaciones de WhatsApp vía la API de Mantra mediante una arquitectura desacoplada orientada a eventos y colas, con control estricto de ventanas horarias, idempotencia y clasificación de servicios.
+
+1. Arquitectura y Captura de Eventos (Event-Driven Queue)
+Origen de Datos: Tabla principal vw_winordetraba (MySQL).
+Mecanismo de Detección: Triggers en MySQL (AFTER INSERT y AFTER UPDATE) que capturan exclusivamente cuando una orden nace o cambia al estado Pendiente y depositan el OrdenId en la tabla intermedia COLA_NOTIFICACIONES_MANTRA.
+Consumo de Cola: Worker en segundo plano (cada 30 segundos) que extrae lotes (LIMIT 50) de la cola y procesa los envíos.
+2. Reglas de Negocio y Filtros de Procesamiento
+Filtro de Fecha (Mismo Día):
+Solo procesa órdenes cuya fecha de atención programada sea del día en curso (DATE(F.Soli) = CURDATE()).
+Ventanas Horarias de Envío (Scheduling):
+07:00 - 09:00: Procesa exclusivamente órdenes del tramo 08:xx (Notifica rango 8AM - 12PM).
+11:00 - 13:00: Procesa exclusivamente órdenes del tramo 12:xx (Notifica rango 12PM - 4PM).
+15:00 - 17:00: Procesa exclusivamente órdenes del tramo 16:xx (Notifica rango 4PM - 8PM).
+Fuera de estos rangos: El sistema se mantiene en reposo sin consumir la cola.
+Clasificación por Catálogo (tiposervicio) - Alcance MVP:
+Cruza vw_winordetraba.Producto con tiposervicio.Servicio.
+Solo se envían órdenes con Tipo = 'AVERIAS' (Visitas Técnicas). Las órdenes de INSTALACION, POSTVENTA, PROVINCIA o NO son omitidas ([MVP SKIP]) y purgadas de la cola sin contactar a Mantra.
+Idempotencia y Unicidad Diaria (Control de Regestión):
+Máximo 1 notificación por Ticket (CodiSegui) y OrdenId por día calendario (DATE(fecha_envio) = CURDATE()).
+Si una orden pasa a Regestión y genera una nueva fila el mismo día con el mismo Ticket, el sistema detecta el log previo y bloquea el reenvío duplicado.
+Módulo de Reprogramaciones:
+Monitoreo continuo (cada 1 minuto) de la tabla reprogramaciones para disparar automáticamente la plantilla de reagendamiento con la nueva fecha y turno solicitados.
+3. Integración con API de Mantra (Averías / MVP)
+Credenciales: GROUP_ID: 68508b455ba42fd0a6660300 | API_KEY: 618684ea-0e61-478f-9b22-bc0fd8b8a934
+Plantillas:
+Default: 68fac2ea40478663c8b51c36
+Sector Oeste 2: 6a90c047e91ab8e19836a561
+Reprogramación: 6a984a1d5781ebbf9f145a6b
+Mapeo de Variables (custom_X):
+custom_1: Ticket (CodiSegui).
+custom_2: Fecha en español (ej. 7 de Septiembre).
+custom_3: Rango horario traducido (ej. 8AM - 12PM).
+custom_4: Dirección del cliente.
+custom_5 / custom_6 / custom_10: Enlace dinámico de seguimiento (https://go.win.pe/seguimiento/:token).
+custom_7: Nombre completo del cliente (ClienteFinal).
+4. Auditoría y Trazabilidad
+Toda notificación (exitosa, fallida u omitida) se registra en LOG_NOTIFICACIONES_WSP guardando OrdenId, CodiSegui, EstadoNotificado, fecha_envio, EnviadoExitosamente y DetallesError.
+Notas clave:
+
+Arquitectura desacoplada basada en Triggers + Cola en MySQL que elimina escaneos pesados de tabla completa.
+Filtro estricto de MVP limitado a órdenes de Averías para el mismo día con control de duplicados por Ticket (CodiSegui).
+Microservicio desplegado y operativo en Azure App Service (https://api-mantra-wsp.azurewebsites.net).

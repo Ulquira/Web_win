@@ -34,72 +34,37 @@ app.get('/api/v1/terceros/instalaciones/:token', verificarTercero, async (req, r
   const { token } = req.params;
 
   try {
-    // Prioridad 1: Buscar primero en Testmantra para entorno de pruebas
-    let fromTestMantra = true;
-    let [rows] = await pool.query(
+    // Consulta principal de Producción (VW_WinORdeTraba)
+    const [prodRows] = await pool.query(
       `SELECT 
-         t.OrdenId AS idoperacion, 
-         t.Estado, 
-         t.\`Estado OT\` AS SubEstado, 
-         t.Cuadrilla,
-         t.Cuadrilla_nombre,
-         t.Proveedeor, 
-         t.Georeferencia AS coordenadas_direccion, 
-         t.Georeferencia_tecnico AS Ubi_TEC, 
-         t.TeleMovilNume AS telefono, 
-         DATE(t.\`F.Soli\`) AS fecha_programacion, 
-         TIME(t.\`F.Soli\`) AS Tramo_Atencio, 
-         t.ClienteFinal AS nom_cliente, 
-         t.Direccion AS direccion_cliente, 
-         t.IdenServi AS Campaña, 
-         t.token AS Token_inicio,
-         t.link,
-         t.CodiSegui AS codisegui,
-         t.CodiSeguiClien AS codiseguiclien,
-         t.Producto AS producto,
+         w.OrdenId AS idoperacion, 
+         w.Estado, 
+         w.\`Estado OT\` AS SubEstado, 
+         w.Cuadrilla,
+         w.Cuadrilla_nombre,
+         w.Proveedeor, 
+         w.Georeferencia AS coordenadas_direccion, 
+         w.Georeferencia_tecnico AS Ubi_TEC, 
+         w.TeleMovilNume AS telefono, 
+         DATE(w.\`F.Soli\`) AS fecha_programacion, 
+         TIME(w.\`F.Soli\`) AS Tramo_Atencio, 
+         w.ClienteFinal AS nom_cliente, 
+         w.Direccion AS direccion_cliente, 
+         w.IdenServi AS Campaña, 
+         w.token AS Token_inicio,
+         w.link,
+         w.CodiSegui AS codisegui,
+         w.CodiSeguiClien AS codiseguiclien,
+         w.Producto AS producto,
          ts.Tipo AS tipo_servicio
-       FROM Testmantra t
-       LEFT JOIN tiposervicio ts ON UPPER(TRIM(t.Producto)) = UPPER(TRIM(ts.Servicio))
-       WHERE t.token = ? 
-       ORDER BY t.\`F.Soli\` DESC LIMIT 1`, 
+       FROM VW_WinORdeTraba w
+       LEFT JOIN tiposervicio ts ON UPPER(TRIM(w.Producto)) = UPPER(TRIM(ts.Servicio))
+       WHERE w.token = ? 
+       ORDER BY w.\`F.Soli\` DESC LIMIT 1`, 
       [token]
     );
 
-    let instalaciones = rows as any[];
-    
-    // Fallback: Si no existe en Testmantra, buscar en la vista principal de Producción (VW_WinORdeTraba)
-    if (instalaciones.length === 0) {
-      fromTestMantra = false;
-      const [prodRows] = await pool.query(
-        `SELECT 
-           w.OrdenId AS idoperacion, 
-           w.Estado, 
-           w.\`Estado OT\` AS SubEstado, 
-           w.Cuadrilla,
-           w.Cuadrilla_nombre,
-           w.Proveedeor, 
-           w.Georeferencia AS coordenadas_direccion, 
-           w.Georeferencia_tecnico AS Ubi_TEC, 
-           w.TeleMovilNume AS telefono, 
-           DATE(w.\`F.Soli\`) AS fecha_programacion, 
-           TIME(w.\`F.Soli\`) AS Tramo_Atencio, 
-           w.ClienteFinal AS nom_cliente, 
-           w.Direccion AS direccion_cliente, 
-           w.IdenServi AS Campaña, 
-           w.token AS Token_inicio,
-           w.link,
-           w.CodiSegui AS codisegui,
-           w.CodiSeguiClien AS codiseguiclien,
-           w.Producto AS producto,
-           ts.Tipo AS tipo_servicio
-         FROM VW_WinORdeTraba w
-         LEFT JOIN tiposervicio ts ON UPPER(TRIM(w.Producto)) = UPPER(TRIM(ts.Servicio))
-         WHERE w.token = ? 
-         ORDER BY w.\`F.Soli\` DESC LIMIT 1`, 
-        [token]
-      );
-      instalaciones = prodRows as any[];
-    }
+    const instalaciones = prodRows as any[];
     
     if (instalaciones.length === 0) {
       return res.status(404).json({ success: false, message: 'Operación no encontrada' });
@@ -111,13 +76,44 @@ app.get('/api/v1/terceros/instalaciones/:token', verificarTercero, async (req, r
     // Si la orden original está vinculada a un código de caso (CodiSegui o CodiSeguiClien),
     // consultar automáticamente la fila más reciente y activa de ese mismo caso
     if (op.codisegui || op.codiseguiclien) {
-      const sourceTable = fromTestMantra ? 'Testmantra' : 'VW_WinORdeTraba';
       const filterClause = op.codisegui 
         ? 'w.CodiSegui = ?' 
         : 'w.CodiSeguiClien = ?';
       const filterVal = op.codisegui || op.codiseguiclien;
 
       const [latestRows] = await pool.query(
+        `SELECT 
+           w.OrdenId AS idoperacion, 
+           w.Estado, 
+           w.\`Estado OT\` AS SubEstado, 
+           w.Cuadrilla, 
+           w.Cuadrilla_nombre, 
+           w.Proveedeor, 
+           w.Georeferencia AS coordenadas_direccion, 
+           w.Georeferencia_tecnico AS Ubi_TEC, 
+           w.TeleMovilNume AS telefono, 
+           DATE(w.\`F.Soli\`) AS fecha_programacion, 
+           TIME(w.\`F.Soli\`) AS Tramo_Atencio, 
+           w.ClienteFinal AS nom_cliente, 
+           w.Direccion AS direccion_cliente, 
+           w.IdenServi AS Campaña, 
+           w.token AS Token_inicio, 
+           w.link, 
+           w.CodiSegui AS codisegui, 
+           w.CodiSeguiClien AS codiseguiclien, 
+           w.Producto AS producto, 
+           ts.Tipo AS tipo_servicio 
+         FROM VW_WinORdeTraba w 
+         LEFT JOIN tiposervicio ts ON UPPER(TRIM(w.Producto)) = UPPER(TRIM(ts.Servicio)) 
+         WHERE ${filterClause}
+         ORDER BY w.\`F.Soli\` DESC, w.OrdenId DESC LIMIT 1`,
+        [filterVal]
+      );
+      const latestList = latestRows as any[];
+      if (latestList.length > 0) {
+        op = latestList[0];
+      }
+    }
         `SELECT 
            w.OrdenId AS idoperacion, 
            w.Estado, 
