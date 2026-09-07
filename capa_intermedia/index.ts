@@ -20,6 +20,19 @@ app.use(express.json());
 // Un token súper secreto que viene de las variables de entorno
 const SECRET_API_KEY = process.env.SECRET_API_KEY || "LLAVE_SECRETA_DEL_TERCERO_123";
 
+// Cache en memoria ultra-rápido para mitigar carga masiva en DB (TTL: 4 segundos)
+const memoryCache = new Map<string, { data: any, expiresAt: number }>();
+const CACHE_TTL_MS = 4000;
+
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, value] of memoryCache.entries()) {
+    if (value.expiresAt < now) {
+      memoryCache.delete(key);
+    }
+  }
+}, 60000);
+
 // Middleware para verificar que quien llama es el "Tercero" autorizado
 const verificarTercero = (req: any, res: any, next: any) => {
   const token = req.headers['authorization'];
@@ -32,6 +45,12 @@ const verificarTercero = (req: any, res: any, next: any) => {
 // Endpoint interno: Solo sirve los datos estrictamente necesarios al tercero
 app.get('/api/v1/terceros/instalaciones/:token', verificarTercero, async (req, res) => {
   const { token } = req.params;
+
+  // 1. Revisar si la respuesta ya está en caché en memoria
+  const cached = memoryCache.get(`inst_${token}`);
+  if (cached && cached.expiresAt > Date.now()) {
+    return res.json(cached.data);
+  }
 
   try {
     // Consulta principal de Producción (VW_WinORdeTraba)
@@ -104,38 +123,6 @@ app.get('/api/v1/terceros/instalaciones/:token', verificarTercero, async (req, r
            w.Producto AS producto, 
            ts.Tipo AS tipo_servicio 
          FROM VW_WinORdeTraba w 
-         LEFT JOIN tiposervicio ts ON UPPER(TRIM(w.Producto)) = UPPER(TRIM(ts.Servicio)) 
-         WHERE ${filterClause}
-         ORDER BY w.\`F.Soli\` DESC, w.OrdenId DESC LIMIT 1`,
-        [filterVal]
-      );
-      const latestList = latestRows as any[];
-      if (latestList.length > 0) {
-        op = latestList[0];
-      }
-    }
-        `SELECT 
-           w.OrdenId AS idoperacion, 
-           w.Estado, 
-           w.\`Estado OT\` AS SubEstado, 
-           w.Cuadrilla, 
-           w.Cuadrilla_nombre, 
-           w.Proveedeor, 
-           w.Georeferencia AS coordenadas_direccion, 
-           w.Georeferencia_tecnico AS Ubi_TEC, 
-           w.TeleMovilNume AS telefono, 
-           DATE(w.\`F.Soli\`) AS fecha_programacion, 
-           TIME(w.\`F.Soli\`) AS Tramo_Atencio, 
-           w.ClienteFinal AS nom_cliente, 
-           w.Direccion AS direccion_cliente, 
-           w.IdenServi AS Campaña, 
-           w.token AS Token_inicio, 
-           w.link, 
-           w.CodiSegui AS codisegui, 
-           w.CodiSeguiClien AS codiseguiclien, 
-           w.Producto AS producto, 
-           ts.Tipo AS tipo_servicio 
-         FROM ${sourceTable} w 
          LEFT JOIN tiposervicio ts ON UPPER(TRIM(w.Producto)) = UPPER(TRIM(ts.Servicio)) 
          WHERE ${filterClause}
          ORDER BY w.\`F.Soli\` DESC, w.OrdenId DESC LIMIT 1`,
@@ -235,11 +222,19 @@ app.get('/api/v1/terceros/instalaciones/:token', verificarTercero, async (req, r
       };
     }
 
-    // Le devolvemos al tercero solo la info limpia que necesita
-    res.json({
+    const resultPayload = {
       success: true,
       data: responseData
+    };
+
+    // Guardar en micro-caché en memoria para mitigar picos de carga concurrentes
+    memoryCache.set(`inst_${token}`, {
+      data: resultPayload,
+      expiresAt: Date.now() + CACHE_TTL_MS
     });
+
+    // Le devolvemos al tercero solo la info limpia que necesita
+    res.json(resultPayload);
 
   } catch (error) {
     console.error('Error DB en Capa Intermedia:', error);

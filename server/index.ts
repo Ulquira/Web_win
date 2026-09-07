@@ -19,6 +19,20 @@ dotenv.config();
 const app = express();
 const port = parseInt(process.env.PORT || '3001', 10);
 
+// Micro-caché en memoria de alto rendimiento para mitigar carga masiva en DB y Google APIs
+const apiCache = new Map<string, { data: any, expiresAt: number }>();
+const INST_CACHE_TTL_MS = 3500; // 3.5 segundos para instalaciones
+const ROUTE_CACHE_TTL_MS = 60000; // 60 segundos para rutas idénticas
+
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, value] of apiCache.entries()) {
+    if (value.expiresAt < now) {
+      apiCache.delete(key);
+    }
+  }
+}, 60000);
+
 // URLs para los servicios internos (Ajustado para entorno de producción si es necesario)
 const CAPA_INTERMEDIA_URL = process.env.CAPA_INTERMEDIA_URL || 'http://localhost:4001';
 const SECRET_API_KEY = process.env.SECRET_API_KEY || "LLAVE_SECRETA_DEL_TERCERO_123";
@@ -61,6 +75,9 @@ app.post('/api/reprogramar', async (req, res) => {
       VALUES (?, ?, ?, ?)
     `;
     await pool.query(query, [token, fecha, turno, motivoDetalle]);
+
+    // Invalidar caché inmediato para que el cliente vea el cambio sin espera
+    apiCache.delete(`inst_${token}`);
 
     // Replicar cambio a la base de datos secundaria en tiempo real
     replicateChange('REPROGRAMACIONES', 'INSERT', {
@@ -115,6 +132,9 @@ app.post('/api/encuesta', async (req, res) => {
       tecnico_orden, tecnico_efectividad, satisfaccion_general, satisfaccion_comentario, 
       facilidad_gestion, facilidad_motivo
     ]);
+
+    // Invalidar caché inmediato
+    apiCache.delete(`inst_${token}`);
 
     // Replicar cambio a la base de datos secundaria en tiempo real
     replicateChange('ENCUESTAS', 'INSERT', {
@@ -297,6 +317,12 @@ app.post('/api/log', async (req, res) => {
 app.get('/api/instalaciones/:token', async (req, res) => {
   const { token } = req.params;
 
+  // 1. Revisar si la respuesta ya está en micro-caché (absorbe polling masivo concurrente)
+  const cached = apiCache.get(`inst_${token}`);
+  if (cached && cached.expiresAt > Date.now()) {
+    return res.json(cached.data);
+  }
+
   try {
     // 1. Ejecutamos las verificaciones locales (Reprogramación y Encuesta) en paralelo con Promise.all
     const [reprogResult, encuestaResult, capaResponse] = await Promise.allSettled([
@@ -333,6 +359,13 @@ app.get('/api/instalaciones/:token', async (req, res) => {
       data.data.reprogramada = reprogramadaBD;
       data.data.encuesta_completada = encuestaCompletadaBD;
     }
+
+    // Guardar en micro-caché (TTL: 3.5s)
+    apiCache.set(`inst_${token}`, {
+      data,
+      expiresAt: Date.now() + INST_CACHE_TTL_MS
+    });
+
     res.json(data);
 
   } catch (error) {
@@ -347,6 +380,13 @@ app.post('/api/route', async (req, res) => {
 
   if (!start || !end) {
     return res.status(400).json({ success: false, message: 'Faltan coordenadas de inicio y fin' });
+  }
+
+  // Clave de caché para evitar consultas redundantes a Google Maps API
+  const routeCacheKey = `route_${start[0]}_${start[1]}_${end[0]}_${end[1]}`;
+  const cachedRoute = apiCache.get(routeCacheKey);
+  if (cachedRoute && cachedRoute.expiresAt > Date.now()) {
+    return res.json(cachedRoute.data);
   }
 
   try {
@@ -408,7 +448,15 @@ app.post('/api/route', async (req, res) => {
       const durationSeconds = parseInt(durationStr.replace('s', ''), 10);
       const polyline = route.polyline.encodedPolyline;
 
-      res.json({ success: true, durationSeconds, polyline });
+      const resultPayload = { success: true, durationSeconds, polyline };
+
+      // Guardar en caché por 60s
+      apiCache.set(routeCacheKey, {
+        data: resultPayload,
+        expiresAt: Date.now() + ROUTE_CACHE_TTL_MS
+      });
+
+      res.json(resultPayload);
     } else {
       res.status(400).json({ success: false, message: data.error?.message || 'Error en Google Routes API' });
     }

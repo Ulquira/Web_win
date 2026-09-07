@@ -10,7 +10,11 @@ const pool = mysql.createPool({
   database: process.env.DB_NAME,
   port: Number(process.env.DB_PORT) || 3306,
   waitForConnections: true,
-  connectionLimit: 10,
+  connectionLimit: Number(process.env.DB_POOL_LIMIT) || 30,
+  maxIdle: 15,
+  idleTimeout: 60000,
+  enableKeepAlive: true,
+  keepAliveInitialDelay: 10000,
   queueLimit: 0,
   ssl: {
     rejectUnauthorized: false
@@ -18,7 +22,7 @@ const pool = mysql.createPool({
 });
 
 pool.getConnection().then(conn => {
-  console.log('Conectado a Azure MySQL con éxito');
+  console.log('Conectado a Azure MySQL con ï¿½xito');
   conn.release();
 }).catch(err => {
   console.error('Error al conectar con la base de datos MySQL:', err);
