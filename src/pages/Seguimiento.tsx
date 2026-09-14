@@ -31,6 +31,7 @@ export interface InstalacionData {
  status: 'programada' | 'asignado' | 'en_camino' | 'en_proceso' | 'finalizada' | 'cerrada' | string;
  tecnico?: {
  nombre: string;
+ dni?: string;
  cuadrilla: string;
  telefono: string;
  };
@@ -1118,11 +1119,19 @@ return (
  <p className="font-bold text-gray-900 text-[14px] leading-tight mb-0.5">
  {extractTechnicianName(tecnico.nombre, tecnico.cuadrilla)}
  </p>
- <div className="flex items-center gap-1 mt-0.5">
- <Star className="w-3 h-3 text-primary fill-primary" />
- <span className="text-[11px] font-bold text-gray-600">4.9</span>
- <span className="text-[11px] text-gray-400 mx-1">•</span>
+ <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+ <div className="flex items-center gap-1">
+   <Star className="w-3 h-3 text-primary fill-primary" />
+   <span className="text-[11px] font-bold text-gray-600">4.9</span>
+ </div>
+ <span className="text-[11px] text-gray-300">•</span>
  <span className="text-[11px] text-gray-500 font-normal">Técnico asignado</span>
+ {tecnico.dni && (
+   <>
+     <span className="text-[11px] text-gray-300">•</span>
+     <span className="text-[11px] text-gray-600 font-medium">DNI: {tecnico.dni}</span>
+   </>
+ )}
  </div>
  </div>
  </div>

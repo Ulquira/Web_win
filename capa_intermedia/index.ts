@@ -61,6 +61,8 @@ app.get('/api/v1/terceros/instalaciones/:token', verificarTercero, async (req, r
          w.\`Estado OT\` AS SubEstado, 
          w.Cuadrilla,
          w.Cuadrilla_nombre,
+         vc.Nombre_Tecnico_Limpio AS nombre_tecnico_completo,
+         vc.Documento AS dni_tecnico,
          w.Proveedeor, 
          w.Georeferencia AS coordenadas_direccion, 
          w.Georeferencia_tecnico AS Ubi_TEC, 
@@ -77,6 +79,7 @@ app.get('/api/v1/terceros/instalaciones/:token', verificarTercero, async (req, r
          w.Producto AS producto,
          ts.Tipo AS tipo_servicio
        FROM VW_WinORdeTraba w
+       LEFT JOIN vw_info_cuadrillas vc ON w.Cuadrilla = vc.Cuadrilla
        LEFT JOIN tiposervicio ts ON UPPER(TRIM(w.Producto)) = UPPER(TRIM(ts.Servicio))
        WHERE w.token = ? 
        ORDER BY w.\`F.Soli\` DESC LIMIT 1`, 
@@ -107,6 +110,8 @@ app.get('/api/v1/terceros/instalaciones/:token', verificarTercero, async (req, r
            w.\`Estado OT\` AS SubEstado, 
            w.Cuadrilla, 
            w.Cuadrilla_nombre, 
+           vc.Nombre_Tecnico_Limpio AS nombre_tecnico_completo,
+           vc.Documento AS dni_tecnico,
            w.Proveedeor, 
            w.Georeferencia AS coordenadas_direccion, 
            w.Georeferencia_tecnico AS Ubi_TEC, 
@@ -123,6 +128,7 @@ app.get('/api/v1/terceros/instalaciones/:token', verificarTercero, async (req, r
            w.Producto AS producto, 
            ts.Tipo AS tipo_servicio 
          FROM VW_WinORdeTraba w 
+         LEFT JOIN vw_info_cuadrillas vc ON w.Cuadrilla = vc.Cuadrilla
          LEFT JOIN tiposervicio ts ON UPPER(TRIM(w.Producto)) = UPPER(TRIM(ts.Servicio)) 
          WHERE ${filterClause}
          ORDER BY w.\`F.Soli\` DESC, w.OrdenId DESC LIMIT 1`,
@@ -214,9 +220,10 @@ app.get('/api/v1/terceros/instalaciones/:token', verificarTercero, async (req, r
       tipo: isTicket ? 'ticket' : 'instalacion'
     };
 
-    if (op.Cuadrilla || op.Cuadrilla_nombre) {
+    if (op.Cuadrilla || op.Cuadrilla_nombre || op.nombre_tecnico_completo) {
       responseData.tecnico = {
-        nombre: op.Cuadrilla_nombre || 'Técnico Asignado',
+        nombre: op.nombre_tecnico_completo || op.Cuadrilla_nombre || 'Técnico Asignado',
+        dni: op.dni_tecnico || null,
         cuadrilla: op.Cuadrilla,
         telefono: op.telefono || 'Central'
       };
