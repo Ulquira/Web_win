@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 
-import { Phone, CheckCircle2, User, Star, Bell, Check, MapPin, AlertTriangle, ArrowLeft, CalendarDays, ChevronDown, X } from "lucide-react";
+import { Phone, CheckCircle2, User, Star, Bell, Check, MapPin, AlertTriangle, ArrowLeft, CalendarDays, ChevronDown, X, IdCard } from "lucide-react";
 import { PiTelevisionSimple, PiPackage, PiWifiHigh, PiShieldCheck, PiLightning } from "react-icons/pi";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
@@ -1119,19 +1119,20 @@ return (
  <p className="font-bold text-gray-900 text-[14px] leading-tight mb-0.5">
  {extractTechnicianName(tecnico.nombre, tecnico.cuadrilla)}
  </p>
- <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+ <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+ {tecnico.dni && (
+   <>
+     <div className="flex items-center gap-1 text-gray-600">
+       <IdCard className="w-3.5 h-3.5 text-gray-400" />
+       <span className="text-[11px] font-medium text-gray-600">{tecnico.dni}</span>
+     </div>
+     <span className="text-[11px] text-gray-300">•</span>
+   </>
+ )}
  <div className="flex items-center gap-1">
    <Star className="w-3 h-3 text-primary fill-primary" />
    <span className="text-[11px] font-bold text-gray-600">4.9</span>
  </div>
- <span className="text-[11px] text-gray-300">•</span>
- <span className="text-[11px] text-gray-500 font-normal">Técnico asignado</span>
- {tecnico.dni && (
-   <>
-     <span className="text-[11px] text-gray-300">•</span>
-     <span className="text-[11px] text-gray-600 font-medium">DNI: {tecnico.dni}</span>
-   </>
- )}
  </div>
  </div>
  </div>
