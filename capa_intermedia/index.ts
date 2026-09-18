@@ -233,7 +233,20 @@ app.get('/api/v1/terceros/instalaciones/:token', verificarTercero, async (req, r
       String(op.foto_aprobada || '').trim().toLowerCase() === 'yes' ||
       String(op.foto_aprobada || '').trim().toLowerCase() === 'true'
     );
-    const fotoTecnico = isFotoAprobada ? (op.foto_mejorada || op.foto_original || null) : null;
+
+    let fotoTecnico: string | null = null;
+    if (isFotoAprobada) {
+      const rawImg = String(op.foto_mejorada || op.foto_original || '').trim();
+      if (rawImg.startsWith('data:image/')) {
+        fotoTecnico = rawImg;
+      } else if (rawImg.startsWith('http://') || rawImg.startsWith('https://')) {
+        fotoTecnico = rawImg;
+      } else if (rawImg.startsWith('/9j/') || rawImg.startsWith('iVBORw0KGgo')) {
+        fotoTecnico = `data:image/jpeg;base64,${rawImg}`;
+      } else {
+        fotoTecnico = null;
+      }
+    }
 
     if (op.Cuadrilla || op.Cuadrilla_nombre || op.nombre_tecnico_completo) {
       responseData.tecnico = {

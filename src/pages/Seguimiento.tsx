@@ -64,6 +64,7 @@ const Seguimiento = () => {
  const [isReprogramModalOpen, setIsReprogramModalOpen] = useState(false);
  const [isReprogramCompletada, setIsReprogramCompletada] = useState(false);
  const [isPhotoModalOpen, setIsPhotoModalOpen] = useState(false);
+ const [hasImageError, setHasImageError] = useState(false);
  const [reprogramStep, setReprogramStep] = useState<'confirm_initial' | 'form' | 'success'>('confirm_initial');
  const [reprogramData, setReprogramData] = useState({ fecha: '', turno: '', motivo: '', motivoSeleccionado: '' });
  const [isSubmittingReprogram, setIsSubmittingReprogram] = useState(false);
@@ -1116,17 +1117,18 @@ return (
  <div className="flex items-center gap-3 bg-gray-50 p-3 rounded-[16px] border border-gray-100 mt-4 -ml-2">
  <div 
    onClick={() => {
-     if (tecnico.foto) setIsPhotoModalOpen(true);
+     if (tecnico.foto && !hasImageError) setIsPhotoModalOpen(true);
    }}
    className={`w-11 h-11 rounded-full bg-gray-200 flex items-center justify-center shrink-0 overflow-hidden border border-gray-200 ${
-     tecnico.foto ? 'cursor-pointer hover:ring-2 hover:ring-[#FF5A0A]/50 transition-all shadow-sm' : ''
+     tecnico.foto && !hasImageError ? 'cursor-pointer hover:ring-2 hover:ring-[#FF5A0A]/50 transition-all shadow-sm' : ''
    }`}
-   title={tecnico.foto ? "Ver foto del técnico" : undefined}
+   title={tecnico.foto && !hasImageError ? "Ver foto del técnico" : undefined}
  >
-   {tecnico.foto ? (
+   {tecnico.foto && !hasImageError ? (
      <img 
        src={tecnico.foto} 
-       alt={tecnico.nombre} 
+       alt="" 
+       onError={() => setHasImageError(true)}
        className="w-full h-full object-cover" 
      />
    ) : (
@@ -1479,7 +1481,7 @@ return (
 
   {/* Modal de Foto Ampliada del Técnico */}
   <AnimatePresence>
-    {isPhotoModalOpen && tecnico?.foto && (
+    {isPhotoModalOpen && tecnico?.foto && !hasImageError && (
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
@@ -1504,10 +1506,14 @@ return (
           </button>
 
           {/* Círculo Grande con la Foto del Técnico */}
-          <div className="w-48 h-48 rounded-full p-1.5 border-[3.5px] border-[#FF5A0A] shadow-xl overflow-hidden mb-4 bg-gray-50 flex items-center justify-center">
+          <div className="w-44 h-44 rounded-full p-1.5 border-[3.5px] border-[#FF5A0A] shadow-xl overflow-hidden mb-4 bg-gray-100 flex items-center justify-center">
             <img
               src={tecnico.foto}
-              alt={tecnico.nombre}
+              alt=""
+              onError={() => {
+                setHasImageError(true);
+                setIsPhotoModalOpen(false);
+              }}
               className="w-full h-full object-cover rounded-full"
             />
           </div>
