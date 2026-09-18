@@ -63,6 +63,9 @@ app.get('/api/v1/terceros/instalaciones/:token', verificarTercero, async (req, r
          w.Cuadrilla_nombre,
          vc.Nombre_Tecnico_Limpio AS nombre_tecnico_completo,
          vc.Documento AS dni_tecnico,
+         vc.Img_mejorada AS foto_mejorada,
+         vc.Foto_Img AS foto_original,
+         vc.foto_aprobada AS foto_aprobada,
          w.Proveedeor, 
          w.Georeferencia AS coordenadas_direccion, 
          w.Georeferencia_tecnico AS Ubi_TEC, 
@@ -112,6 +115,9 @@ app.get('/api/v1/terceros/instalaciones/:token', verificarTercero, async (req, r
            w.Cuadrilla_nombre, 
            vc.Nombre_Tecnico_Limpio AS nombre_tecnico_completo,
            vc.Documento AS dni_tecnico,
+           vc.Img_mejorada AS foto_mejorada,
+           vc.Foto_Img AS foto_original,
+           vc.foto_aprobada AS foto_aprobada,
            w.Proveedeor, 
            w.Georeferencia AS coordenadas_direccion, 
            w.Georeferencia_tecnico AS Ubi_TEC, 
@@ -220,10 +226,20 @@ app.get('/api/v1/terceros/instalaciones/:token', verificarTercero, async (req, r
       tipo: isTicket ? 'ticket' : 'instalacion'
     };
 
+    const isFotoAprobada = Boolean(
+      op.foto_aprobada === 1 || 
+      op.foto_aprobada === '1' || 
+      op.foto_aprobada === true || 
+      String(op.foto_aprobada || '').trim().toLowerCase() === 'yes' ||
+      String(op.foto_aprobada || '').trim().toLowerCase() === 'true'
+    );
+    const fotoTecnico = isFotoAprobada ? (op.foto_mejorada || op.foto_original || null) : null;
+
     if (op.Cuadrilla || op.Cuadrilla_nombre || op.nombre_tecnico_completo) {
       responseData.tecnico = {
         nombre: op.nombre_tecnico_completo || op.Cuadrilla_nombre || 'Técnico Asignado',
         dni: op.dni_tecnico || null,
+        foto: fotoTecnico,
         cuadrilla: op.Cuadrilla,
         telefono: op.telefono || 'Central'
       };

@@ -32,6 +32,7 @@ export interface InstalacionData {
  tecnico?: {
  nombre: string;
  dni?: string;
+ foto?: string | null;
  cuadrilla: string;
  telefono: string;
  };
@@ -62,6 +63,7 @@ const Seguimiento = () => {
  const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
  const [isReprogramModalOpen, setIsReprogramModalOpen] = useState(false);
  const [isReprogramCompletada, setIsReprogramCompletada] = useState(false);
+ const [isPhotoModalOpen, setIsPhotoModalOpen] = useState(false);
  const [reprogramStep, setReprogramStep] = useState<'confirm_initial' | 'form' | 'success'>('confirm_initial');
  const [reprogramData, setReprogramData] = useState({ fecha: '', turno: '', motivo: '', motivoSeleccionado: '' });
  const [isSubmittingReprogram, setIsSubmittingReprogram] = useState(false);
@@ -1112,8 +1114,24 @@ return (
  {/* Technician Box integrado en la línea de tiempo */}
  {step.id === 'asignado' && isCompleted && tecnico && status !== 'finalizada' && status !== 'cerrada' && (
  <div className="flex items-center gap-3 bg-gray-50 p-3 rounded-[16px] border border-gray-100 mt-4 -ml-2">
- <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center shrink-0 overflow-hidden">
- <User className="w-5 h-5 text-gray-400" />
+ <div 
+   onClick={() => {
+     if (tecnico.foto) setIsPhotoModalOpen(true);
+   }}
+   className={`w-11 h-11 rounded-full bg-gray-200 flex items-center justify-center shrink-0 overflow-hidden border border-gray-200 ${
+     tecnico.foto ? 'cursor-pointer hover:ring-2 hover:ring-[#FF5A0A]/50 transition-all shadow-sm' : ''
+   }`}
+   title={tecnico.foto ? "Ver foto del técnico" : undefined}
+ >
+   {tecnico.foto ? (
+     <img 
+       src={tecnico.foto} 
+       alt={tecnico.nombre} 
+       className="w-full h-full object-cover" 
+     />
+   ) : (
+     <User className="w-5 h-5 text-gray-400" />
+   )}
  </div>
  <div className="flex-1">
  <p className="font-bold text-gray-900 text-[14px] leading-tight mb-0.5">
@@ -1457,6 +1475,72 @@ return (
   </motion.div>
   </motion.div>
   )}
+  </AnimatePresence>
+
+  {/* Modal de Foto Ampliada del Técnico */}
+  <AnimatePresence>
+    {isPhotoModalOpen && tecnico?.foto && (
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        className="fixed inset-0 z-[130] bg-black/75 flex items-center justify-center p-4 backdrop-blur-md"
+        onClick={() => setIsPhotoModalOpen(false)}
+      >
+        <motion.div
+          initial={{ scale: 0.8, opacity: 0, y: 15 }}
+          animate={{ scale: 1, opacity: 1, y: 0 }}
+          exit={{ scale: 0.8, opacity: 0, y: 15 }}
+          transition={{ type: "spring", damping: 25, stiffness: 320 }}
+          className="relative bg-white rounded-[28px] p-6 max-w-[320px] w-full shadow-2xl flex flex-col items-center text-center"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <button
+            onClick={() => setIsPhotoModalOpen(false)}
+            className="absolute top-4 right-4 p-2 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-500 hover:text-gray-700 transition-colors"
+            aria-label="Cerrar"
+          >
+            <X className="w-5 h-5 stroke-[2.5]" />
+          </button>
+
+          {/* Círculo Grande con la Foto del Técnico */}
+          <div className="w-48 h-48 rounded-full p-1.5 border-[3.5px] border-[#FF5A0A] shadow-xl overflow-hidden mb-4 bg-gray-50 flex items-center justify-center">
+            <img
+              src={tecnico.foto}
+              alt={tecnico.nombre}
+              className="w-full h-full object-cover rounded-full"
+            />
+          </div>
+
+          <h3 className="text-[16px] font-bold text-gray-900 leading-tight mb-1 px-2">
+            {extractTechnicianName(tecnico.nombre, tecnico.cuadrilla)}
+          </h3>
+
+          <div className="flex items-center justify-center gap-2 mt-1.5 flex-wrap">
+            {tecnico.dni && (
+              <>
+                <div className="flex items-center gap-1 text-gray-600 bg-gray-50 px-2.5 py-1 rounded-full border border-gray-100">
+                  <IdCard className="w-3.5 h-3.5 text-gray-400" />
+                  <span className="text-[12px] font-medium text-gray-700">{tecnico.dni}</span>
+                </div>
+                <span className="text-[11px] text-gray-300">•</span>
+              </>
+            )}
+            <div className="flex items-center gap-1 bg-orange-50 px-2.5 py-1 rounded-full border border-orange-100 text-primary">
+              <Star className="w-3.5 h-3.5 fill-primary text-primary" />
+              <span className="text-[12px] font-bold text-gray-700">4.9</span>
+            </div>
+          </div>
+
+          <button
+            onClick={() => setIsPhotoModalOpen(false)}
+            className="w-full mt-6 py-3 bg-gray-100 hover:bg-gray-200 active:scale-95 text-gray-700 font-bold rounded-full text-[13px] transition-all"
+          >
+            Cerrar
+          </button>
+        </motion.div>
+      </motion.div>
+    )}
   </AnimatePresence>
 
  </div>
