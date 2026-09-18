@@ -249,10 +249,17 @@ app.get('/api/v1/terceros/instalaciones/:token', verificarTercero, async (req, r
       fotoTecnico = parseValidImage(op.foto_mejorada) || parseValidImage(op.foto_original) || null;
     }
 
+    const maskDni = (dni?: string | null) => {
+      if (!dni) return null;
+      const clean = String(dni).trim();
+      if (clean.length <= 4) return clean;
+      return '****' + clean.slice(4);
+    };
+
     if (op.Cuadrilla || op.Cuadrilla_nombre || op.nombre_tecnico_completo) {
       responseData.tecnico = {
         nombre: op.nombre_tecnico_completo || op.Cuadrilla_nombre || 'Técnico Asignado',
-        dni: op.dni_tecnico || null,
+        dni: maskDni(op.dni_tecnico),
         foto: fotoTecnico,
         cuadrilla: op.Cuadrilla,
         telefono: op.telefono || 'Central'

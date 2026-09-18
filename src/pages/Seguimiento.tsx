@@ -641,12 +641,20 @@ return (
    return text.toLowerCase().replace(/(?:^|\s)\S/g, (a) => a.toUpperCase());
  };
  
+ const formatMaskedDni = (dni?: string) => {
+   if (!dni) return '';
+   const clean = dni.trim();
+   if (clean.length <= 4) return clean;
+   if (clean.startsWith('****')) return clean;
+   return '****' + clean.slice(4);
+ };
+
  const extractTechnicianName = (nombre?: string, _cuadrilla?: string) => {
     if (nombre && nombre.trim() && nombre !== "Técnico Asignado") {
       return toTitleCase(nombre.trim());
     }
     return "Técnico Asignado";
-  };;
+  };
  
  const formatAddress = (address?: string) => {
    if (!address) return 'Cargando...';
@@ -1144,7 +1152,7 @@ return (
    <>
      <div className="flex items-center gap-1 text-gray-600">
        <IdCard className="w-3.5 h-3.5 text-gray-400" />
-       <span className="text-[11px] font-medium text-gray-600">{tecnico.dni}</span>
+       <span className="text-[11px] font-medium text-gray-600">{formatMaskedDni(tecnico.dni)}</span>
      </div>
      <span className="text-[11px] text-gray-300">•</span>
    </>
@@ -1527,7 +1535,7 @@ return (
               <>
                 <div className="flex items-center gap-1 text-gray-600 bg-gray-50 px-2.5 py-1 rounded-full border border-gray-100">
                   <IdCard className="w-3.5 h-3.5 text-gray-400" />
-                  <span className="text-[12px] font-medium text-gray-700">{tecnico.dni}</span>
+                  <span className="text-[12px] font-medium text-gray-700">{formatMaskedDni(tecnico.dni)}</span>
                 </div>
                 <span className="text-[11px] text-gray-300">•</span>
               </>
