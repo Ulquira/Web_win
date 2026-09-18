@@ -234,18 +234,19 @@ app.get('/api/v1/terceros/instalaciones/:token', verificarTercero, async (req, r
       String(op.foto_aprobada || '').trim().toLowerCase() === 'true'
     );
 
+    const parseValidImage = (imgCandidate?: string | null): string | null => {
+      if (!imgCandidate) return null;
+      const clean = String(imgCandidate).trim();
+      if (clean.startsWith('data:image/')) return clean;
+      if (clean.startsWith('http://') || clean.startsWith('https://')) return clean;
+      if (clean.startsWith('/9j/') || clean.startsWith('iVBORw0KGgo')) return `data:image/jpeg;base64,${clean}`;
+      return null;
+    };
+
     let fotoTecnico: string | null = null;
     if (isFotoAprobada) {
-      const rawImg = String(op.foto_mejorada || op.foto_original || '').trim();
-      if (rawImg.startsWith('data:image/')) {
-        fotoTecnico = rawImg;
-      } else if (rawImg.startsWith('http://') || rawImg.startsWith('https://')) {
-        fotoTecnico = rawImg;
-      } else if (rawImg.startsWith('/9j/') || rawImg.startsWith('iVBORw0KGgo')) {
-        fotoTecnico = `data:image/jpeg;base64,${rawImg}`;
-      } else {
-        fotoTecnico = null;
-      }
+      // Priorizar foto mejorada si es válida; si no (ej. si guardó un path local), hacer fallback a foto original
+      fotoTecnico = parseValidImage(op.foto_mejorada) || parseValidImage(op.foto_original) || null;
     }
 
     if (op.Cuadrilla || op.Cuadrilla_nombre || op.nombre_tecnico_completo) {
