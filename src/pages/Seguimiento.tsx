@@ -680,10 +680,16 @@ return (
  
  const formatAddress = (address?: string) => {
    if (!address) return 'Cargando...';
-   // Limpiar campos vacíos al final como "DPTO/INTERIOR -"
-   let clean = address.replace(/PISO\s*-?\s*$/i, '').replace(/DPTO\/INTERIOR\s*-?\s*$/i, '').trim();
-   // Remover la doble coma o coma al final
-   clean = clean.replace(/,\s*$/, '').trim();
+   let clean = address;
+   
+   // Cortar siempre a partir de ||referencia, |referencia o referencia:
+   clean = clean.split(/\|\|\s*referencia/i)[0];
+   clean = clean.split(/\|\s*referencia/i)[0];
+   clean = clean.split(/\breferencia\s*:/i)[0];
+
+   // Limpiar campos vacíos al final como "DPTO/INTERIOR -", "PISO -", o símbolos residuales como '||', '|', ','
+   clean = clean.replace(/PISO\s*-?\s*$/i, '').replace(/DPTO\/INTERIOR\s*-?\s*$/i, '').trim();
+   clean = clean.replace(/[\|,\s-]+$/, '').trim();
    return toTitleCase(clean);
  };
 
