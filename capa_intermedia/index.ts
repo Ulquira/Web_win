@@ -53,8 +53,9 @@ app.get('/api/v1/terceros/instalaciones/:token', verificarTercero, async (req, r
   }
 
   try {
-    // Consulta principal de Producción (VW_WinORdeTraba)
-    const [prodRows] = await pool.query(
+    let sourceTable = 'VW_WinORdeTraba';
+    // 1. Consulta principal en Producción (VW_WinORdeTraba)
+    let [prodRows] = await pool.query(
       `SELECT 
          w.OrdenId AS idoperacion, 
          w.Estado, 
@@ -89,7 +90,47 @@ app.get('/api/v1/terceros/instalaciones/:token', verificarTercero, async (req, r
       [token]
     );
 
-    const instalaciones = prodRows as any[];
+    let instalaciones = prodRows as any[];
+    
+    // 2. Fallback automático para QA / Pruebas (Testmantra)
+    if (instalaciones.length === 0) {
+      sourceTable = 'Testmantra';
+      const [testRows] = await pool.query(
+        `SELECT 
+           w.OrdenId AS idoperacion, 
+           w.Estado, 
+           w.\`Estado OT\` AS SubEstado, 
+           w.Cuadrilla,
+           w.Cuadrilla_nombre,
+           vc.Nombre_Tecnico_Limpio AS nombre_tecnico_completo,
+           vc.Documento AS dni_tecnico,
+           vc.Img_mejorada AS foto_mejorada,
+           vc.Foto_Img AS foto_original,
+           vc.foto_aprobada AS foto_aprobada,
+           w.Proveedeor, 
+           w.Georeferencia AS coordenadas_direccion, 
+           w.Georeferencia_tecnico AS Ubi_TEC, 
+           w.TeleMovilNume AS telefono, 
+           DATE(w.\`F.Soli\`) AS fecha_programacion, 
+           TIME(w.\`F.Soli\`) AS Tramo_Atencio, 
+           w.ClienteFinal AS nom_cliente, 
+           w.Direccion AS direccion_cliente, 
+           w.IdenServi AS Campaña, 
+           w.token AS Token_inicio,
+           w.link,
+           w.CodiSegui AS codisegui,
+           w.CodiSeguiClien AS codiseguiclien,
+           w.Producto AS producto,
+           ts.Tipo AS tipo_servicio
+         FROM Testmantra w
+         LEFT JOIN vw_info_cuadrillas vc ON w.Cuadrilla = vc.Cuadrilla
+         LEFT JOIN tiposervicio ts ON UPPER(TRIM(w.Producto)) = UPPER(TRIM(ts.Servicio))
+         WHERE w.token = ? 
+         ORDER BY w.\`F.Soli\` DESC LIMIT 1`, 
+        [token]
+      );
+      instalaciones = testRows as any[];
+    }
     
     if (instalaciones.length === 0) {
       return res.status(404).json({ success: false, message: 'Operación no encontrada' });
@@ -99,7 +140,7 @@ app.get('/api/v1/terceros/instalaciones/:token', verificarTercero, async (req, r
 
     // Soporte para Regestión / Reasignación de técnico:
     // Si la orden original está vinculada a un código de caso (CodiSegui o CodiSeguiClien),
-    // consultar automáticamente la fila más reciente y activa de ese mismo caso
+    // consultar automáticamente la fila más reciente y activa de ese mismo caso en la tabla correspondiente
     if (op.codisegui || op.codiseguiclien) {
       const filterClause = op.codisegui 
         ? 'w.CodiSegui = ?' 
@@ -133,7 +174,7 @@ app.get('/api/v1/terceros/instalaciones/:token', verificarTercero, async (req, r
            w.CodiSeguiClien AS codiseguiclien, 
            w.Producto AS producto, 
            ts.Tipo AS tipo_servicio 
-         FROM VW_WinORdeTraba w 
+         FROM ${sourceTable} w 
          LEFT JOIN vw_info_cuadrillas vc ON w.Cuadrilla = vc.Cuadrilla
          LEFT JOIN tiposervicio ts ON UPPER(TRIM(w.Producto)) = UPPER(TRIM(ts.Servicio)) 
          WHERE ${filterClause}

@@ -219,10 +219,20 @@ async function getTokenMetadata(token: string) {
     return cached;
   }
   try {
-    const [rows]: any = await pool.query(
+    // 1. Buscar en VW_WinORdeTraba (Producción)
+    let [rows]: any = await pool.query(
       'SELECT CodiSegui, Zona, Producto FROM VW_WinORdeTraba WHERE token = ? LIMIT 1',
       [token]
     );
+
+    // 2. Fallback en Testmantra (QA / Pruebas)
+    if (!rows || rows.length === 0) {
+      [rows] = await pool.query(
+        'SELECT CodiSegui, Zona, Producto FROM Testmantra WHERE token = ? LIMIT 1',
+        [token]
+      );
+    }
+
     if (rows && rows.length > 0) {
       const meta = {
         codisegui: rows[0].CodiSegui || null,
