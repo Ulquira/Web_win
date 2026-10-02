@@ -593,7 +593,7 @@ return (
    
    const parts = campana.split('|');
    let paquete = '';
-   let svas: string[] = [];
+   let rawSvas: string[] = [];
    let cantidadMesh = 0;
    let instalacionMesh = false;
    
@@ -606,7 +606,7 @@ return (
      if (cleanKey === 'paquete') {
        paquete = value;
      } else if (cleanKey === "sva's" || cleanKey === "svas") {
-        svas = value.split('+')
+        rawSvas = value.split('+')
           .map(s => s.trim())
           .filter(s => s.length > 0 && !/^(ninguno|no|n\/a|na|no aplica|-|0|null|sin\s*sva|sin\s*sva's)$/i.test(s));
      } else if (cleanKey === 'cantidad de mesh') {
@@ -615,25 +615,47 @@ return (
      } else if (cleanKey === 'instalacion de mesh' || cleanKey === 'instalación de mesh') {
        const match = value.match(/\d+/);
        if (match && parseInt(match[0], 10) > 0) instalacionMesh = true;
+       else if (/^(si|sí|true)/i.test(value)) instalacionMesh = true;
      }
    });
 
-   svas = svas.map(s => {
+   const finalSvas: string[] = [];
+   let meshAgregado = false;
+
+   rawSvas.forEach(s => {
      let text = s;
-     // Limpiar "(en comodato)" o "(en alquiler)"
-     text = text.replace(/\(?en\s+(comodato|alquiler)\)?/i, '').trim();
-     
-     // Formatear Mesh con la cantidad
-     if (/mesh/i.test(text) && cantidadMesh > 0) {
-       text = `${cantidadMesh} Mesh`;
-       if (instalacionMesh) {
-         text += ' + Instalación cableada';
+     // Limpiar etiquetas comerciales: (en comodato), (en alquiler), (en venta), (venta), etc.
+     text = text.replace(/\(?\s*en\s+(comodato|alquiler|venta)\s*\)?/gi, '');
+     text = text.replace(/\(?\s*\b(comodato|alquiler|venta)\b\s*\)?/gi, '');
+     text = text.trim();
+
+     const esItemMesh = /mesh/i.test(text);
+     const esServicioCableado = /servicio\s+cableado/i.test(text);
+
+     if (esItemMesh) {
+       if (esServicioCableado) instalacionMesh = true;
+       if (!meshAgregado) {
+         meshAgregado = true;
+         let meshText = cantidadMesh > 0 ? `${cantidadMesh} Mesh` : 'Mesh';
+         if (instalacionMesh) {
+           meshText += ' + Instalación cableada';
+         }
+         finalSvas.push(meshText);
        }
+     } else if (text.length > 0) {
+       finalSvas.push(text);
      }
-     return text;
    });
 
-   return { paquete, svas };
+   if (cantidadMesh > 0 && !meshAgregado) {
+     let meshText = `${cantidadMesh} Mesh`;
+     if (instalacionMesh) meshText += ' + Instalación cableada';
+     finalSvas.push(meshText);
+   }
+
+   const uniqueSvas = Array.from(new Set(finalSvas));
+
+   return { paquete, svas: uniqueSvas };
  };
 
  const toTitleCase = (text?: string) => {
