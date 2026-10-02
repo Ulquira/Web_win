@@ -240,10 +240,8 @@ app.get('/api/v1/terceros/instalaciones/:token', verificarTercero, async (req, r
     if (!tokenInicio) {
       tokenInicio = Math.floor(1000 + Math.random() * 9000).toString();
       try {
-        if (isTicket) {
-          await pool.query('UPDATE TICKETS SET Token_inicio = ? WHERE IDticket = ?', [tokenInicio, op.idoperacion]);
-        } else {
-          await pool.query('UPDATE OPERACION SET Token_inicio = ? WHERE idoperacion = ?', [tokenInicio, op.idoperacion]);
+        if (sourceTable === 'Testmantra') {
+          await pool.query('UPDATE Testmantra SET token = ? WHERE OrdenId = ?', [tokenInicio, op.idoperacion]);
         }
       } catch (err) {
         console.error('Error al guardar el token de inicio:', err);
