@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 
-import { Phone, CheckCircle2, User, Star, Bell, Check, MapPin, AlertTriangle, ArrowLeft, CalendarDays, ChevronDown, X, IdCard } from "lucide-react";
+import { Phone, CheckCircle2, User, Star, Bell, Check, MapPin, AlertTriangle, ArrowLeft, CalendarDays, ChevronDown, ChevronLeft, X, IdCard } from "lucide-react";
 import { PiTelevisionSimple, PiPackage, PiWifiHigh, PiShieldCheck, PiLightning } from "react-icons/pi";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
@@ -64,6 +64,7 @@ const Seguimiento = () => {
  const [isReprogramModalOpen, setIsReprogramModalOpen] = useState(false);
  const [isReprogramCompletada, setIsReprogramCompletada] = useState(false);
  const [isPhotoModalOpen, setIsPhotoModalOpen] = useState(false);
+ const [isPlanExpanded, setIsPlanExpanded] = useState(false);
  const [hasImageError, setHasImageError] = useState(false);
  const [reprogramStep, setReprogramStep] = useState<'confirm_initial' | 'form' | 'success'>('confirm_initial');
  const [reprogramData, setReprogramData] = useState({ fecha: '', turno: '', motivo: '', motivoSeleccionado: '' });
@@ -564,23 +565,25 @@ return (
  const position: [number, number] = data.coordenadas_cliente || [-12.0971, -77.0369];
  const vehiclePosition: [number, number] = data.coordenadas_tecnico || [-12.0950, -77.0320];
 
+ const isVt = data.tipo === 'ticket';
+
  const steps = [
  { id: 'programada', label: 'Agendada', sub: 'Tu visita ha sido programada.', date: fecha_programacion },
  { id: 'asignado', label: 'Técnico Asignado', sub: 'Tenemos un técnico para ti.' },
- { id: 'en_camino', label: 'En camino', sub: 'El técnico ya está en ruta.' },
+ { id: 'en_camino', label: 'En Camino', sub: 'El técnico ya está en ruta.' },
  { id: 'en_proceso', label: 'Iniciada', sub: 'Técnico revisando o instalando.' },
- { id: 'finalizada', label: 'Finalizada', sub: 'Instalación completada.' },
+ { id: 'finalizada', label: 'Finalizada', sub: isVt ? 'Visita completada.' : 'Instalación completada.' },
  ];
 
  const statusIndex = ['programada', 'asignado', 'en_camino', 'en_proceso', 'finalizada', 'cerrada'].indexOf(status);
 
  const formatTramoToRange = (tramoStr?: string) => {
-   if (!tramoStr) return '8am - 12pm';
+   if (!tramoStr) return 'De 8:00 am. a 12:00 pm';
    
-   const t = tramoStr.toLowerCase();
-   if (t.startsWith('08') || t.startsWith('8')) return '8am - 12pm';
-   if (t.startsWith('12')) return '12pm - 4pm';
-   if (t.startsWith('16') || t.startsWith('4')) return '4pm - 8pm';
+   const t = tramoStr.toLowerCase().trim();
+   if (t.startsWith('08') || t.startsWith('8')) return 'De 8:00 am. a 12:00 pm';
+   if (t.startsWith('12')) return 'De 12:00 pm. a 4:00 pm';
+   if (t.startsWith('16') || t.startsWith('4')) return 'De 4:00 pm. a 8:00 pm';
    
    if (tramoStr.includes('-') || tramoStr.toLowerCase().includes(' a ')) return tramoStr;
    
@@ -765,13 +768,22 @@ return (
  
  {/* Top Banner Orange (Always visible if no map) */}
  {status !== 'en_camino' && (
- <div className="bg-primary w-full py-6 px-6 text-white shrink-0 relative z-30 shadow-sm flex flex-col justify-center">
+ <div className="bg-[#FF5A0A] w-full pt-6 pb-5 px-5 text-white shrink-0 relative z-30 shadow-sm flex flex-col justify-center">
  <div className="flex justify-between items-center w-full">
- <div className="flex flex-col items-start gap-0.5">
- <MainLogo white className="h-8 sm:h-10" />
- <h1 className="text-[20px] font-bold tracking-tight leading-tight mt-1">
-   {data?.cliente_nombre ? `Hola, ${data.cliente_nombre.split(' ')[0].toUpperCase()}` : 'Detalle de visita'}
- </h1>
+ <div className="flex items-center gap-2">
+   <button 
+     onClick={() => navigate('/')} 
+     className="p-1 -ml-1 text-white/90 hover:text-white transition-colors active:scale-90 cursor-pointer"
+     aria-label="Volver"
+   >
+     <ChevronLeft className="w-6 h-6 stroke-[2.5]" />
+   </button>
+   <div className="flex flex-col items-start gap-0.5">
+     <MainLogo white className="h-7 sm:h-9" />
+     <h1 className="text-[17px] font-bold tracking-tight leading-tight mt-0.5">
+       {data?.cliente_nombre ? `Hola, ${data.cliente_nombre.split(' ')[0].toUpperCase()}` : 'Detalle de visita'}
+     </h1>
+   </div>
  </div>
  <div className="relative">
  <button 
@@ -779,7 +791,7 @@ return (
  setShowNotifications(!showNotifications);
  setNotifications(prev => prev.map(n => ({...n, read: true})));
  }} 
- className="relative p-2 hover:bg-white/10 rounded-full transition-colors"
+ className="relative p-2 hover:bg-white/10 rounded-full transition-colors cursor-pointer active:scale-95"
  >
  <Bell className="w-6 h-6 text-white fill-white" />
  {notifications.some(n => !n.read) && (
@@ -1030,127 +1042,154 @@ return (
  </div>
  )}
 
- {/* Info Card Minimalista */}
- <div className={`border border-gray-100 rounded-3xl p-6 mb-6 bg-white shadow-[inset_0px_2px_8px_rgba(0,0,0,0.02),0_4px_16px_rgba(0,0,0,0.04)] ${status === 'en_camino' && (data.token_inicio || eta || calculatedEta) ? '' : 'mt-4'}`}>
- <div className="flex flex-col gap-4">
+ {/* Plan Pill (Accordion superior como en Figma) */}
+ {(() => {
+   const parsedPlan = parsePlanData(data.campana);
+   const displayPlanName = parsedPlan.paquete || data.campana;
+   if (!displayPlanName) return null;
+
+   return (
+     <div className="flex flex-col items-center w-full mt-3.5 mb-2">
+       <button
+         type="button"
+         onClick={() => {
+           if (parsedPlan.svas.length > 0) {
+             setIsPlanExpanded(!isPlanExpanded);
+           }
+         }}
+         className="inline-flex items-center gap-2 bg-white px-4 py-2 rounded-full border border-gray-100 shadow-[0_2px_10px_rgba(0,0,0,0.03)] hover:bg-gray-50 active:scale-98 transition-all cursor-pointer"
+       >
+         <div className="w-4 h-4 rounded-full text-[#FF5A0A] flex items-center justify-center">
+           <PiPackage className="w-3.5 h-3.5 text-[#FF5A0A]" />
+         </div>
+         <span className="text-[13px] font-bold text-gray-800 leading-tight">
+           {toTitleCase(displayPlanName)}
+         </span>
+         {parsedPlan.svas.length > 0 && (
+           <ChevronDown 
+             className={`w-3.5 h-3.5 text-gray-400 transition-transform duration-200 ${
+               isPlanExpanded ? 'rotate-180' : ''
+             }`} 
+           />
+         )}
+       </button>
+
+       {/* Dropdown de Servicios Adicionales */}
+       <AnimatePresence>
+         {isPlanExpanded && parsedPlan.svas.length > 0 && (
+           <motion.div
+             initial={{ opacity: 0, height: 0, y: -6 }}
+             animate={{ opacity: 1, height: 'auto', y: 0 }}
+             exit={{ opacity: 0, height: 0, y: -6 }}
+             transition={{ duration: 0.2 }}
+             className="w-full mt-2.5 overflow-hidden bg-white rounded-2xl p-4 border border-gray-100 shadow-sm text-left"
+           >
+             <p className="text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-3">
+               Servicios Adicionales
+             </p>
+             <div className="flex flex-col gap-2.5">
+               {parsedPlan.svas.map((sva, idx) => {
+                 let SvaIcon = PiPackage;
+                 const svaLower = sva.toLowerCase();
+                 if (svaLower.includes('tv') || svaLower.includes('l1max')) SvaIcon = PiTelevisionSimple;
+                 else if (svaLower.includes('box')) SvaIcon = PiPackage;
+                 else if (svaLower.includes('mesh')) SvaIcon = PiWifiHigh;
+                 else if (svaLower.includes('antivirus') || svaLower.includes('seguridad')) SvaIcon = PiShieldCheck;
+                 else if (svaLower.includes('aumento')) SvaIcon = PiLightning;
+
+                 return (
+                   <div key={idx} className="flex items-center gap-2.5">
+                     <div className="w-7 h-7 rounded-full bg-[#FF5A0A]/10 flex items-center justify-center shrink-0">
+                       <SvaIcon className="w-3.5 h-3.5 text-[#FF5A0A]" />
+                     </div>
+                     <span className="text-[13px] font-medium text-gray-800 leading-tight">
+                       {toTitleCase(sva)}
+                     </span>
+                   </div>
+                 );
+               })}
+             </div>
+           </motion.div>
+         )}
+       </AnimatePresence>
+     </div>
+   );
+ })()}
+
+ {/* Info Card de Visita (Frame 14804 de Figma) */}
+ <div className={`border border-gray-100 rounded-[24px] p-5 mb-6 bg-white shadow-[0_4px_20px_rgba(0,0,0,0.03)] ${status === 'en_camino' && (data.token_inicio || eta || calculatedEta) ? '' : 'mt-1'}`}>
+ <div className="flex flex-col gap-3.5">
+   {/* Día */}
    <div className="flex justify-between items-center">
-     <span className="text-gray-500 text-[14px] font-normal">Día</span>
-     <span className="font-bold text-gray-900 text-[14px]">
+     <span className="text-gray-400 text-[13px] font-normal">Día</span>
+     <span className="font-bold text-gray-900 text-[13px]">
      {data.fecha_programacion && parseSafeDate(data.fecha_programacion) ? (
-       `${format(parseSafeDate(data.fecha_programacion)!, "d 'de' ", { locale: es })}${format(parseSafeDate(data.fecha_programacion)!, "MMMM", { locale: es }).toUpperCase()}`
+       toTitleCase(format(parseSafeDate(data.fecha_programacion)!, "d 'de' MMMM", { locale: es }))
      ) : 'Por definir'}
      </span>
    </div>
+   
+   {/* Rango */}
    {status !== 'en_camino' && (
      <div className="flex justify-between items-center">
-       <span className="text-gray-500 text-[14px] font-normal">Rango horario</span>
-       <span className="font-bold text-gray-900 text-[14px]">
+       <span className="text-gray-400 text-[13px] font-normal">Rango</span>
+       <span className="font-bold text-gray-900 text-[13px]">
        {formatTramoToRange(data.tramo)}
        </span>
      </div>
    )}
+
+   {/* Divider sutil (Rectangle 6872) */}
+   <div className="h-[1px] bg-gray-100/90 my-0.5" />
    
    {/* Dirección */}
-   <div className="flex justify-between items-start">
-     <span className="text-gray-500 text-[14px] font-normal mt-0.5 mr-4">Dirección</span>
-     <span className="font-bold text-gray-900 text-[14px] text-right leading-snug line-clamp-3">
+   <div className="flex justify-between items-start gap-4">
+     <span className="text-gray-400 text-[13px] font-normal shrink-0">Dirección</span>
+     <span className="font-bold text-gray-900 text-[13px] text-right leading-snug line-clamp-3">
      {formatAddress(data.direccion)}
      </span>
    </div>
 
-   {/* Plan y Servicios o Ticket Asignado */}
-   {data.tipo === 'ticket' ? (
-     <div className="flex flex-col w-full mt-4 pt-6 border-t border-gray-100">
-       <div className="bg-[#f2f2f2] border border-[#e8e7e8] text-gray-900 px-4 py-3.5 rounded-2xl flex flex-col shadow-sm">
-         <p className="text-[11px] font-bold text-gray-500 uppercase tracking-widest mb-1">Ticket Asignado</p>
-         <p className="text-[16px] font-bold text-gray-900 tracking-tight">{data.codisegui || data.idoperacion || 'No especificado'}</p>
-       </div>
+   {/* Ticket Asignado / Operación (Inner Box Frame 1000002219) */}
+   {(data.codisegui || data.idoperacion) && (
+     <div className="bg-[#F8F9FA] border border-gray-100/90 rounded-[18px] p-4 mt-1 flex flex-col">
+       <p className="text-[11px] font-medium text-gray-500 tracking-normal mb-1">Ticket</p>
+       <p className="text-[16px] font-black text-gray-900 tracking-tight leading-none">
+         {data.codisegui || data.idoperacion}
+       </p>
      </div>
-   ) : (() => {
-     const parsedPlan = parsePlanData(data.campana);
-     return (
-       <div className="flex flex-col w-full mt-4 pt-6 border-t border-gray-100">
-         
-         {/* Burbuja Principal: Paquete */}
-         {parsedPlan.paquete && (
-           <div className="mb-4 text-left px-1">
-             <p className="text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-1">Paquete de Internet</p>
-             <p className="text-[18px] font-bold text-gray-900 tracking-tight">{toTitleCase(parsedPlan.paquete)}</p>
-           </div>
-         )}
-         
-         {/* Burbujas Secundarias: SVAs (Lista Vertical Homologada) */}
-          {parsedPlan.svas.length > 0 && (
-            <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-[inset_0px_2px_8px_rgba(0,0,0,0.02),0_4px_16px_rgba(0,0,0,0.04)]">
-              <p className="text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-4">
-                Servicios Adicionales
-              </p>
-              <div className="flex flex-col gap-3.5">
-                {parsedPlan.svas.map((sva, idx) => {
-                  let SvaIcon = PiPackage;
-                  const svaLower = sva.toLowerCase();
-                  if (svaLower.includes('tv') || svaLower.includes('l1max')) SvaIcon = PiTelevisionSimple;
-                  else if (svaLower.includes('box')) SvaIcon = PiPackage;
-                  else if (svaLower.includes('mesh')) SvaIcon = PiWifiHigh;
-                  else if (svaLower.includes('antivirus') || svaLower.includes('seguridad')) SvaIcon = PiShieldCheck;
-                  else if (svaLower.includes('aumento')) SvaIcon = PiLightning;
+   )}
+ </div>
+ </div>
 
-                  return (
-                    <div key={idx} className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-full bg-[#FF5A0A]/10 flex items-center justify-center shrink-0">
-                        <SvaIcon className="w-[18px] h-[18px] text-[#FF5A0A]" />
-                      </div>
-                      <span className="text-[14px] font-semibold text-gray-800 leading-tight">
-                        {toTitleCase(sva)}
-                      </span>
-                    </div>
-                  );
-                })}
-             </div>
-           </div>
-         )}
-         
-         {/* Fallback si no hay paquete separado por pipetas */}
-         {!parsedPlan.paquete && (
-           <div className="bg-gray-50 border border-gray-200 text-gray-900 px-4 py-3 rounded-2xl shadow-sm mt-2">
-             <p className="text-[14px] font-bold leading-snug">{toTitleCase(data.campana || 'No especificado')}</p>
-           </div>
-         )}
-       </div>
-     );
-   })()}
- </div>
- </div>
- {/* Vertical Timeline - Minimalista */}
- <div className="relative pl-[24px] border-l-[2px] border-dashed border-gray-300 ml-4 mb-10 mt-2">
+ {/* Vertical Timeline - Diseño Figma */}
+ <div className="relative pl-[26px] border-l-[2px] border-dashed border-gray-200 ml-4 mb-8 mt-2">
  {steps.map((step, i) => {
  const isCurrent = i === statusIndex;
  const isCompleted = i <= statusIndex;
  return (
- <div key={step.id} className="relative pb-8 last:pb-0">
+ <div key={step.id} className="relative pb-7 last:pb-0">
  {/* Timeline Dot */}
- <div className={`absolute -left-[35px] top-0 w-[20px] h-[20px] rounded-full flex items-center justify-center border-[2px] border-white shadow-sm ${isCompleted ? 'bg-primary' : 'bg-gray-300 '}`}>
- {isCompleted && <Check className="w-[11px] h-[11px] text-white" strokeWidth={4} />}
+ <div className={`absolute -left-[37px] top-0 w-[22px] h-[22px] rounded-full flex items-center justify-center border-[2px] border-white shadow-sm transition-colors ${isCompleted ? 'bg-[#FF5A0A]' : 'bg-[#E2E8F0]'}`}>
+ {isCompleted && <Check className="w-[12px] h-[12px] text-white stroke-[3.5]" />}
  </div>
  
  {/* Content */}
  <div className="flex flex-col justify-start">
- <h4 className={`font-bold text-[15px] leading-tight ${isCompleted ? 'text-gray-900 ' : 'text-gray-400 '}`}>
+ <h4 className={`font-bold text-[14px] leading-tight ${isCompleted ? 'text-gray-900' : 'text-gray-400'}`}>
  {step.label}
  </h4>
  
- {/* Solo mostramos subtítulos si ya se completó o es el estado actual */}
- {isCompleted && (
- <>
- <p className={`text-[12px] leading-tight mt-1 ${isCurrent ? 'text-gray-500 ' : 'text-gray-400'}`}>
+ {/* Subtítulo */}
+ {step.sub && (
+ <p className={`text-[12px] leading-tight mt-1 ${isCurrent ? 'text-gray-500' : isCompleted ? 'text-gray-400' : 'text-gray-300'}`}>
  {step.sub}
  </p>
- </>
  )}
 
  {/* Technician Box integrado en la línea de tiempo */}
  {step.id === 'asignado' && isCompleted && tecnico && status !== 'finalizada' && status !== 'cerrada' && (
- <div className="flex items-center gap-3 bg-gray-50 p-3 rounded-[16px] border border-gray-100 mt-4 -ml-2">
+ <div className="flex items-center gap-3 bg-gray-50 p-3 rounded-[16px] border border-gray-100 mt-3 -ml-2">
  <div 
    onClick={() => {
      if (tecnico.foto && !hasImageError) setIsPhotoModalOpen(true);
@@ -1201,7 +1240,7 @@ return (
  </div>
 
  {/* Action Buttons and Help Center CTA (Bottom) */}
- <div className="flex flex-col items-center gap-3 pt-4 pb-2 border-t border-gray-100 mt-2">
+ <div className="flex flex-col items-center gap-3 pt-3 pb-4 border-t border-gray-100 mt-2">
  {(status === 'programada' || status === 'asignado') && (
  <button 
  onClick={() => {
@@ -1209,10 +1248,10 @@ return (
    setIsReprogramModalOpen(true);
    setReprogramStep('confirm_initial');
  }}
- className="w-full bg-[#2d2d2d] hover:bg-[#1a202c] text-white h-12 rounded-full text-[14px] font-bold flex items-center justify-center gap-2.5 active:scale-95 transition-transform shadow-md"
+ className="w-full bg-[#2B2B2B] hover:bg-[#1E1E1E] text-white h-12 rounded-full text-[14px] font-bold flex items-center justify-center gap-2 active:scale-95 transition-transform shadow-md cursor-pointer"
  >
- <CalendarDays className="w-5 h-5 text-white" />
- Reprogramar Visita
+ <CalendarDays className="w-4 h-4 text-white" />
+ <span>Reprogramar Visita</span>
  </button>
  )}
  <button 
