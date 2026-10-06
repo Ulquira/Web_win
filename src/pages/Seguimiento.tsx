@@ -1334,7 +1334,7 @@ return (
  >
  <ChevronLeft className="w-6 h-6 stroke-[2.5]" />
  </button>
- <h2 className="flex-1 text-center font-bold text-[#FF5A0A] pr-7 text-[16px]">Reprogramación de visita</h2>
+ <h2 className="flex-1 text-center font-semibold text-[#FF5A0A] pr-7 text-[16px]">Reprogramación de visita</h2>
  </div>
  
  {/* Body */}
@@ -1346,7 +1346,7 @@ return (
  </div>
  <div className="min-w-0 flex-1">
    <p className="text-[11px] text-[#535C67] font-medium mb-0.5">Dirección</p>
-   <p className="text-[13px] font-bold text-[#26292E] leading-snug line-clamp-2">
+   <p className="text-[13px] font-semibold text-[#26292E] leading-snug line-clamp-2">
      {data.direccion ? data.direccion.split(/\|\|referencia:|\|referencia:|referencia:/i)[0].trim() : 'Cargando...'}
    </p>
  </div>
@@ -1355,7 +1355,7 @@ return (
  {/* Date Box */}
  <div className="bg-white p-4 rounded-[22px] shadow-sm border border-[#E4E7E9]">
  <div className="mb-2">
-   <h3 className="font-bold text-[15px] text-[#26292E]">Selecciona la fecha</h3>
+   <h3 className="font-semibold text-[15px] text-[#26292E]">Selecciona la fecha</h3>
  </div>
  <div className="flex items-center gap-2 mb-3.5">
    <svg width="15" height="15" viewBox="0 0 15 15" fill="none" className="shrink-0">
@@ -1382,13 +1382,13 @@ return (
              : 'border-[#D9D9D9] bg-white text-[#9CA5AB] hover:border-[#FF5A0A]/40'
          }`}
        >
-         <span className={`text-[11px] font-medium ${isSelected ? 'text-[#FF5A0A] font-bold' : 'text-[#9CA5AB]'}`}>
+         <span className={`text-[11px] ${isSelected ? 'text-[#FF5A0A] font-semibold' : 'text-[#9CA5AB] font-normal'}`}>
            {day.isTomorrow ? 'Mañana' : day.dayOfWeek}
          </span>
-         <span className={`text-[18px] font-bold my-0.5 ${isSelected ? 'text-[#FF5A0A]' : 'text-black'}`}>
+         <span className={`text-[17px] font-bold my-0.5 ${isSelected ? 'text-[#FF5A0A]' : 'text-[#26292E]'}`}>
            {day.dayNum}
          </span>
-         <span className={`text-[11px] font-medium ${isSelected ? 'text-[#FF5A0A] font-bold' : 'text-[#9CA5AB]'}`}>
+         <span className={`text-[11px] ${isSelected ? 'text-[#FF5A0A] font-semibold' : 'text-[#9CA5AB] font-normal'}`}>
            {day.monthName}
          </span>
        </button>
@@ -1399,7 +1399,7 @@ return (
 
  {/* Time Slot Box */}
  <div className="bg-white p-4 rounded-[22px] shadow-sm border border-[#E4E7E9]">
- <h3 className="font-bold text-[15px] text-[#26292E] mb-3">Selecciona el tramo horario</h3>
+ <h3 className="font-semibold text-[15px] text-[#26292E] mb-3">Selecciona el tramo horario</h3>
  <div className="flex flex-col gap-2.5">
  {['08:00 a.m. - 12:00 p.m.', '12:00 p.m. - 4:00 p.m.', '04:00 p.m. - 8:00 p.m.'].map((turno) => {
    const isSelected = reprogramData.turno === turno;
@@ -1408,7 +1408,7 @@ return (
        key={turno}
        type="button"
        onClick={() => setReprogramData({ ...reprogramData, turno })}
-       className={`w-full h-[46px] rounded-[14px] flex items-center justify-center font-bold text-[13px] transition-all cursor-pointer ${
+       className={`w-full h-[46px] rounded-[14px] flex items-center justify-center font-semibold text-[13px] transition-all cursor-pointer ${
          isSelected
            ? 'border border-[#FF5A0A] bg-[#FFEDE0] text-[#FF5903]'
            : 'border border-[#D1D5DC] bg-white text-[#26292E] hover:border-[#FF5A0A]/50'
@@ -1423,7 +1423,7 @@ return (
 
  {/* Motivo Box */}
  <div className="bg-white p-4 rounded-[22px] shadow-sm border border-[#E4E7E9]">
- <h3 className="font-bold text-[15px] text-[#26292E] mb-3">Motivo de reprogramación</h3>
+ <h3 className="font-semibold text-[15px] text-[#26292E] mb-3">Motivo de reprogramación</h3>
  
  <div className="mb-4 relative">
  <select
@@ -1448,7 +1448,7 @@ return (
  </div>
  </div>
 
- <h3 className="font-bold text-[14px] text-[#26292E] mb-2.5">Detalle adicional (Opcional)</h3>
+ <h3 className="font-semibold text-[14px] text-[#26292E] mb-2.5">Detalle adicional (Opcional)</h3>
  <textarea 
    value={reprogramData.motivo}
    onChange={(e) => setReprogramData({ ...reprogramData, motivo: e.target.value })}
