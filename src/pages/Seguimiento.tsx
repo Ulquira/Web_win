@@ -92,7 +92,7 @@ const Seguimiento = () => {
  const etaReferenceTime = useRef<number | null>(null);
  const [notifications, setNotifications] = useState<{title: string, body: string, time: Date, read: boolean}[]>([]);
  const [showNotifications, setShowNotifications] = useState(false);
- const [sheetHeight, setSheetHeight] = useState(13);
+ const [sheetHeight, setSheetHeight] = useState(15);
 
  useEffect(() => {
  if ("Notification" in window && Notification.permission === "default") {
@@ -748,22 +748,19 @@ return (
 
  const toggleSheet = () => {
    if (status === 'en_camino') {
-     setSheetHeight(prev => (prev > 30 ? 13 : 85));
+     setSheetHeight(prev => (prev > 30 ? 15 : 85));
    }
  };
 
  return (
  <div className="h-[100dvh] w-full bg-[#f3f4f6] relative overflow-hidden font-sans">
  
- {/* Floating Header (Only for map view to go back) */}
+ {/* Header Superior en Vista de Mapa (Figma Step 28 / Step 32) */}
  {status === 'en_camino' && (
- <div className="absolute top-0 left-0 w-full p-4 z-20 flex justify-between items-start pointer-events-none mt-2">
- <button 
- onClick={() => navigate(`/`)} 
- className="w-12 h-12 bg-white/90 backdrop-blur-md rounded-full flex items-center justify-center shadow-lg pointer-events-auto transition-transform active:scale-95"
- >
- <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-gray-800"><path d="m15 18-6-6 6-6"/></svg>
- </button>
+ <div className="absolute top-0 left-0 w-full z-20 pt-4 pb-3 px-4 bg-white/95 backdrop-blur-sm border-b border-gray-100 flex items-center justify-center shadow-xs">
+   <h1 className="text-[16px] font-bold text-[#FF5A0A] tracking-tight">
+     Seguimiento de la visita
+   </h1>
  </div>
  )}
 
@@ -783,10 +780,10 @@ return (
    />
 
  {/* Mensaje Referencial superpuesto en el mapa */}
- <div className="absolute bottom-[15vh] left-4 z-[400] bg-white/95 backdrop-blur-sm px-3.5 py-2.5 rounded-xl shadow-md border border-gray-100 max-w-[200px]">
+ <div className="absolute bottom-[17vh] left-4 z-[400] bg-white/95 backdrop-blur-sm px-3.5 py-2.5 rounded-xl shadow-md border border-gray-100 max-w-[200px]">
    <div className="flex items-center gap-1.5">
-     <AlertTriangle className="w-5 h-5 text-primary shrink-0" />
-     <p className="text-[11px] text-gray-600 font-normal leading-tight">
+     <AlertTriangle className="w-4 h-4 text-[#FF5A0A] shrink-0" />
+     <p className="text-[10px] text-[#535C67] font-medium leading-tight">
        El tiempo de llegada puede variar según el tráfico.
      </p>
    </div>
@@ -812,20 +809,11 @@ return (
  {status !== 'en_camino' && (
  <div className="bg-[#FF5A0A] w-full pt-6 pb-5 px-5 text-white shrink-0 relative z-30 shadow-sm flex flex-col justify-center">
  <div className="flex justify-between items-center w-full">
- <div className="flex items-center gap-2">
-   <button 
-     onClick={() => navigate('/')} 
-     className="p-1 -ml-1 text-white/90 hover:text-white transition-colors active:scale-90 cursor-pointer"
-     aria-label="Volver"
-   >
-     <ChevronLeft className="w-6 h-6 stroke-[2.5]" />
-   </button>
-   <div className="flex flex-col items-start gap-0.5">
-     <MainLogo white className="h-7 sm:h-9" />
-     <h1 className="text-[17px] font-bold tracking-tight leading-tight mt-0.5">
-       {data?.cliente_nombre ? `Hola, ${data.cliente_nombre.split(' ')[0].toUpperCase()}` : 'Detalle de visita'}
-     </h1>
-   </div>
+ <div className="flex flex-col items-start gap-0.5">
+   <MainLogo white className="h-7 sm:h-9" />
+   <h1 className="text-[17px] font-bold tracking-tight leading-tight mt-0.5">
+     {data?.cliente_nombre ? `Hola, ${data.cliente_nombre.split(' ')[0].toUpperCase()}` : 'Detalle de visita'}
+   </h1>
  </div>
  <div className="relative">
  <button 
@@ -874,13 +862,19 @@ return (
  </div>
  )}
 
- {/* Drag Handle (Only when map is visible) */}
+ {/* Drag Handle & Header (Figma Step 28 / Step 32) */}
  {status === 'en_camino' && (
  <div 
    onClick={toggleSheet}
-   className="w-full flex flex-col items-center justify-center pt-3 pb-1 shrink-0 cursor-pointer hover:bg-gray-50 rounded-t-[2.5rem] transition-colors"
+   className="w-full flex flex-col items-center pt-3 pb-2.5 px-4 shrink-0 cursor-pointer hover:bg-gray-50/50 rounded-t-[2.5rem] transition-colors select-none"
  >
-   <div className="w-12 h-1.5 bg-gray-300 rounded-full mb-1 mt-1"></div>
+   <div className="w-10 h-1 bg-[#D9D9D9] rounded-full mb-2"></div>
+   <h2 className="text-[17px] font-bold text-[#FF5A0A] leading-tight text-center">
+     Tu técnico está en camino
+   </h2>
+   <p className="text-[12px] text-[#26292E] font-normal leading-tight mt-1 text-center">
+     Tiempo de llegada estimado: <span className="font-bold">{calculatedEta || eta || 'Calculando...'}</span>
+   </p>
  </div>
  )}
 
