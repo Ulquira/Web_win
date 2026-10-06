@@ -1142,71 +1142,78 @@ return (
  </div>
  </div>
 
- {/* Vertical Timeline - Diseño Figma */}
- <div className="relative pl-[26px] border-l-[2px] border-dashed border-gray-200 ml-4 mb-8 mt-2">
- {steps.map((step, i) => {
- const isCurrent = i === statusIndex;
- const isCompleted = i <= statusIndex;
- return (
- <div key={step.id} className="relative pb-7 last:pb-0">
- {/* Timeline Dot */}
- <div className={`absolute -left-[37px] top-0 w-[22px] h-[22px] rounded-full flex items-center justify-center border-[2px] border-white shadow-sm transition-colors ${isCompleted ? 'bg-[#FF5A0A]' : 'bg-[#E2E8F0]'}`}>
- {isCompleted && <Check className="w-[12px] h-[12px] text-white stroke-[3.5]" />}
- </div>
- 
- {/* Content */}
- <div className="flex flex-col justify-start">
- <h4 className={`font-bold text-[14px] leading-tight ${isCompleted ? 'text-gray-900' : 'text-gray-400'}`}>
- {step.label}
- </h4>
- 
- {/* Subtítulo */}
- {step.sub && (
- <p className={`text-[12px] leading-tight mt-1 ${isCurrent ? 'text-gray-500' : isCompleted ? 'text-gray-400' : 'text-gray-300'}`}>
- {step.sub}
- </p>
- )}
+{/* Vertical Timeline - Homologado Figma Nuevo */}
+        <div className="relative pl-[28px] border-l-[2px] border-dashed border-[#E4E7E9] ml-4 mb-8 mt-4">
+        {steps.map((step, i) => {
+        const isCompleted = i <= statusIndex;
+        return (
+        <div key={step.id} className="relative pb-8 last:pb-0">
+        {/* Timeline Dot / Icon */}
+        <div className="absolute -left-[39px] top-0 flex items-center justify-center">
+        {isCompleted ? (
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" className="shrink-0">
+            <path d="M15 1.34C16.5083 2.211 17.7629 3.46 18.6398 4.965C19.5167 6.47 19.9854 8.178 19.9994 9.919C20.0135 11.661 19.5725 13.376 18.72 14.895C17.8676 16.413 16.6332 17.683 15.1392 18.578C13.6452 19.473 11.9434 19.963 10.2021 19.998C8.4608 20.033 6.7406 19.613 5.2116 18.779C3.6826 17.945 2.3979 16.726 1.4847 15.243C0.5715 13.76 0.0614 12.065 0.005 10.324L0 10L0.005 9.676C0.061 7.949 0.5635 6.266 1.4636 4.791C2.3637 3.316 3.6307 2.099 5.1409 1.26C6.6511 0.42 8.3531 -0.014 10.081 0C11.8089 0.014 13.5036 0.476 15 1.34ZM13.707 7.293C13.5348 7.121 13.3057 7.017 13.0627 7.002C12.8197 6.987 12.5794 7.061 12.387 7.21L12.293 7.293L9 10.585L7.707 9.293L7.613 9.21C7.4206 9.061 7.1804 8.987 6.9374 9.002C6.6944 9.018 6.4654 9.121 6.2933 9.293C6.1211 9.465 6.0177 9.694 6.0024 9.937C5.987 10.18 6.0609 10.42 6.21 10.613L6.293 10.707L8.293 12.707L8.387 12.79C8.5624 12.926 8.778 13 9 13C9.222 13 9.4376 12.926 9.613 12.79L9.707 12.707L13.707 8.707L13.79 8.613C13.9393 8.42 14.0132 8.18 13.9979 7.937C13.9826 7.694 13.8792 7.465 13.707 7.293Z" fill="#FF5A0A"/>
+          </svg>
+        ) : (
+          <div className="w-[20px] h-[20px] rounded-full bg-[#D9D9D9] flex items-center justify-center shrink-0" />
+        )}
+        </div>
+        
+        {/* Content */}
+        <div className="flex flex-col justify-start">
+        <h4 className={`text-[14px] leading-tight font-bold ${isCompleted ? 'text-[#26292E]' : 'text-[#A0A2AC]'}`}>
+        {step.label}
+        </h4>
+        
+        {/* Subtítulo */}
+        {step.sub && (
+        <p className={`text-[12px] leading-tight mt-1 ${isCompleted ? 'text-[#535C67]' : 'text-[#A0A2AC]'}`}>
+        {step.sub}
+        </p>
+        )}
 
- {/* Technician Box integrado en la línea de tiempo */}
- {step.id === 'asignado' && isCompleted && tecnico && status !== 'finalizada' && status !== 'cerrada' && (
- <div className="flex items-center gap-3 bg-gray-50 p-3 rounded-[16px] border border-gray-100 mt-3 -ml-2">
- <div 
-   onClick={() => {
-     if (tecnico.foto && !hasImageError) setIsPhotoModalOpen(true);
-   }}
-   className={`w-11 h-11 rounded-full bg-gray-200 flex items-center justify-center shrink-0 overflow-hidden border border-gray-200 ${
-     tecnico.foto && !hasImageError ? 'cursor-pointer hover:ring-2 hover:ring-[#FF5A0A]/50 transition-all shadow-sm' : ''
-   }`}
-   title={tecnico.foto && !hasImageError ? "Ver foto del técnico" : undefined}
- >
-   {tecnico.foto && !hasImageError ? (
-     <img 
-       src={tecnico.foto} 
-       alt="" 
-       onError={() => setHasImageError(true)}
-       className="w-full h-full object-cover" 
-     />
-   ) : (
-     <User className="w-5 h-5 text-gray-400" />
-   )}
- </div>
- <div className="flex-1">
- <p className="font-bold text-gray-900 text-[14px] leading-tight mb-0.5">
- {extractTechnicianName(tecnico.nombre, tecnico.cuadrilla)}
- </p>
- <div className="flex items-center gap-2 mt-0.5 flex-wrap">
- {tecnico.dni && (
-   <>
-     <div className="flex items-center gap-1 text-gray-600">
-       <IdCard className="w-3.5 h-3.5 text-gray-400" />
-       <span className="text-[11px] font-medium text-gray-600">{formatMaskedDni(tecnico.dni)}</span>
-     </div>
-     <span className="text-[11px] text-gray-300">•</span>
-   </>
- )}
- <div className="flex items-center gap-1">
-   <Star className="w-3 h-3 text-primary fill-primary" />
-   <span className="text-[11px] font-bold text-gray-600">4.9</span>
+        {/* Technician Box homologado con Figma (FirmaNuevoSVG) */}
+        {step.id === 'asignado' && isCompleted && tecnico && status !== 'finalizada' && status !== 'cerrada' && (
+        <div className="flex items-center gap-3 bg-[#F3F3F3] p-3 rounded-[10px] mt-3 -ml-1 shadow-none border-none">
+        <div 
+          onClick={() => {
+            if (tecnico.foto && !hasImageError) setIsPhotoModalOpen(true);
+          }}
+          className={`w-[44px] h-[44px] rounded-full bg-white flex items-center justify-center shrink-0 overflow-hidden ${
+            tecnico.foto && !hasImageError ? 'cursor-pointer hover:ring-2 hover:ring-[#FF5A0A]/50 transition-all shadow-sm' : ''
+          }`}
+          title={tecnico.foto && !hasImageError ? "Ver foto del técnico" : undefined}
+        >
+          {tecnico.foto && !hasImageError ? (
+            <img 
+              src={tecnico.foto} 
+              alt="" 
+              onError={() => setHasImageError(true)}
+              className="w-full h-full object-cover" 
+            />
+          ) : (
+            <User className="w-5 h-5 text-gray-400" />
+          )}
+        </div>
+        <div className="flex-1 min-w-0">
+        <p className="font-bold text-[#26292E] text-[13px] leading-tight mb-1 truncate">
+        {extractTechnicianName(tecnico.nombre, tecnico.cuadrilla)}
+        </p>
+        <div className="flex items-center gap-3 mt-0.5 flex-wrap">
+        {tecnico.dni && (
+          <div className="flex items-center gap-1.5 text-[#535C67]">
+            <svg width="13" height="13" viewBox="0 0 13 13" fill="none" xmlns="http://www.w3.org/2000/svg" className="shrink-0">
+              <path d="M1.625 3.292C1.625 2.861 1.796 2.448 2.101 2.143C2.406 1.838 2.819 1.667 3.25 1.667H9.75C10.181 1.667 10.594 1.838 10.899 2.143C11.204 2.448 11.375 2.861 11.375 3.292V8.709C11.375 9.14 11.204 9.553 10.899 9.858C10.594 10.162 10.181 10.334 9.75 10.334H3.25C2.819 10.334 2.406 10.162 2.101 9.858C1.796 9.553 1.625 9.14 1.625 8.709V3.292Z" stroke="#535C67" strokeWidth="1.1" strokeLinecap="round" strokeLinejoin="round"/>
+              <path d="M4.11 5.682C3.907 5.682 3.75 5.525 3.75 5.322C3.75 5.119 3.907 4.962 4.11 4.962H5.19C5.393 4.962 5.55 5.119 5.55 5.322C5.55 5.525 5.393 5.682 5.19 5.682H4.11ZM7.36 5.682C7.157 5.682 7 5.525 7 5.322C7 5.119 7.157 4.962 7.36 4.962H8.89C9.093 4.962 9.25 5.119 9.25 5.322C9.25 5.525 9.093 5.682 8.89 5.682H7.36Z" fill="#535C67"/>
+            </svg>
+            <span className="text-[11px] font-medium text-[#535C67]">{formatMaskedDni(tecnico.dni)}</span>
+          </div>
+        )}
+        <div className="flex items-center gap-1">
+          <svg width="11" height="11" viewBox="0 0 11 11" fill="none" xmlns="http://www.w3.org/2000/svg" className="shrink-0">
+            <path d="M4.278 2.864L1.353 3.288L1.302 3.298C1.223 3.319 1.152 3.36 1.095 3.418C1.037 3.475 0.996 3.547 0.976 3.626C0.955 3.704 0.956 3.787 0.978 3.865C1 3.943 1.042 4.014 1.1 4.07L3.218 6.132L2.719 9.045L2.713 9.095C2.708 9.176 2.725 9.257 2.762 9.33C2.798 9.402 2.854 9.464 2.922 9.508C2.99 9.552 3.069 9.577 3.15 9.58C3.231 9.584 3.312 9.566 3.384 9.528L5.999 8.153L8.608 9.528L8.654 9.549C8.73 9.579 8.812 9.588 8.892 9.576C8.973 9.563 9.048 9.53 9.111 9.478C9.175 9.427 9.223 9.36 9.251 9.284C9.28 9.207 9.288 9.125 9.274 9.045L8.774 6.132L10.893 4.07L10.929 4.031C10.98 3.968 11.014 3.893 11.026 3.813C11.038 3.732 11.03 3.651 11 3.575C10.971 3.5 10.922 3.433 10.858 3.383C10.795 3.333 10.719 3.3 10.639 3.288L7.715 2.864L6.408 0.215C6.37 0.138 6.311 0.073 6.238 0.028C6.166 -0.017 6.082 -0.041 5.996 -0.041C5.911 -0.041 5.827 -0.017 5.754 0.028C5.682 0.073 5.623 0.138 5.585 0.215L4.278 2.864Z" fill="#FFC200"/>
+          </svg>
+          <span className="text-[11px] font-bold text-[#535C67]">4.9</span>
  </div>
  </div>
  </div>
