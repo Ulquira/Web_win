@@ -11,6 +11,7 @@ import GoogleTrackingMap from "@/components/GoogleTrackingMap";
 import { motion, AnimatePresence } from "framer-motion";
 import { MainLogo } from "@/components/MainLogo";
 import { trackEvent } from "@/lib/firebaseConfig";
+import { CierreMascotsIllustration } from "@/components/CierreMascotsIllustration";
 
 const parseSafeDate = (dateStr?: string) => {
   if (!dateStr) return null;
@@ -85,7 +86,6 @@ const Seguimiento = () => {
  const [encuestaEnviada, setEncuestaEnviada] = useState(false);
  const [surveyStep, setSurveyStep] = useState<1 | 2 | 3>(1);
  const [isSurveyModalOpen, setIsSurveyModalOpen] = useState(true);
- const [isSurveySuccessModalOpen, setIsSurveySuccessModalOpen] = useState(false);
 
  const previousStatus = useRef<string | null>(null);
  const previousTechnician = useRef<string | null>(null);
@@ -338,10 +338,9 @@ const Seguimiento = () => {
          satisfaccion_general: encuesta.satisfaccion_general,
          facilidad_gestion: encuesta.facilidad_gestion
        });
-       setEncuestaEnviada(true);
        localStorage.setItem(`encuesta_completada_${token}`, 'true');
        setIsSurveyModalOpen(false);
-       setIsSurveySuccessModalOpen(true);
+       setEncuestaEnviada(true);
      } else {
        alert("Ocurrió un error. Por favor intenta de nuevo más tarde.");
      }
@@ -528,6 +527,35 @@ return (
  <Button onClick={() => navigate('/')} className="mt-4 rounded-2xl h-14 px-8 bg-primary hover:bg-primary-light text-white font-bold text-lg">Volver al inicio</Button>
  </div>
  );
+ }
+
+ {/* Pantalla Cierre Final después de enviar la encuesta (Figma) */}
+ if (encuestaEnviada || localStorage.getItem(`encuesta_completada_${token}`) === 'true') {
+   return (
+     <div className="min-h-[100dvh] w-full bg-white flex flex-col items-center justify-center font-sans px-6 py-12 relative overflow-hidden">
+       <motion.div 
+         initial={{ opacity: 0, scale: 0.9, y: 15 }}
+         animate={{ opacity: 1, scale: 1, y: 0 }}
+         transition={{ type: "spring", damping: 25, stiffness: 220 }}
+         className="w-full max-w-[340px] flex flex-col items-center text-center my-auto"
+       >
+         {/* Ilustración Vectorial Exacta de Mascotas (Figma) */}
+         <div className="mb-6 flex items-center justify-center">
+           <CierreMascotsIllustration className="w-[240px] h-[200px]" />
+         </div>
+
+         {/* Título */}
+         <h1 className="text-[22px] font-bold text-[#26292E] mb-3 leading-tight tracking-tight">
+           ¡Gracias por tu opinión!
+         </h1>
+
+         {/* Subtítulo */}
+         <p className="text-[14px] text-[#26292E] leading-relaxed max-w-[270px] font-normal mx-auto">
+           Agradecemos tu tiempo. Seguiremos trabajando para ofrecerte la mejor experiencia en casa.
+         </p>
+       </motion.div>
+     </div>
+   );
  }
 
  if (isReprogramCompletada) {
@@ -1763,42 +1791,6 @@ return (
           )}
         </motion.div>
       </div>
-    )}
-  </AnimatePresence>
-
-  {/* Modal de Éxito de Encuesta (Figma Pop2 Style) */}
-  <AnimatePresence>
-    {isSurveySuccessModalOpen && (
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        className="fixed inset-0 z-[120] bg-[#26292E]/40 flex items-center justify-center p-4 backdrop-blur-xs"
-      >
-        <motion.div
-          initial={{ scale: 0.9, y: 20 }}
-          animate={{ scale: 1, y: 0 }}
-          exit={{ scale: 0.9, y: 20 }}
-          className="bg-white rounded-[32px] p-6 w-[342px] max-w-full relative flex flex-col items-center text-center shadow-xl"
-        >
-          <div className="w-[72px] h-[72px] relative flex items-center justify-center mb-4">
-            <svg width="72" height="72" viewBox="0 0 72 72" fill="none" className="shrink-0">
-              <path d="M62 26C58.5 15.5 48 8 36 8C20.5 8 8 20.5 8 36C8 51.5 20.5 64 36 64C47.5 64 57.5 57 61.5 47" stroke="#FF5A0A" strokeWidth="4.5" strokeLinecap="round" strokeLinejoin="round"/>
-              <path d="M50 25L32 45L23 36" stroke="#301D19" strokeWidth="4.5" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
-          </div>
-          <h3 className="text-[18px] font-bold text-[#26292E] mb-2 leading-tight">¡Gracias por tu opinión!</h3>
-          <p className="text-[13px] text-[#535C67] mb-6 font-normal leading-relaxed px-1">
-            Tus respuestas han sido enviadas y nos ayudan a mejorar el servicio para ti.
-          </p>
-          <button
-            onClick={() => setIsSurveySuccessModalOpen(false)}
-            className="w-full bg-[#FF5A0A] text-white font-bold h-12 rounded-full text-[14px] shadow-md shadow-[#FF5A0A]/20 active:scale-95 transition-transform cursor-pointer"
-          >
-            Aceptar
-          </button>
-        </motion.div>
-      </motion.div>
     )}
   </AnimatePresence>
 
