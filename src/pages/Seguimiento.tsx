@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 
-import { Phone, CheckCircle2, User, Star, Bell, Check, MapPin, AlertTriangle, ArrowLeft, CalendarDays, ChevronDown, ChevronLeft, X, IdCard } from "lucide-react";
+import { Phone, CheckCircle2, User, Star, Bell, Check, MapPin, AlertTriangle, CalendarDays, ChevronDown, ChevronLeft, X, IdCard, Calendar, Clock } from "lucide-react";
 import { PiTelevisionSimple, PiPackage, PiWifiHigh, PiShieldCheck, PiLightning } from "react-icons/pi";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
@@ -65,7 +65,7 @@ const Seguimiento = () => {
  const [isReprogramCompletada, setIsReprogramCompletada] = useState(false);
  const [isPhotoModalOpen, setIsPhotoModalOpen] = useState(false);
  const [hasImageError, setHasImageError] = useState(false);
- const [reprogramStep, setReprogramStep] = useState<'confirm_initial' | 'form' | 'success'>('confirm_initial');
+ const [reprogramStep, setReprogramStep] = useState<'form' | 'confirm_popup' | 'success'>('form');
  const [reprogramData, setReprogramData] = useState({ fecha: '', turno: '', motivo: '', motivoSeleccionado: '' });
  const [isSubmittingReprogram, setIsSubmittingReprogram] = useState(false);
  
@@ -254,6 +254,16 @@ const Seguimiento = () => {
    return days;
  };
 
+ const formatSelectedDate = (isoStr: string) => {
+   if (!isoStr) return '';
+   const parts = isoStr.split('-');
+   if (parts.length < 3) return isoStr;
+   const mesesFull = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+   const mesIdx = parseInt(parts[1], 10) - 1;
+   const dia = parseInt(parts[2], 10);
+   return `${dia} de ${mesesFull[mesIdx] || parts[1]}`;
+ };
+
  const handleReprogramSubmit = async () => {
    const minDate = getTomorrowLocal();
    const maxDate = getMaxDateLocal();
@@ -263,31 +273,29 @@ const Seguimiento = () => {
    }
 
    setIsSubmittingReprogram(true);
- try {
- const response = await fetch(`${import.meta.env.VITE_API_URL}/api/reprogramar`, {
- method: 'POST',
- headers: { 'Content-Type': 'application/json' },
- body: JSON.stringify({
- token,
- ...reprogramData
- })
- });
+   try {
+     const response = await fetch(`${import.meta.env.VITE_API_URL}/api/reprogramar`, {
+       method: 'POST',
+       headers: { 'Content-Type': 'application/json' },
+       body: JSON.stringify({
+         token,
+         ...reprogramData
+       })
+     });
 
- const result = await response.json();
- if (result.success) {
- trackEvent('reprogramar_solicitud_completada', { token, motivo: reprogramData.motivoSeleccionado });
- localStorage.setItem(`reprogramacion_completada_${token}`, 'true');
- setIsReprogramCompletada(true);
- setIsReprogramModalOpen(false);
- setReprogramStep('confirm_initial');
- } else {
- alert("Ocurrió un error. Por favor intenta de nuevo más tarde.");
- }
- } catch (e) {
- alert("Error de conexión al guardar la solicitud.");
- } finally {
- setIsSubmittingReprogram(false);
- }
+     const result = await response.json();
+     if (result.success) {
+       trackEvent('reprogramar_solicitud_completada', { token, motivo: reprogramData.motivoSeleccionado });
+       localStorage.setItem(`reprogramacion_completada_${token}`, 'true');
+       setReprogramStep('success');
+     } else {
+       alert("Ocurrió un error. Por favor intenta de nuevo más tarde.");
+     }
+   } catch {
+     alert("Error de conexión al guardar la solicitud.");
+   } finally {
+     setIsSubmittingReprogram(false);
+   }
  };
 
  const handleEncuestaSubmit = async () => {
@@ -1233,7 +1241,7 @@ return (
  onClick={() => {
    trackEvent('click_iniciar_reprogramacion', { token, estado_actual: status });
    setIsReprogramModalOpen(true);
-   setReprogramStep('confirm_initial');
+   setReprogramStep('form');
  }}
  className="w-full bg-[#2B2B2B] hover:bg-[#1E1E1E] text-white h-12 rounded-full text-[14px] font-bold flex items-center justify-center gap-2 active:scale-95 transition-transform shadow-md cursor-pointer"
  >
@@ -1313,48 +1321,54 @@ return (
  animate={{ x: 0 }}
  exit={{ x: "100%" }}
  transition={{ type: "spring", damping: 25, stiffness: 200 }}
- className="fixed inset-0 z-[100] bg-[#f3f4f6] flex flex-col font-sans"
+ className="fixed inset-0 z-[100] bg-[#F5F6F8] flex flex-col font-sans"
  >
  {/* Header */}
- <div className="bg-white px-4 py-4 flex items-center shadow-sm z-10 shrink-0">
+ <div className="bg-white px-4 py-3.5 flex items-center shadow-sm z-10 shrink-0 border-b border-gray-100">
  <button 
  onClick={() => {
- setIsReprogramModalOpen(false);
- setReprogramStep('form');
+   setIsReprogramModalOpen(false);
+   setReprogramStep('form');
  }} 
- className="p-2 -ml-2 text-primary active:bg-primary/10 rounded-full transition-colors"
+ className="p-1 -ml-1 text-[#FF5A0A] hover:bg-orange-50 rounded-full transition-colors cursor-pointer"
  >
- <ArrowLeft className="w-6 h-6" />
+ <ChevronLeft className="w-6 h-6 stroke-[2.5]" />
  </button>
- <h2 className="flex-1 text-center font-bold text-primary pr-8 text-[16px]">Reprogramación de visita</h2>
+ <h2 className="flex-1 text-center font-bold text-[#FF5A0A] pr-7 text-[16px]">Reprogramación de visita</h2>
  </div>
  
  {/* Body */}
- <div className="flex-1 overflow-y-auto p-4 space-y-4">
+ <div className="flex-1 overflow-y-auto p-4 space-y-3.5">
  {/* Direction Box */}
- <div className="bg-white p-4 rounded-2xl flex items-start gap-3 shadow-sm border border-gray-100">
- <MapPin className="w-5 h-5 text-gray-400 mt-0.5 shrink-0" />
- <div>
- <p className="text-[11px] text-gray-400 font-bold mb-0.5">Dirección</p>
- <p className="text-[13px] font-normal text-gray-600 leading-tight">{data.direccion || 'Cargando...'}</p>
+ <div className="bg-white p-4 rounded-[16px] flex items-center gap-3.5 border border-[#E4E7E9] shadow-sm">
+ <div className="w-10 h-10 rounded-full bg-[#F3F3F3] flex items-center justify-center shrink-0">
+   <MapPin className="w-5 h-5 text-[#141414] stroke-[2]" />
+ </div>
+ <div className="min-w-0 flex-1">
+   <p className="text-[11px] text-[#535C67] font-medium mb-0.5">Dirección</p>
+   <p className="text-[13px] font-bold text-[#26292E] leading-snug line-clamp-2">
+     {data.direccion ? data.direccion.split(/\|\|referencia:|\|referencia:|referencia:/i)[0].trim() : 'Cargando...'}
+   </p>
  </div>
  </div>
 
  {/* Date Box */}
- <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
- <div className="flex justify-between items-center mb-2">
-   <h3 className="font-bold text-[15px] text-gray-900">Selecciona la fecha</h3>
-   <span className="text-[11px] font-bold text-primary bg-primary/10 px-2.5 py-0.5 rounded-full">Próximos 7 días</span>
+ <div className="bg-white p-4 rounded-[22px] shadow-sm border border-[#E4E7E9]">
+ <div className="mb-2">
+   <h3 className="font-bold text-[15px] text-[#26292E]">Selecciona la fecha</h3>
  </div>
- <div className="flex items-start gap-2 mb-3.5">
- <div className="w-4 h-4 rounded-full border border-primary text-primary flex items-center justify-center shrink-0 mt-0.5">
- <span className="text-[10px] font-bold">i</span>
- </div>
- <p className="text-[11px] text-primary leading-tight font-normal">Ten en cuenta que depende de la disponibilidad de cupos.</p>
+ <div className="flex items-center gap-2 mb-3.5">
+   <svg width="15" height="15" viewBox="0 0 15 15" fill="none" className="shrink-0">
+     <circle cx="7.5" cy="7.5" r="6.5" stroke="#FF5A0A" strokeWidth="1.2" />
+     <path d="M7.5 4.5V7.5M7.5 10.5H7.51" stroke="#FF5A0A" strokeWidth="1.2" strokeLinecap="round" />
+   </svg>
+   <p className="text-[12px] text-[#FF5A0A] leading-tight font-normal">
+     Ten en cuenta que depende de la disponibilidad de cupos.
+   </p>
  </div>
 
- {/* Selector interactivo de los 7 días */}
- <div className="grid grid-cols-4 gap-2">
+ {/* Selector interactivo de los 7 días (4 en primera fila, 3 en segunda fila) */}
+ <div className="grid grid-cols-4 gap-2.5">
    {getAvailableDays().map((day) => {
      const isSelected = reprogramData.fecha === day.iso;
      return (
@@ -1362,19 +1376,19 @@ return (
          key={day.iso}
          type="button"
          onClick={() => setReprogramData({ ...reprogramData, fecha: day.iso })}
-         className={`flex flex-col items-center justify-center py-2.5 px-1 rounded-xl border transition-all cursor-pointer ${
+         className={`flex flex-col items-center justify-center h-[69px] rounded-[12px] border transition-all cursor-pointer ${
            isSelected
-             ? 'border-primary bg-[#FFF7ED] text-primary shadow-sm scale-[1.02]'
-             : 'border-gray-200 bg-white text-gray-700 hover:border-primary/50'
+             ? 'border-[#FF5A0A] bg-[#FFEDE0] text-[#FF5A0A]'
+             : 'border-[#D9D9D9] bg-white text-[#9CA5AB] hover:border-[#FF5A0A]/40'
          }`}
        >
-         <span className={`text-[10px] font-bold uppercase ${isSelected ? 'text-primary' : 'text-gray-400'}`}>
+         <span className={`text-[11px] font-medium ${isSelected ? 'text-[#FF5A0A] font-bold' : 'text-[#9CA5AB]'}`}>
            {day.isTomorrow ? 'Mañana' : day.dayOfWeek}
          </span>
-         <span className={`text-[16px] font-bold my-0.5 ${isSelected ? 'text-primary' : 'text-gray-900'}`}>
+         <span className={`text-[18px] font-bold my-0.5 ${isSelected ? 'text-[#FF5A0A]' : 'text-black'}`}>
            {day.dayNum}
          </span>
-         <span className={`text-[10px] font-medium ${isSelected ? 'text-primary' : 'text-gray-500'}`}>
+         <span className={`text-[11px] font-medium ${isSelected ? 'text-[#FF5A0A] font-bold' : 'text-[#9CA5AB]'}`}>
            {day.monthName}
          </span>
        </button>
@@ -1383,117 +1397,148 @@ return (
  </div>
  </div>
 
- {/* Time Slot Box (Only visible if Date is selected) */}
- {reprogramData.fecha && (
- <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
- <h3 className="font-bold text-[15px] text-gray-900 mb-4">Selecciona el tramo horario</h3>
- <div className="flex flex-wrap gap-2">
- {['8am - 12pm', '12pm - 4pm', '4pm - 8pm'].map(turno => (
- <label key={turno} className="flex-[1_1_30%]">
- <input 
- type="radio" 
- name="turno" 
- value={turno} 
- checked={reprogramData.turno === turno}
- onChange={(e) => setReprogramData({...reprogramData, turno: e.target.value})}
- className="peer hidden" 
- />
- <div className="text-center py-3 px-1 rounded-lg border border-gray-200 peer-checked:border-primary peer-checked:text-primary text-gray-600 text-[12px] font-bold transition-all bg-white cursor-pointer hover:border-primary/50">
- {turno}
+ {/* Time Slot Box */}
+ <div className="bg-white p-4 rounded-[22px] shadow-sm border border-[#E4E7E9]">
+ <h3 className="font-bold text-[15px] text-[#26292E] mb-3">Selecciona el tramo horario</h3>
+ <div className="flex flex-col gap-2.5">
+ {['08:00 a.m. - 12:00 p.m.', '12:00 p.m. - 4:00 p.m.', '04:00 p.m. - 8:00 p.m.'].map((turno) => {
+   const isSelected = reprogramData.turno === turno;
+   return (
+     <button
+       key={turno}
+       type="button"
+       onClick={() => setReprogramData({ ...reprogramData, turno })}
+       className={`w-full h-[46px] rounded-[14px] flex items-center justify-center font-bold text-[13px] transition-all cursor-pointer ${
+         isSelected
+           ? 'border border-[#FF5A0A] bg-[#FFEDE0] text-[#FF5903]'
+           : 'border border-[#D1D5DC] bg-white text-[#26292E] hover:border-[#FF5A0A]/50'
+       }`}
+     >
+       {turno}
+     </button>
+   );
+ })}
  </div>
- </label>
- ))}
  </div>
- </div>
- )}
 
- {/* Comments Box */}
- {reprogramData.turno && (
- <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
- <h3 className="font-bold text-[15px] text-gray-900 mb-4">Motivo de Reprogramación</h3>
+ {/* Motivo Box */}
+ <div className="bg-white p-4 rounded-[22px] shadow-sm border border-[#E4E7E9]">
+ <h3 className="font-bold text-[15px] text-[#26292E] mb-3">Motivo de reprogramación</h3>
  
  <div className="mb-4 relative">
  <select
- value={reprogramData.motivoSeleccionado}
- onChange={(e) => setReprogramData({...reprogramData, motivoSeleccionado: e.target.value})}
- className="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 pr-10 text-sm text-gray-700 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary appearance-none"
+   value={reprogramData.motivoSeleccionado}
+   onChange={(e) => setReprogramData({ ...reprogramData, motivoSeleccionado: e.target.value })}
+   className={`w-full h-[46px] rounded-[14px] px-4 pr-10 text-[13px] font-medium border appearance-none transition-all cursor-pointer focus:outline-none ${
+     reprogramData.motivoSeleccionado
+       ? 'border-[#FF5A0A] bg-[#FFEDE0] text-[#FF5903]'
+       : 'border-[#D1D5DC] bg-white text-gray-500 hover:border-gray-400'
+   }`}
  >
- <option value="" disabled>Selecciona un motivo...</option>
- <option value="emergencia_personal">Emergencia personal / familiar</option>
- <option value="problemas_salud">Problemas de salud</option>
- <option value="viaje_inesperado">Viaje de último minuto</option>
- <option value="choque_horarios">Cruce de horarios con el trabajo / estudios</option>
- <option value="olvido">Olvidé la cita original</option>
- <option value="otro">Otro motivo</option>
+   <option value="" disabled>Elige una opción</option>
+   <option value="emergencia_personal">Emergencia personal / familiar</option>
+   <option value="problemas_salud">Problemas de salud</option>
+   <option value="viaje_inesperado">Viaje de último minuto</option>
+   <option value="choque_horarios">Cruce de horarios con el trabajo / estudios</option>
+   <option value="olvido">Olvidé la cita original</option>
+   <option value="otro">Otro motivo</option>
  </select>
- <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-4">
-   <ChevronDown className="w-4 h-4 text-gray-400" />
+ <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3.5">
+   <ChevronDown className={`w-4 h-4 ${reprogramData.motivoSeleccionado ? 'text-[#FF5903]' : 'text-gray-400'}`} />
  </div>
  </div>
 
- <h3 className="font-bold text-[14px] text-gray-900 mb-3">Detalle adicional (Opcional)</h3>
+ <h3 className="font-bold text-[14px] text-[#26292E] mb-2.5">Detalle adicional (Opcional)</h3>
  <textarea 
- value={reprogramData.motivo}
- onChange={(e) => setReprogramData({...reprogramData, motivo: e.target.value})}
- className="w-full bg-gray-50 border border-gray-200 rounded-xl p-4 text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary resize-none" 
- rows={2} 
- placeholder="Ej: No estaré en casa, por favor venir por la tarde..."
+   value={reprogramData.motivo}
+   onChange={(e) => setReprogramData({ ...reprogramData, motivo: e.target.value })}
+   className="w-full bg-[#F9F9F9] border border-[#E4E7E9] rounded-[14px] p-3 text-[13px] text-gray-800 focus:outline-none focus:border-[#FF5A0A] resize-none placeholder:text-gray-400" 
+   rows={2} 
+   placeholder="Ej: No estaré en casa, por favor venir por la tarde..."
  ></textarea>
-
- 
  </div>
- )}
  </div>
 
  {/* Footer CTA */}
- <div className="bg-white p-4 shadow-[0_-10px_20px_rgba(0,0,0,0.05)] shrink-0">
+ <div className="bg-white p-4 shadow-[0_-10px_20px_rgba(0,0,0,0.05)] shrink-0 border-t border-gray-100">
  <button 
- disabled={!reprogramData.fecha || !reprogramData.turno}
- onClick={handleReprogramSubmit}
- className="w-full bg-primary disabled:bg-gray-300 disabled:text-gray-500 text-white font-bold h-12 rounded-full text-[14px] transition-colors shadow-lg shadow-primary/20"
+ disabled={!reprogramData.fecha || !reprogramData.turno || !reprogramData.motivoSeleccionado}
+ onClick={() => setReprogramStep('confirm_popup')}
+ className="w-full bg-[#FF5A0A] disabled:bg-[#E4E7E9] disabled:text-[#A0A2AC] text-white font-bold h-12 rounded-full text-[14px] transition-all shadow-md disabled:shadow-none cursor-pointer disabled:cursor-not-allowed active:scale-95 disabled:active:scale-100"
  >
- {isSubmittingReprogram ? "Confirmando..." : "Confirmar Reprogramación"}
+ Confirmar reprogramación
  </button>
  </div>
  </motion.div>
  )}
  </AnimatePresence>
 
- {/* Confirm & Success Modals inside Reprogram flow */}
+ {/* Confirm & Success Modals inside Reprogram flow (Figma Pop1 & Pop2) */}
   <AnimatePresence>
-  {isReprogramModalOpen && reprogramStep === 'confirm_initial' && (
+  {isReprogramModalOpen && reprogramStep === 'confirm_popup' && (
   <motion.div 
   initial={{ opacity: 0 }}
   animate={{ opacity: 1 }}
   exit={{ opacity: 0 }}
-  className="fixed inset-0 z-[110] bg-black/40 flex items-center justify-center p-4 backdrop-blur-sm"
+  className="fixed inset-0 z-[110] bg-[#26292E]/40 flex items-center justify-center p-4 backdrop-blur-sm"
   >
   <motion.div 
   initial={{ scale: 0.9, y: 20 }}
   animate={{ scale: 1, y: 0 }}
-  className="bg-white rounded-[20px] p-6 w-[290px] relative flex flex-col items-center text-center shadow-[0_4px_20px_rgba(0,0,0,0.15)]"
+  exit={{ scale: 0.9, y: 20 }}
+  className="bg-white rounded-[32px] p-6 w-[342px] max-w-full relative flex flex-col items-center text-center shadow-xl"
   >
-  <button 
-  onClick={() => setIsReprogramModalOpen(false)}
-  className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors"
-  aria-label="Cerrar"
-  >
-  <X className="w-5 h-5 stroke-[2]" />
-  </button>
+  {/* Circular Icon with Calendar (Exact Figma Pop1) */}
+  <div className="w-[72px] h-[72px] relative flex items-center justify-center mb-4">
+    <svg width="72" height="72" viewBox="0 0 72 72" fill="none" className="shrink-0">
+      <path d="M62 26C58.5 15.5 48 8 36 8C20.5 8 8 20.5 8 36C8 51.5 20.5 64 36 64C47.5 64 57.5 57 61.5 47" stroke="#FF5A0A" strokeWidth="4.5" strokeLinecap="round" strokeLinejoin="round"/>
+      <rect x="23" y="25" width="26" height="24" rx="4" stroke="#0F0908" strokeWidth="3" />
+      <path d="M30 20V26M42 20V26M23 33H49" stroke="#0F0908" strokeWidth="3" strokeLinecap="round"/>
+    </svg>
+  </div>
 
-  <AlertTriangle className="w-12 h-12 text-[#FF5A0A] mb-4 stroke-[1.8]" />
-  <h3 className="text-[16px] font-bold text-[#0F090B] mb-6 leading-snug px-1">¿Estás seguro de reprogramar tu visita?</h3>
+  <h3 className="text-[17px] font-bold text-[#26292E] leading-snug px-1 mb-2">
+    ¿Confirmas la reprogramación de tu visita técnica?
+  </h3>
+  <p className="text-[13px] text-[#535C67] leading-relaxed mb-5 px-1">
+    Tu visita técnica actual será reemplazada por la nueva fecha y horario que elegiste.
+  </p>
+
+  {/* Resumen Box */}
+  <div className="w-full bg-[#F8F9FA] rounded-[20px] p-4 flex flex-col gap-3.5 mb-6 text-left border border-gray-100">
+    <div className="flex items-center gap-3">
+      <div className="w-10 h-10 rounded-full bg-[#F3F3F3] flex items-center justify-center shrink-0">
+        <Calendar className="w-5 h-5 text-[#141414] stroke-[1.8]" />
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="text-[10px] font-bold text-[#9CA5AB] uppercase tracking-wider">Nueva fecha</p>
+        <p className="text-[14px] font-bold text-[#26292E] truncate">{formatSelectedDate(reprogramData.fecha)}</p>
+      </div>
+    </div>
+    <div className="flex items-center gap-3">
+      <div className="w-10 h-10 rounded-full bg-[#F3F3F3] flex items-center justify-center shrink-0">
+        <Clock className="w-5 h-5 text-[#141414] stroke-[1.8]" />
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="text-[10px] font-bold text-[#9CA5AB] uppercase tracking-wider">Tramo horario</p>
+        <p className="text-[14px] font-bold text-[#26292E] truncate">{reprogramData.turno}</p>
+      </div>
+    </div>
+  </div>
+
   <button 
-  onClick={() => setReprogramStep('form')}
-  className="w-full bg-[#FF5A0A] text-white font-bold h-[44px] rounded-full text-[14px] mb-2.5 shadow-[0_4px_12px_rgba(255,90,10,0.25)] active:scale-95 transition-transform"
+  disabled={isSubmittingReprogram}
+  onClick={handleReprogramSubmit}
+  className="w-full bg-[#FF5A0A] text-white font-bold h-12 rounded-full text-[14px] mb-2.5 shadow-md shadow-[#FF5A0A]/20 active:scale-95 transition-transform cursor-pointer"
   >
-  Confirmar
+  {isSubmittingReprogram ? "Confirmando..." : "Confirmar"}
   </button>
   <button 
-  onClick={() => setIsReprogramModalOpen(false)}
-  className="w-full bg-[#f2f2f2] text-[#0F090B] font-bold h-[44px] rounded-full text-[14px] hover:bg-[#e8e7e8] active:scale-95 transition-transform"
+  disabled={isSubmittingReprogram}
+  onClick={() => setReprogramStep('form')}
+  className="w-full bg-transparent border border-[#FF5A0A] text-[#FF5A0A] font-bold h-12 rounded-full text-[14px] active:scale-95 transition-transform cursor-pointer hover:bg-orange-50"
   >
-  Volver
+  Cancelar
   </button>
   </motion.div>
   </motion.div>
@@ -1504,35 +1549,33 @@ return (
   initial={{ opacity: 0 }}
   animate={{ opacity: 1 }}
   exit={{ opacity: 0 }}
-  className="fixed inset-0 z-[120] bg-black/40 flex items-center justify-center p-4 backdrop-blur-sm"
+  className="fixed inset-0 z-[120] bg-[#26292E]/40 flex items-center justify-center p-4 backdrop-blur-sm"
   >
   <motion.div 
   initial={{ scale: 0.9, y: 20 }}
   animate={{ scale: 1, y: 0 }}
-  className="bg-white rounded-[20px] p-6 w-[290px] relative flex flex-col items-center text-center shadow-[0_4px_20px_rgba(0,0,0,0.15)]"
+  exit={{ scale: 0.9, y: 20 }}
+  className="bg-white rounded-[32px] p-6 w-[342px] max-w-full relative flex flex-col items-center text-center shadow-xl"
   >
-  <button 
-  onClick={() => {
-    setIsReprogramModalOpen(false);
-    setReprogramStep('confirm_initial');
-  }}
-  className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors"
-  aria-label="Cerrar"
-  >
-  <X className="w-5 h-5 stroke-[2]" />
-  </button>
+  {/* Circular Icon with Checkmark (Exact Figma Pop2) */}
+  <div className="w-[72px] h-[72px] relative flex items-center justify-center mb-4">
+    <svg width="72" height="72" viewBox="0 0 72 72" fill="none" className="shrink-0">
+      <path d="M62 26C58.5 15.5 48 8 36 8C20.5 8 8 20.5 8 36C8 51.5 20.5 64 36 64C47.5 64 57.5 57 61.5 47" stroke="#FF5A0A" strokeWidth="4.5" strokeLinecap="round" strokeLinejoin="round"/>
+      <path d="M50 25L32 45L23 36" stroke="#301D19" strokeWidth="4.5" strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>
+  </div>
 
-  <CheckCircle2 className="w-12 h-12 text-[#FF5A0A] mb-4 stroke-[1.8]" />
-  <h3 className="text-[16px] font-bold text-[#0F090B] mb-2 leading-tight">Visita reprogramada</h3>
-  <p className="text-[13px] text-gray-500 mb-6 font-normal leading-relaxed">
-  Tu solicitud de reprogramación se ha enviado con éxito.
+  <h3 className="text-[18px] font-bold text-[#26292E] mb-2 leading-tight">Visita reprogramada</h3>
+  <p className="text-[13px] text-[#535C67] mb-6 font-normal leading-relaxed px-1">
+  Tu nueva visita ha sido confirmada, revisa todos los detalles desde el historial de visitas.
   </p>
   <button 
   onClick={() => {
     setIsReprogramModalOpen(false);
-    setReprogramStep('confirm_initial');
+    setReprogramStep('form');
+    setIsReprogramCompletada(true);
   }}
-  className="w-full bg-[#FF5A0A] text-white font-bold h-[44px] rounded-full text-[14px] shadow-[0_4px_12px_rgba(255,90,10,0.25)] active:scale-95 transition-transform"
+  className="w-full bg-[#FF5A0A] text-white font-bold h-12 rounded-full text-[14px] shadow-md shadow-[#FF5A0A]/20 active:scale-95 transition-transform cursor-pointer"
   >
   Aceptar
   </button>
