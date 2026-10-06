@@ -64,7 +64,6 @@ const Seguimiento = () => {
  const [isReprogramModalOpen, setIsReprogramModalOpen] = useState(false);
  const [isReprogramCompletada, setIsReprogramCompletada] = useState(false);
  const [isPhotoModalOpen, setIsPhotoModalOpen] = useState(false);
- const [isPlanExpanded, setIsPlanExpanded] = useState(false);
  const [hasImageError, setHasImageError] = useState(false);
  const [reprogramStep, setReprogramStep] = useState<'confirm_initial' | 'form' | 'success'>('confirm_initial');
  const [reprogramData, setReprogramData] = useState({ fecha: '', turno: '', motivo: '', motivoSeleccionado: '' });
@@ -1042,82 +1041,8 @@ return (
  </div>
  )}
 
- {/* Plan Pill (Accordion superior como en Figma) */}
- {(() => {
-   const parsedPlan = parsePlanData(data.campana);
-   const displayPlanName = parsedPlan.paquete || data.campana;
-   if (!displayPlanName) return null;
-
-   return (
-     <div className="flex flex-col items-center w-full mt-3.5 mb-2">
-       <button
-         type="button"
-         onClick={() => {
-           if (parsedPlan.svas.length > 0) {
-             setIsPlanExpanded(!isPlanExpanded);
-           }
-         }}
-         className="inline-flex items-center gap-2 bg-white px-4 py-2 rounded-full border border-gray-100 shadow-[0_2px_10px_rgba(0,0,0,0.03)] hover:bg-gray-50 active:scale-98 transition-all cursor-pointer"
-       >
-         <div className="w-4 h-4 rounded-full text-[#FF5A0A] flex items-center justify-center">
-           <PiPackage className="w-3.5 h-3.5 text-[#FF5A0A]" />
-         </div>
-         <span className="text-[13px] font-bold text-gray-800 leading-tight">
-           {toTitleCase(displayPlanName)}
-         </span>
-         {parsedPlan.svas.length > 0 && (
-           <ChevronDown 
-             className={`w-3.5 h-3.5 text-gray-400 transition-transform duration-200 ${
-               isPlanExpanded ? 'rotate-180' : ''
-             }`} 
-           />
-         )}
-       </button>
-
-       {/* Dropdown de Servicios Adicionales */}
-       <AnimatePresence>
-         {isPlanExpanded && parsedPlan.svas.length > 0 && (
-           <motion.div
-             initial={{ opacity: 0, height: 0, y: -6 }}
-             animate={{ opacity: 1, height: 'auto', y: 0 }}
-             exit={{ opacity: 0, height: 0, y: -6 }}
-             transition={{ duration: 0.2 }}
-             className="w-full mt-2.5 overflow-hidden bg-white rounded-2xl p-4 border border-gray-100 shadow-sm text-left"
-           >
-             <p className="text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-3">
-               Servicios Adicionales
-             </p>
-             <div className="flex flex-col gap-2.5">
-               {parsedPlan.svas.map((sva, idx) => {
-                 let SvaIcon = PiPackage;
-                 const svaLower = sva.toLowerCase();
-                 if (svaLower.includes('tv') || svaLower.includes('l1max')) SvaIcon = PiTelevisionSimple;
-                 else if (svaLower.includes('box')) SvaIcon = PiPackage;
-                 else if (svaLower.includes('mesh')) SvaIcon = PiWifiHigh;
-                 else if (svaLower.includes('antivirus') || svaLower.includes('seguridad')) SvaIcon = PiShieldCheck;
-                 else if (svaLower.includes('aumento')) SvaIcon = PiLightning;
-
-                 return (
-                   <div key={idx} className="flex items-center gap-2.5">
-                     <div className="w-7 h-7 rounded-full bg-[#FF5A0A]/10 flex items-center justify-center shrink-0">
-                       <SvaIcon className="w-3.5 h-3.5 text-[#FF5A0A]" />
-                     </div>
-                     <span className="text-[13px] font-medium text-gray-800 leading-tight">
-                       {toTitleCase(sva)}
-                     </span>
-                   </div>
-                 );
-               })}
-             </div>
-           </motion.div>
-         )}
-       </AnimatePresence>
-     </div>
-   );
- })()}
-
  {/* Info Card de Visita (Frame 14804 de Figma) */}
- <div className={`border border-gray-100 rounded-[24px] p-5 mb-6 bg-white shadow-[0_4px_20px_rgba(0,0,0,0.03)] ${status === 'en_camino' && (data.token_inicio || eta || calculatedEta) ? '' : 'mt-1'}`}>
+ <div className={`border border-gray-100 rounded-[24px] p-5 mb-6 bg-white shadow-[0_4px_20px_rgba(0,0,0,0.03)] ${status === 'en_camino' && (data.token_inicio || eta || calculatedEta) ? '' : 'mt-4'}`}>
  <div className="flex flex-col gap-3.5">
    {/* Día */}
    <div className="flex justify-between items-center">
@@ -1150,15 +1075,70 @@ return (
      </span>
    </div>
 
-   {/* Ticket Asignado / Operación (Inner Box Frame 1000002219) */}
-   {(data.codisegui || data.idoperacion) && (
+   {/* Ticket Asignado (solo para Visita Técnica) o Plan y Servicios (para Instalación) */}
+   {data.tipo === 'ticket' ? (
      <div className="bg-[#F8F9FA] border border-gray-100/90 rounded-[18px] p-4 mt-1 flex flex-col">
        <p className="text-[11px] font-medium text-gray-500 tracking-normal mb-1">Ticket</p>
        <p className="text-[16px] font-black text-gray-900 tracking-tight leading-none">
-         {data.codisegui || data.idoperacion}
+         {data.codisegui || data.idoperacion || 'No especificado'}
        </p>
      </div>
-   )}
+   ) : (() => {
+     const parsedPlan = parsePlanData(data.campana);
+     return (
+       <div className="flex flex-col w-full mt-1 pt-3.5 border-t border-gray-100">
+         {/* Paquete de Internet */}
+         {parsedPlan.paquete && (
+           <div className="mb-3 text-left">
+             <p className="text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-1">
+               Paquete de Internet
+             </p>
+             <p className="text-[17px] font-black text-gray-900 tracking-tight">
+               {toTitleCase(parsedPlan.paquete)}
+             </p>
+           </div>
+         )}
+         
+         {/* Servicios Adicionales (Lista fija no desplegable) */}
+         {parsedPlan.svas.length > 0 && (
+           <div className="bg-[#F8F9FA] rounded-[18px] p-4 border border-gray-100/90">
+             <p className="text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-3">
+               Servicios Adicionales
+             </p>
+             <div className="flex flex-col gap-3">
+               {parsedPlan.svas.map((sva, idx) => {
+                 let SvaIcon = PiPackage;
+                 const svaLower = sva.toLowerCase();
+                 if (svaLower.includes('tv') || svaLower.includes('l1max')) SvaIcon = PiTelevisionSimple;
+                 else if (svaLower.includes('box')) SvaIcon = PiPackage;
+                 else if (svaLower.includes('mesh')) SvaIcon = PiWifiHigh;
+                 else if (svaLower.includes('antivirus') || svaLower.includes('seguridad')) SvaIcon = PiShieldCheck;
+                 else if (svaLower.includes('aumento')) SvaIcon = PiLightning;
+
+                 return (
+                   <div key={idx} className="flex items-center gap-2.5">
+                     <div className="w-7 h-7 rounded-full bg-[#FF5A0A]/10 flex items-center justify-center shrink-0">
+                       <SvaIcon className="w-3.5 h-3.5 text-[#FF5A0A]" />
+                     </div>
+                     <span className="text-[13px] font-semibold text-gray-800 leading-tight">
+                       {toTitleCase(sva)}
+                     </span>
+                   </div>
+                 );
+               })}
+             </div>
+           </div>
+         )}
+
+         {/* Fallback si no hay paquete separado por pipetas */}
+         {!parsedPlan.paquete && data.campana && (
+           <div className="bg-[#F8F9FA] border border-gray-100/90 rounded-[18px] p-4 text-gray-900 mt-1">
+             <p className="text-[13px] font-bold leading-snug">{toTitleCase(data.campana)}</p>
+           </div>
+         )}
+       </div>
+     );
+   })()}
  </div>
  </div>
 
