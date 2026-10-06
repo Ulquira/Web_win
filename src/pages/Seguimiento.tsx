@@ -1165,9 +1165,9 @@ return (
         {step.label}
         </h4>
         
-        {/* Subtítulo */}
-        {step.sub && (
-        <p className={`text-[12px] leading-tight mt-1 ${isCompleted ? 'text-[#535C67]' : 'text-[#A0A2AC]'}`}>
+        {/* Subtítulo: Solo se muestra en el estado actual o completado, los estados inactivos/pendientes NO llevan subtítulo */}
+        {isCompleted && step.sub && (
+        <p className="text-[12px] leading-tight mt-1 text-[#535C67]">
         {step.sub}
         </p>
         )}
