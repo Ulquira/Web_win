@@ -772,7 +772,22 @@ return (
 
    const uniqueSvas = Array.from(new Set(finalSvas));
 
-   return { paquete, svas: uniqueSvas };
+   // Detectar si aplica aumento de velocidad o duplica para mostrar el aviso
+   let tienePromoAumento = false;
+   if (campana) {
+     const matchAumento = campana.match(/aumento\s+de\s+velocidad\s*:?([^|]+)/i);
+     if (matchAumento) {
+       const val = matchAumento[1].trim();
+       if (!/no\s*aplica/i.test(val) && val.length > 0) {
+         tienePromoAumento = true;
+       }
+     }
+     if (!tienePromoAumento && /duplica\s*(?:por|x)?\s*\d+\s*(?:meses|mes|m)/i.test(campana)) {
+       tienePromoAumento = true;
+     }
+   }
+
+   return { paquete, svas: uniqueSvas, tienePromoAumento };
  };
 
  const toTitleCase = (text?: string) => {
@@ -1061,9 +1076,23 @@ return (
              <p className="text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-1">
                Paquete de Internet
              </p>
-             <p className="text-[17px] font-black text-gray-900 tracking-tight">
+             <p className="text-[17px] font-bold text-gray-900 tracking-tight">
                {toTitleCase(parsedPlan.paquete)}
              </p>
+
+             {/* Pill / Alerta de información de promociones exacto a Figma */}
+             {parsedPlan.tienePromoAumento && (
+               <div className="w-full bg-[#FF5903]/10 rounded-[14px] px-3.5 py-2 mt-2 flex items-center gap-2 border border-[#FF5A0A]/20">
+                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="shrink-0">
+                   <circle cx="12" cy="12" r="9.5" stroke="#FF5A0A" strokeWidth="1.5"/>
+                   <path d="M12 11.5V16.5" stroke="#FF5A0A" strokeWidth="1.5" strokeLinecap="round"/>
+                   <circle cx="12" cy="7.75" r="0.75" fill="#FF5A0A"/>
+                 </svg>
+                 <span className="text-[12px] font-medium text-[#FF5A0A] leading-tight">
+                   Velocidad de tu plan sin considerar promociones
+                 </span>
+               </div>
+             )}
            </div>
          )}
          
