@@ -254,9 +254,9 @@ export default function GoogleTrackingMap({
       destDiv.className = 'custom-google-dest-pin';
       destDiv.innerHTML = `
         <div style="filter: drop-shadow(0 4px 10px rgba(0,0,0,0.35)); cursor: pointer;">
-          <svg width="34" height="45" viewBox="26 403 34 46" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M42.9979 403.874C33.7312 403.874 26.2188 411.387 26.2188 420.653C26.2188 434.307 42.9979 448.125 42.9979 448.125C42.9979 448.125 59.7771 434.307 59.7771 420.653C59.7771 411.387 52.2646 403.874 42.9979 403.874Z" fill="#FF5A0A"/>
-            <path d="M31.3595 419.913C31.3595 413.508 36.5516 408.316 42.9567 408.316C43.7933 408.316 44.6081 408.406 45.3947 408.574L34.6979 423.161H42.4762L39.9484 431.114C35.0021 429.789 31.3595 425.278 31.3595 419.913V419.913ZM42.9567 431.51C42.5211 431.51 42.0914 431.484 41.6683 431.437L51.6951 418.263H43.9169L46.5354 408.881C51.1887 410.389 54.5544 414.756 54.5544 419.912C54.5544 426.318 49.3623 431.51 42.9572 431.51L42.9567 431.51Z" fill="white"/>
+          <svg width="34" height="46" viewBox="26 403 34 46" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="43" cy="420" r="11.5" fill="white"/>
+            <path d="M42.9979 403.874C33.7312 403.874 26.2188 411.387 26.2188 420.653C26.2188 434.307 42.9979 448.125 42.9979 448.125C42.9979 448.125 59.7771 434.307 59.7771 420.653C59.7771 411.387 52.2646 403.874 42.9979 403.874ZM31.3595 419.913C31.3595 413.508 36.5516 408.316 42.9567 408.316C43.7933 408.316 44.6081 408.406 45.3947 408.574L34.6979 423.161H42.4762L39.9484 431.114C35.0021 429.789 31.3595 425.278 31.3595 419.913V419.913ZM42.9567 431.51C42.5211 431.51 42.0914 431.484 41.6683 431.437L51.6951 418.263H43.9169L46.5354 408.881C51.1887 410.389 54.5544 414.756 54.5544 419.912C54.5544 426.318 49.3623 431.51 42.9572 431.51L42.9567 431.51Z" fill="#FF5A0A"/>
           </svg>
         </div>
       `;
@@ -312,25 +312,25 @@ export default function GoogleTrackingMap({
           const pathPoints = decodePolyline(result.polyline);
           const googlePath = pathPoints.map(p => ({ lat: p[0], lng: p[1] }));
 
-          // 1. Línea Base (borde suave estilo Uber)
+          // 1. Línea Base (borde sutil blanco de contraste)
           if (routeBgPolylineRef.current) routeBgPolylineRef.current.setMap(null);
           routeBgPolylineRef.current = new google.maps.Polyline({
             path: googlePath,
             geodesic: true,
             strokeColor: '#FFFFFF',
-            strokeOpacity: 0.9,
-            strokeWeight: 8,
+            strokeOpacity: 0.85,
+            strokeWeight: 6,
             map: map,
             zIndex: 1
           });
 
-          // 2. Línea Principal (Color Naranja WIN)
+          // 2. Línea Principal Naranja Oficial WIN (Figma Step 33)
           if (routeMainPolylineRef.current) routeMainPolylineRef.current.setMap(null);
           routeMainPolylineRef.current = new google.maps.Polyline({
             path: googlePath,
             geodesic: true,
             strokeColor: '#FF5A0A',
-            strokeOpacity: 0.95,
+            strokeOpacity: 1.0,
             strokeWeight: 4,
             map: map,
             zIndex: 2

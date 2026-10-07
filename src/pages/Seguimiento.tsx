@@ -778,23 +778,13 @@ return (
      }}
      className="h-full w-full"
    />
-
- {/* Mensaje Referencial superpuesto en el mapa */}
- <div className="absolute bottom-[17vh] left-4 z-[400] bg-white/95 backdrop-blur-sm px-3.5 py-2.5 rounded-xl shadow-md border border-gray-100 max-w-[200px]">
-   <div className="flex items-center gap-1.5">
-     <AlertTriangle className="w-4 h-4 text-[#FF5A0A] shrink-0" />
-     <p className="text-[10px] text-[#535C67] font-medium leading-tight">
-       El tiempo de llegada puede variar según el tráfico.
-     </p>
-   </div>
- </div>
  </div>
  )}
 
  {/* Dynamic Content Container */}
  <motion.div 
   animate={{ 
-    height: status === 'en_camino' ? `${sheetHeight}vh` : '100vh' 
+    height: status === 'en_camino' ? (sheetHeight > 30 ? '85vh' : '125px') : '100vh' 
   }}
   transition={{ type: "spring", stiffness: 300, damping: 30 }}
   drag={status === 'en_camino' ? "y" : false}
@@ -879,7 +869,7 @@ return (
  )}
 
  {/* Scrollable Content inside Sheet */}
- <div className="flex-1 overflow-y-auto px-5 pb-32 scrollbar-hide pt-0">
+ <div className={`flex-1 overflow-y-auto px-5 pb-32 scrollbar-hide pt-0 ${status === 'en_camino' && sheetHeight <= 30 ? 'hidden' : ''}`}>
  
  {status === 'cerrada' && !encuestaEnviada && localStorage.getItem(`encuesta_completada_${token}`) !== 'true' ? (
  <div className="py-6">
@@ -907,29 +897,8 @@ return (
  </div>
  ) : (
  <>
- {/* Llegada del técnico separada del Info Card */}
- {status === 'en_camino' && (eta || calculatedEta) && (
- <div 
-   onClick={toggleSheet}
-   className="flex justify-between items-center mb-3 bg-primary/10 px-4 py-3.5 rounded-2xl gap-2 cursor-pointer active:scale-[0.99] transition-transform"
- >
-   <div className="flex items-center gap-2">
-      <span className="relative flex h-2 w-2">
-        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
-        <span className="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
-      </span>
-      <span className="text-primary text-[13px] font-bold uppercase tracking-wide">Llegada estimada</span>
-   </div>
-   <div className="flex justify-between items-center text-right">
-      <span className="font-bold text-primary text-[15px]">
-        {calculatedEta || eta}
-      </span>
-   </div>
- </div>
- )}
-
  {/* Info Card de Visita (Frame 14804 de Figma) */}
- <div className={`border border-gray-100 rounded-[24px] p-5 mb-6 bg-white shadow-[0_4px_20px_rgba(0,0,0,0.03)] ${status === 'en_camino' && (data.token_inicio || eta || calculatedEta) ? '' : 'mt-4'}`}>
+ <div className={`border border-gray-100 rounded-[24px] p-5 mb-6 bg-white shadow-[0_4px_20px_rgba(0,0,0,0.03)] mt-4`}>
  <div className="flex flex-col gap-3.5">
    {/* Día */}
    <div className="flex justify-between items-center">
