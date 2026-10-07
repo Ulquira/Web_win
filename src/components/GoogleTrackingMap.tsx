@@ -133,6 +133,16 @@ function decodePolyline(encoded: string): [number, number][] {
   return points;
 }
 
+// Helper para calcular rumbo (bearing) entre dos puntos geográficos
+function calculateBearing(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const y = Math.sin(dLon) * Math.cos(lat2 * Math.PI / 180);
+  const x = Math.cos(lat1 * Math.PI / 180) * Math.sin(lat2 * Math.PI / 180) -
+            Math.sin(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.cos(dLon);
+  const brng = Math.atan2(y, x) * 180 / Math.PI;
+  return (brng + 360) % 360;
+}
+
 export default function GoogleTrackingMap({
   customerCoords,
   technicianCoords,
@@ -208,12 +218,14 @@ export default function GoogleTrackingMap({
       private position: google.maps.LatLng;
       private content: HTMLElement;
       private anchor: 'center' | 'bottom';
+      private rotation: number;
 
       constructor(position: google.maps.LatLng, content: HTMLElement, anchor: 'center' | 'bottom' = 'center') {
         super();
         this.position = position;
         this.content = content;
         this.anchor = anchor;
+        this.rotation = 0;
       }
 
       onAdd() {
@@ -231,7 +243,9 @@ export default function GoogleTrackingMap({
           this.content.style.position = 'absolute';
           this.content.style.left = `${point.x}px`;
           this.content.style.top = `${point.y}px`;
-          this.content.style.transform = this.anchor === 'bottom' ? 'translate(-50%, -100%)' : 'translate(-50%, -50%)';
+          const translate = this.anchor === 'bottom' ? 'translate(-50%, -100%)' : 'translate(-50%, -50%)';
+          this.content.style.transform = `${translate} rotate(${this.rotation}deg)`;
+          this.content.style.transformOrigin = 'center center';
           this.content.style.zIndex = '10';
         }
       }
@@ -242,8 +256,11 @@ export default function GoogleTrackingMap({
         }
       }
 
-      setPosition(newPos: google.maps.LatLng) {
+      setPosition(newPos: google.maps.LatLng, rotationDeg?: number) {
         this.position = newPos;
+        if (typeof rotationDeg === 'number') {
+          this.rotation = rotationDeg;
+        }
         this.draw();
       }
     }
@@ -387,17 +404,46 @@ export default function GoogleTrackingMap({
                   const curLat = p1[0] + (p2[0] - p1[0]) * remainder;
                   const curLng = p1[1] + (p2[1] - p1[1]) * remainder;
 
+                  // Rumbo de desplazamiento y corrección de orientación del carro
+                  // La van original apunta a 270° (Oeste). Al sumar 90°, 0° apunta al Norte real.
+                  const bearing = calculateBearing(p1[0], p1[1], p2[0], p2[1]);
+                  const rotationDeg = (bearing + 90) % 360;
+
                   if (techMarkerRef.current) {
                     (techMarkerRef.current as any).setPosition(
-                      new google.maps.LatLng(curLat, curLng)
+                      new google.maps.LatLng(curLat, curLng),
+                      rotationDeg
                     );
+                  }
+
+                  // Limpiar la línea que va quedando atrás (mostrar solo el trayecto restante)
+                  const remainingPath = [
+                    { lat: curLat, lng: curLng },
+                    ...googlePath.slice(idx + 1)
+                  ];
+                  if (routeMainPolylineRef.current) {
+                    routeMainPolylineRef.current.setPath(remainingPath);
+                  }
+                  if (routeBgPolylineRef.current) {
+                    routeBgPolylineRef.current.setPath(remainingPath);
                   }
                 } else if (pathPoints.length > 0) {
                   const last = pathPoints[pathPoints.length - 1];
+                  const prev = pathPoints[pathPoints.length - 2] || last;
+                  const bearing = calculateBearing(prev[0], prev[1], last[0], last[1]);
+                  const rotationDeg = (bearing + 90) % 360;
+
                   if (techMarkerRef.current) {
                     (techMarkerRef.current as any).setPosition(
-                      new google.maps.LatLng(last[0], last[1])
+                      new google.maps.LatLng(last[0], last[1]),
+                      rotationDeg
                     );
+                  }
+                  if (routeMainPolylineRef.current) {
+                    routeMainPolylineRef.current.setPath([{ lat: last[0], lng: last[1] }]);
+                  }
+                  if (routeBgPolylineRef.current) {
+                    routeBgPolylineRef.current.setPath([{ lat: last[0], lng: last[1] }]);
                   }
                 }
               }
