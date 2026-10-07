@@ -77,6 +77,7 @@ app.get('/api/v1/terceros/instalaciones/:token', verificarTercero, async (req, r
          w.Direccion AS direccion_cliente, 
          w.IdenServi AS Campaña, 
          w.token AS Token_inicio,
+         w.Pin_token AS pin_token,
          w.link,
          w.CodiSegui AS codisegui,
          w.CodiSeguiClien AS codiseguiclien,
@@ -117,6 +118,7 @@ app.get('/api/v1/terceros/instalaciones/:token', verificarTercero, async (req, r
            w.Direccion AS direccion_cliente, 
            w.IdenServi AS Campaña, 
            w.token AS Token_inicio,
+           w.Pin_token AS pin_token,
            w.link,
            w.CodiSegui AS codisegui,
            w.CodiSeguiClien AS codiseguiclien,
@@ -169,6 +171,7 @@ app.get('/api/v1/terceros/instalaciones/:token', verificarTercero, async (req, r
            w.Direccion AS direccion_cliente, 
            w.IdenServi AS Campaña, 
            w.token AS Token_inicio, 
+           w.Pin_token AS pin_token, 
            w.link, 
            w.CodiSegui AS codisegui, 
            w.CodiSeguiClien AS codiseguiclien, 
@@ -248,6 +251,30 @@ app.get('/api/v1/terceros/instalaciones/:token', verificarTercero, async (req, r
       }
     }
 
+    // Generar y persistir Pin_token (PIN de 4 dígitos aleatorio de 1000 a 9999) si aún no existe
+    let pinToken = op.pin_token ? String(op.pin_token).trim() : null;
+    if (!pinToken || pinToken.length !== 4) {
+      pinToken = Math.floor(1000 + Math.random() * 9000).toString();
+      try {
+        // Si la orden tiene caso vinculado (CodiSegui o CodiSeguiClien), propagamos el mismo PIN a todas las órdenes del caso (reasignación)
+        if (op.codisegui || op.codiseguiclien) {
+          const filterCol = op.codisegui ? 'CodiSegui' : 'CodiSeguiClien';
+          const filterVal = op.codisegui || op.codiseguiclien;
+          await pool.query(
+            `UPDATE ${sourceTable} SET Pin_token = ? WHERE ${filterCol} = ? AND (Pin_token IS NULL OR Pin_token = '')`,
+            [pinToken, filterVal]
+          );
+        } else {
+          await pool.query(
+            `UPDATE ${sourceTable} SET Pin_token = ? WHERE OrdenId = ?`,
+            [pinToken, op.idoperacion]
+          );
+        }
+      } catch (err) {
+        console.error('Error al guardar Pin_token:', err);
+      }
+    }
+
     const responseData: any = {
       idoperacion: op.idoperacion,
       codisegui: op.codisegui || null,
@@ -262,6 +289,7 @@ app.get('/api/v1/terceros/instalaciones/:token', verificarTercero, async (req, r
       direccion: op.direccion_cliente,
       campana: op.Campaña,
       token_inicio: tokenInicio || null,
+      pin_token: pinToken || null,
       tipo: isTicket ? 'ticket' : 'instalacion'
     };
 

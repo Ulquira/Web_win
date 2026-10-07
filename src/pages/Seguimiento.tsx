@@ -116,6 +116,7 @@ export interface InstalacionData {
  fecha_programacion?: string;
  tramo?: string;
  token_inicio?: string;
+ pin_token?: string;
  campana?: string;
  codisegui?: string;
  tipo?: 'instalacion' | 'ticket';
@@ -1074,7 +1075,7 @@ return (
    ) : (() => {
      const parsedPlan = parsePlanData(data.campana);
      return (
-       <div className="flex flex-col w-full mt-1 pt-3.5 border-t border-gray-100">
+       <div className="flex flex-col w-full mt-1 pt-2">
          {/* Paquete de Internet */}
          {parsedPlan.paquete && (
            <div className="mb-3 text-left">
@@ -1217,7 +1218,7 @@ return (
  </div>
 
  {/* Action Buttons and Help Center CTA (Bottom) */}
- <div className="flex flex-col items-center gap-3 pt-3 pb-6 border-t border-gray-100 mt-2">
+ <div className="flex flex-col items-center gap-3 pt-2 pb-6 mt-1">
  {/* Botón de reprogramar solo visible cuando sea ticket/VT, no para instalación */}
  {isVt && (status === 'programada' || status === 'asignado') && (
  <button 
