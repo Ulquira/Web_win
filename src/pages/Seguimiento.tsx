@@ -1036,19 +1036,24 @@ return (
      ) : 'Por definir'}
      </span>
    </div>
+
+   {/* Divider sutil entre Día y Rango (Rectangle de Figma #F3F3F3) */}
+   <div className="h-[1px] bg-[#F3F3F3] w-full" />
    
    {/* Rango */}
    {status !== 'en_camino' && (
-     <div className="flex justify-between items-center">
-       <span className="text-gray-400 text-[13px] font-normal">Rango</span>
-       <span className="font-bold text-gray-900 text-[13px]">
-       {formatTramoToRange(data.tramo)}
-       </span>
-     </div>
-   )}
+     <>
+       <div className="flex justify-between items-center">
+         <span className="text-gray-400 text-[13px] font-normal">Rango</span>
+         <span className="font-bold text-gray-900 text-[13px]">
+         {formatTramoToRange(data.tramo)}
+         </span>
+       </div>
 
-   {/* Divider sutil (Rectangle 6872) */}
-   <div className="h-[1px] bg-gray-100/90 my-0.5" />
+       {/* Divider sutil entre Rango y Dirección (#F3F3F3) */}
+       <div className="h-[1px] bg-[#F3F3F3] w-full" />
+     </>
+   )}
    
    {/* Dirección */}
    <div className="flex justify-between items-start gap-4">
@@ -1212,8 +1217,9 @@ return (
  </div>
 
  {/* Action Buttons and Help Center CTA (Bottom) */}
- <div className="flex flex-col items-center gap-3 pt-3 pb-4 border-t border-gray-100 mt-2">
- {(status === 'programada' || status === 'asignado') && (
+ <div className="flex flex-col items-center gap-3 pt-3 pb-6 border-t border-gray-100 mt-2">
+ {/* Botón de reprogramar solo visible cuando sea ticket/VT, no para instalación */}
+ {isVt && (status === 'programada' || status === 'asignado') && (
  <button 
  onClick={() => {
    trackEvent('click_iniciar_reprogramacion', { token, estado_actual: status });
@@ -1237,18 +1243,19 @@ return (
  <span>Calificar atención</span>
  </button>
  )}
- <button 
- onClick={() => {
-   trackEvent('click_contactar_soporte', { token });
-   const isVt = data?.tipo === 'ticket';
-   const wspNumber = isVt ? '51922863186' : '51923229369';
-   const msg = encodeURIComponent(isVt ? "Hola, necesito soporte con mi Visita Técnica." : "Hola, necesito soporte con mi instalación.");
-   window.open(`https://wa.me/${wspNumber}?text=${msg}`);
- }}
- className="text-[13px] text-gray-600 hover:text-primary font-normal text-center py-1 transition-colors cursor-pointer hover:underline"
- >
- ¿Necesitas ayuda?
- </button>
+ <div className="w-full flex items-center justify-center py-2">
+   <button 
+   onClick={() => {
+     trackEvent('click_contactar_soporte', { token });
+     const wspNumber = isVt ? '51922863186' : '51923229369';
+     const msg = encodeURIComponent(isVt ? "Hola, necesito soporte con mi Visita Técnica." : "Hola, necesito soporte con mi instalación.");
+     window.open(`https://wa.me/${wspNumber}?text=${msg}`);
+   }}
+   className="text-[14px] font-medium text-black underline underline-offset-4 tracking-tight hover:opacity-80 transition-opacity cursor-pointer text-center"
+   >
+   ¿Necesitas ayuda?
+   </button>
+ </div>
  </div>
  </>
  )}
