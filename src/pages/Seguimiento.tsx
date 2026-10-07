@@ -784,15 +784,15 @@ return (
  {/* Dynamic Content Container */}
  <motion.div 
   animate={{ 
-    height: status === 'en_camino' ? (sheetHeight > 30 ? '85vh' : '125px') : '100vh' 
+    height: status === 'en_camino' ? (sheetHeight > 30 ? '85vh' : 'auto') : '100vh' 
   }}
   transition={{ type: "spring", stiffness: 300, damping: 30 }}
   drag={status === 'en_camino' ? "y" : false}
   dragConstraints={{ top: 0, bottom: 0 }}
   dragElastic={0.2}
   onDragEnd={handleDragEnd}
-  className={`absolute left-0 bottom-0 w-full bg-white shadow-[0_-15px_40px_rgba(0,0,0,0.15)] z-20 flex flex-col ${
-    status === 'en_camino' ? 'rounded-t-[2.5rem]' : 'rounded-none top-0 pt-0'
+  className={`absolute left-0 bottom-0 w-full bg-white shadow-[0_-10px_25px_rgba(0,0,0,0.12)] z-20 flex flex-col ${
+    status === 'en_camino' ? 'rounded-t-[28px]' : 'rounded-none top-0 pt-0'
  }`}>
  
  {/* Top Banner Orange (Always visible if no map) */}
@@ -856,13 +856,14 @@ return (
  {status === 'en_camino' && (
  <div 
    onClick={toggleSheet}
-   className="w-full flex flex-col items-center pt-3 pb-2.5 px-4 shrink-0 cursor-pointer hover:bg-gray-50/50 rounded-t-[2.5rem] transition-colors select-none"
+   className="w-full flex flex-col items-center pt-2.5 pb-4 px-4 shrink-0 cursor-pointer hover:bg-gray-50/50 rounded-t-[28px] transition-colors select-none"
  >
-   <div className="w-10 h-1 bg-[#D9D9D9] rounded-full mb-2"></div>
-   <h2 className="text-[17px] font-bold text-[#FF5A0A] leading-tight text-center">
+   {/* Handle exacto de Figma: 40x4 rx 2 */}
+   <div className="w-10 h-1 bg-[#D9D9D9] rounded-full mb-3"></div>
+   <h2 className="text-[17px] font-bold text-[#FF5A0A] leading-tight text-center tracking-tight">
      Tu técnico está en camino
    </h2>
-   <p className="text-[12px] text-[#26292E] font-normal leading-tight mt-1 text-center">
+   <p className="text-[12px] text-[#26292E] font-normal leading-tight mt-1.5 text-center">
      Tiempo de llegada estimado: <span className="font-bold">{calculatedEta || eta || 'Calculando...'}</span>
    </p>
  </div>
