@@ -3,7 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 
 import { Phone, User, Star, Bell, Check, MapPin, AlertTriangle, CalendarDays, ChevronDown, ChevronLeft, X, IdCard, Calendar, Clock } from "lucide-react";
-import { PiTelevisionSimple, PiPackage, PiWifiHigh, PiShieldCheck, PiLightning } from "react-icons/pi";
+import { PiTelevisionSimple, PiPackage, PiWifiHigh, PiShieldCheck, PiLightning, PiPhone } from "react-icons/pi";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 
@@ -707,6 +707,45 @@ return (
    if (!text) return '';
    return text.toLowerCase().replace(/(?:^|\s)\S/g, (a) => a.toUpperCase());
  };
+
+ const formatSvaName = (text?: string) => {
+   if (!text) return '';
+   const specialWords: Record<string, string> = {
+     'win': 'Win',
+     'fono': 'Fono',
+     'dgo': 'Dgo',
+     'tv': 'TV',
+     'ont': 'ONT',
+     'ap': 'AP',
+     'ip': 'IP',
+     'vpn': 'VPN',
+     'wifi': 'Wifi',
+     'wi-fi': 'Wi-Fi',
+     'mesh': 'Mesh',
+     'kit': 'Kit',
+     'pro': 'Pro',
+     'plus': 'Plus',
+     'full': 'Full',
+     'de': 'de',
+     'en': 'en'
+   };
+
+   return text
+     .trim()
+     .split(' ')
+     .map((word, idx) => {
+       const lower = word.toLowerCase();
+       if (specialWords[lower]) {
+         if (idx === 0) {
+           const w = specialWords[lower];
+           return w.charAt(0).toUpperCase() + w.slice(1);
+         }
+         return specialWords[lower];
+       }
+       return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+     })
+     .join(' ');
+ };
  
  const formatMaskedDni = (dni?: string) => {
    if (!dni) return '';
@@ -966,11 +1005,12 @@ return (
                {parsedPlan.svas.map((sva, idx) => {
                  let SvaIcon = PiPackage;
                  const svaLower = sva.toLowerCase();
-                 if (svaLower.includes('tv') || svaLower.includes('l1max')) SvaIcon = PiTelevisionSimple;
+                 if (svaLower.includes('fono') || svaLower.includes('phone') || svaLower.includes('teléfono') || svaLower.includes('telefono')) SvaIcon = PiPhone;
+                 else if (svaLower.includes('tv') || svaLower.includes('l1max') || svaLower.includes('dgo')) SvaIcon = PiTelevisionSimple;
                  else if (svaLower.includes('box')) SvaIcon = PiPackage;
-                 else if (svaLower.includes('mesh')) SvaIcon = PiWifiHigh;
-                 else if (svaLower.includes('antivirus') || svaLower.includes('seguridad')) SvaIcon = PiShieldCheck;
-                 else if (svaLower.includes('aumento')) SvaIcon = PiLightning;
+                 else if (svaLower.includes('mesh') || svaLower.includes('wifi') || svaLower.includes('wi-fi') || svaLower.includes('ap')) SvaIcon = PiWifiHigh;
+                 else if (svaLower.includes('antivirus') || svaLower.includes('seguridad') || svaLower.includes('firewall') || svaLower.includes('vpn')) SvaIcon = PiShieldCheck;
+                 else if (svaLower.includes('aumento') || svaLower.includes('duplica') || svaLower.includes('velocidad')) SvaIcon = PiLightning;
 
                  return (
                    <div key={idx} className="flex items-center gap-2.5">
@@ -978,7 +1018,7 @@ return (
                        <SvaIcon className="w-3.5 h-3.5 text-[#FF5A0A]" />
                      </div>
                      <span className="text-[13px] font-semibold text-gray-800 leading-tight">
-                       {toTitleCase(sva)}
+                       {formatSvaName(sva)}
                      </span>
                    </div>
                  );
