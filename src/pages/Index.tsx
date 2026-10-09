@@ -1,9 +1,8 @@
 import { useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Check, ShieldCheck } from "lucide-react";
-import { PortadaIlustracion } from "@/components/PortadaIlustracion";
-import textBannerImg from "@/assets/pantalla_win_en_ruta.png";
+import { ShieldCheck } from "lucide-react";
+import pantallaWinEnRutaImg from "@/assets/pantalla_win_en_ruta.png";
 
 const Index = () => {
   const navigate = useNavigate();
@@ -22,13 +21,13 @@ const Index = () => {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="min-h-screen bg-white text-gray-900 flex flex-col justify-between items-center px-4 py-6 sm:py-8 select-none font-sans overflow-x-hidden"
+      className="min-h-screen bg-white text-gray-900 flex flex-col justify-between items-center px-4 py-4 sm:py-6 select-none font-sans overflow-x-hidden"
     >
-      {/* Contenedor Principal Ajustado al formato Mobile First */}
+      {/* Contenedor Principal Ajustado a Mobile First */}
       <div className="w-full max-w-sm sm:max-w-md flex flex-col items-center flex-1 justify-between my-auto">
         
         {/* Header con Logo Oficial WIN */}
-        <header className="w-full flex justify-center items-center pt-2 pb-3">
+        <header className="w-full flex justify-center items-center pt-1 pb-2">
           <div className="w-28 sm:w-32 h-auto flex items-center justify-center">
             <svg
               viewBox="140 78 95 40"
@@ -60,84 +59,26 @@ const Index = () => {
           </div>
         </header>
 
-        {/* Ilustración de Portada */}
+        {/* Banner Único Oficial "WIN en RUTA" (Reemplaza ilustración y banner previo) */}
         <motion.div
           initial={{ y: 20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ duration: 0.6 }}
-          className="w-full flex items-center justify-center my-2 sm:my-4"
-        >
-          <PortadaIlustracion className="w-full max-w-[270px] sm:max-w-[310px] flex items-center justify-center" />
-        </motion.div>
-
-        {/* Banner Oficial WIN (CarpetaLogos/text-banner.png) */}
-        <motion.div
-          initial={{ y: 20, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          transition={{ duration: 0.6, delay: 0.15 }}
-          className="w-full flex items-center justify-center px-2 mb-5"
+          className="w-full flex items-center justify-center my-2 sm:my-3 px-1"
         >
           <img
-            src={textBannerImg}
-            alt="¡Todo listo para navegar a la máxima velocidad! Nuestro técnico está en camino."
-            className="w-full max-w-[280px] sm:max-w-[320px] h-auto object-contain select-none pointer-events-none drop-shadow-xs"
+            src={pantallaWinEnRutaImg}
+            alt="WIN en RUTA - Sigue tu instalación"
+            className="w-full max-w-[320px] sm:max-w-[360px] h-auto object-contain rounded-2xl select-none pointer-events-none drop-shadow-md"
           />
-        </motion.div>
-
-        {/* Stepper de 3 Estados (Agendada -> En Camino -> Iniciada) */}
-        <motion.div
-          initial={{ y: 20, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          transition={{ duration: 0.6, delay: 0.25 }}
-          className="w-full max-w-[310px] sm:max-w-[330px] mx-auto mb-6 px-2"
-        >
-          <div className="flex items-center justify-between relative">
-            
-            {/* Paso 1: Agendada */}
-            <div className="flex flex-col items-center z-10">
-              <div className="w-6 h-6 rounded-full bg-[#FF5A0A] flex items-center justify-center shadow-sm">
-                <Check className="w-3.5 h-3.5 text-white stroke-[3.5]" />
-              </div>
-              <span className="text-[11px] sm:text-xs font-semibold text-[#1E293B] mt-2 whitespace-nowrap">
-                Agendada
-              </span>
-            </div>
-
-            {/* Línea 1-2 */}
-            <div className="flex-1 h-[2px] bg-[#D9D9D9] mx-2 -mt-5 rounded-full" />
-
-            {/* Paso 2: En Camino */}
-            <div className="flex flex-col items-center z-10">
-              <div className="w-6 h-6 rounded-full bg-[#FF5A0A] flex items-center justify-center shadow-sm">
-                <Check className="w-3.5 h-3.5 text-white stroke-[3.5]" />
-              </div>
-              <span className="text-[11px] sm:text-xs font-semibold text-[#1E293B] mt-2 whitespace-nowrap">
-                En Camino
-              </span>
-            </div>
-
-            {/* Línea 2-3 */}
-            <div className="flex-1 h-[2px] bg-[#D9D9D9] mx-2 -mt-5 rounded-full" />
-
-            {/* Paso 3: Iniciada */}
-            <div className="flex flex-col items-center z-10">
-              <div className="w-6 h-6 rounded-full bg-[#FF5A0A] flex items-center justify-center shadow-sm">
-                <Check className="w-3.5 h-3.5 text-white stroke-[3.5]" />
-              </div>
-              <span className="text-[11px] sm:text-xs font-semibold text-[#1E293B] mt-2 whitespace-nowrap">
-                Iniciada
-              </span>
-            </div>
-
-          </div>
         </motion.div>
 
         {/* Tarjeta Informativa de Acceso Seguro */}
         <motion.div
           initial={{ y: 20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
-          transition={{ duration: 0.6, delay: 0.35 }}
-          className="w-full max-w-sm px-2 pb-2"
+          transition={{ duration: 0.6, delay: 0.2 }}
+          className="w-full max-w-sm px-2 pb-2 mt-2"
         >
           <div className="bg-orange-50/70 border border-orange-100 rounded-2xl p-4 sm:p-5 text-center shadow-sm">
             <div className="w-9 h-9 rounded-xl bg-[#FF5A0A] text-white flex items-center justify-center mx-auto mb-2.5 shadow-sm">
