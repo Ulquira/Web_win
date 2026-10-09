@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 
-import { User, Star, Bell, Check, MapPin, AlertTriangle, CalendarDays, ChevronDown, ChevronLeft, X, IdCard, Calendar, Clock, Copy, CheckCheck } from "lucide-react";
+import { User, Star, Bell, Check, MapPin, AlertTriangle, CalendarDays, ChevronDown, ChevronLeft, X, IdCard, Calendar, Clock } from "lucide-react";
 import { PiPackage, PiShieldCheck, PiLightning, PiPhone } from "react-icons/pi";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
@@ -762,9 +762,9 @@ return (
 
  if (isReprogramCompletada) {
    return (
-     <div className="min-h-[100dvh] w-full bg-white flex flex-col font-sans justify-center items-center p-6">
-       {/* Contenido centrado final sin botones ni retroceso */}
-       <div className="flex flex-col items-center max-w-[360px] mx-auto w-full text-center">
+     <div className="min-h-[100dvh] w-full bg-white flex flex-col font-sans justify-between items-center p-6">
+       {/* Contenido centrado final sin botones ni retroceso (Pasted Image 3 / Pasted text #1) */}
+       <div className="flex-1 flex flex-col items-center justify-center max-w-[360px] mx-auto w-full text-center my-auto">
          <div className="w-[84px] h-[84px] relative flex items-center justify-center mb-6">
            <svg width="84" height="84" viewBox="140 109 95 95" fill="none" className="shrink-0">
              <path 
@@ -784,13 +784,16 @@ return (
            </svg>
          </div>
 
-         <h2 className="text-[20px] font-bold text-[#26292E] mb-2 leading-snug">
-           Visita reprogramada
+         <h2 className="text-[20px] font-bold text-[#26292E] mb-2.5 leading-snug">
+           ¡Tu nueva visita técnica ha sido confirmada!
          </h2>
          <p className="text-[13px] text-[#535C67] leading-relaxed max-w-[290px]">
-           Tu nueva visita ha sido confirmada. Revisa todos los detalles desde el historial de visitas.
+           Recibirás un mensaje por WhatsApp con los detalles de tu visita en la fecha programada.
          </p>
        </div>
+
+       {/* Indicador inferior tipo iOS Home Bar */}
+       <div className="w-32 h-1 bg-[#141414] rounded-full mx-auto mt-4 shrink-0" />
      </div>
    );
  }
@@ -1075,59 +1078,38 @@ return (
      className="h-full w-full"
    />
 
-   {/* Floating Pin Token Overlay - Encima del mapa, justo antes de la tarjeta inferior */}
+   {/* Floating Pin Token Overlay - Encima del mapa, homologado con Figma (Pasted Image / FirmaNuevoSVG) */}
    {displayPin && (
      <div 
-       className="absolute left-1/2 -translate-x-1/2 z-10 w-[92%] max-w-[360px] transition-all duration-300 pointer-events-auto"
+       className="absolute left-1/2 -translate-x-1/2 z-10 w-[94%] max-w-[365px] transition-all duration-300 pointer-events-auto cursor-pointer"
        style={{
          bottom: sheetHeight > 30 ? 'calc(85vh + 12px)' : '110px'
        }}
+       onClick={() => handleCopyPin(displayPin)}
+       title={pinCopied ? "¡Código copiado!" : "Toca para copiar código"}
      >
-       <div className="bg-white/95 backdrop-blur-md border border-[#FFD8C2] rounded-[22px] px-3.5 py-2.5 shadow-[0_8px_24px_rgba(255,90,10,0.18)] flex items-center justify-between gap-2.5">
+       <div className="bg-[#FFF6ED] rounded-[18px] px-4 py-2.5 shadow-[0_4px_16px_rgba(255,90,10,0.14)] border border-[#FFE7D4] flex items-center justify-between gap-3 select-none active:scale-[0.99] transition-transform">
          <div className="flex items-center gap-2.5 min-w-0 flex-1">
+           {/* Escudo de seguridad naranja oficial Figma */}
            <div className="w-8 h-8 rounded-full bg-[#FF5A0A]/10 flex items-center justify-center shrink-0">
-             <svg width="15" height="17" viewBox="0 0 13 15" fill="none" xmlns="http://www.w3.org/2000/svg">
-               <path d="M6.5 1C4.4 2.1 1.7 3 1.7 6.1C1.7 10.8 5 13.7 6.5 14.5C8 13.7 11.3 10.8 11.3 6.1C11.3 3 8.6 2.1 6.5 1Z" stroke="#FF5A0A" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
-               <path d="M6.5 5V8.5" stroke="#FF5A0A" strokeWidth="1.3" strokeLinecap="round"/>
-               <circle cx="6.5" cy="11" r="0.8" fill="#FF5A0A"/>
+             <svg width="20" height="22" viewBox="0 0 20 22" fill="none" xmlns="http://www.w3.org/2000/svg" className="shrink-0">
+               <path d="M19 8.25C19 12 16.375 13.875 13.255 14.9625C13.0916 15.0179 12.9142 15.0153 12.7525 14.955C9.625 13.875 7 12 7 8.25V3C7 2.80109 7.07902 2.61032 7.21967 2.46967C7.36032 2.32902 7.55109 2.25 7.75 2.25C9.25 2.25 11.125 1.35 12.43 0.210001C12.5889 0.0746002 12.791 0 13 0C13.209 0 13.4111 0.0746002 13.57 0.210001C14.8825 1.3575 16.75 2.25 18.25 2.25C18.4489 2.25 18.6397 2.32902 18.7803 2.46967C18.921 2.61032 19 2.80109 19 3V8.25Z" stroke="#FF5A0A" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
+               <path d="M10.75 7.5L12.25 9L15.25 6" stroke="#FF5A0A" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
              </svg>
            </div>
            <div className="flex flex-col text-left min-w-0">
-             <span className="text-[10px] font-bold text-[#FF5A0A] uppercase tracking-wider leading-none">Código de inicio</span>
-             <span className="text-[11px] text-[#535C67] leading-tight truncate">Bríndalo al técnico al llegar</span>
+             <span className="text-[14px] font-bold text-[#FF5A0A] leading-tight">Código de validación</span>
+             <span className="text-[11px] text-[#FF5A0A] leading-tight mt-0.5 font-normal truncate">
+               {pinCopied ? "¡Código copiado al portapapeles!" : "Brinda este código al técnico para iniciar tu visita"}
+             </span>
            </div>
          </div>
 
-         {/* Casillas del PIN + Botón de Copiar */}
-         <div className="flex items-center gap-1.5 shrink-0">
-           <div className="flex items-center gap-1 bg-[#F8F9FA] border border-[#E5E7EB] rounded-[10px] px-2 py-1 shadow-xs">
-             {displayPin.split('').map((char, i) => (
-               <span key={i} className="text-[14px] font-black text-[#26292E] tracking-widest font-mono">
-                 {char}
-               </span>
-             ))}
-           </div>
-           
-           <button
-             type="button"
-             onClick={(e) => {
-               e.stopPropagation();
-               handleCopyPin(displayPin);
-             }}
-             title={pinCopied ? "Copiado" : "Copiar código"}
-             aria-label="Copiar código de inicio"
-             className={`w-8 h-8 rounded-[10px] flex items-center justify-center transition-all cursor-pointer select-none active:scale-95 ${
-               pinCopied 
-                 ? 'bg-[#E6F4EA] text-[#137333] border border-[#CEEAD6]' 
-                 : 'bg-[#FFEDE0] text-[#FF5A0A] hover:bg-[#FFD8C2] border border-[#FFD8C2]'
-             }`}
-           >
-             {pinCopied ? (
-               <CheckCheck className="w-4 h-4 stroke-[2.5]" />
-             ) : (
-               <Copy className="w-4 h-4 stroke-[2]" />
-             )}
-           </button>
+         {/* Código destacado en color naranja */}
+         <div className="shrink-0 flex items-center">
+           <span className="text-[20px] font-extrabold text-[#FF5A0A] tracking-[0.18em] font-sans">
+             {displayPin.split('').join(' ')}
+           </span>
          </div>
        </div>
      </div>
@@ -1645,11 +1627,11 @@ return (
          </svg>
        </div>
 
-       <h2 className="text-[20px] font-bold text-[#26292E] mb-2 leading-snug">
-         Visita reprogramada
+       <h2 className="text-[20px] font-bold text-[#26292E] mb-2.5 leading-snug">
+         ¡Tu nueva visita técnica ha sido confirmada!
        </h2>
        <p className="text-[13px] text-[#535C67] leading-relaxed max-w-[290px]">
-         Tu nueva visita ha sido confirmada. Revisa todos los detalles desde el historial de visitas.
+         Recibirás un mensaje por WhatsApp con los detalles de tu visita en la fecha programada.
        </p>
      </div>
 

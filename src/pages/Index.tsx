@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Check, ShieldCheck } from "lucide-react";
 import { PortadaIlustracion } from "@/components/PortadaIlustracion";
+import textBannerImg from "@/assets/text-banner.png";
 
 const Index = () => {
   const navigate = useNavigate();
@@ -69,20 +70,18 @@ const Index = () => {
           <PortadaIlustracion className="w-full max-w-[270px] sm:max-w-[310px] flex items-center justify-center" />
         </motion.div>
 
-        {/* Bloque de Textos */}
+        {/* Banner Oficial WIN (CarpetaLogos/text-banner.png) */}
         <motion.div
           initial={{ y: 20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ duration: 0.6, delay: 0.15 }}
-          className="text-center px-2 space-y-2 mb-5"
+          className="w-full flex items-center justify-center px-2 mb-5"
         >
-          <h1 className="text-2xl sm:text-[28px] font-black text-[#1E293B] tracking-tight leading-tight">
-            Sigue tu instalación
-          </h1>
-          <p className="text-xs sm:text-sm text-gray-500 max-w-[280px] sm:max-w-sm mx-auto leading-relaxed">
-            Estamos preparando todo para brindarte la mejor experiencia. Muy pronto podrás disfrutar tu servicio{" "}
-            <span className="font-extrabold text-[#FF5A0A]">WIN</span>.
-          </p>
+          <img
+            src={textBannerImg}
+            alt="¡Todo listo para navegar a la máxima velocidad! Nuestro técnico está en camino."
+            className="w-full max-w-[280px] sm:max-w-[320px] h-auto object-contain select-none pointer-events-none drop-shadow-xs"
+          />
         </motion.div>
 
         {/* Stepper de 3 Estados (Agendada -> En Camino -> Iniciada) */}
