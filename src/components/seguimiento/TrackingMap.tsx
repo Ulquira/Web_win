@@ -16,12 +16,12 @@ L.Icon.Default.mergeOptions({
 
 const vehicleIcon = L.divIcon({
   className: 'custom-vehicle-icon',
-  html: `<div style="background-color: #FF5A0A; border-radius: 50%; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; border: 3px solid white; box-shadow: 0 4px 12px rgba(255, 90, 10, 0.4); transition: transform 0.3s ease;">
-  <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2"/><path d="M15 18H9"/><path d="M19 18h2a1 1 0 0 0 1-1v-3.65a1 1 0 0 0-.22-.624l-3.48-4.35A1 1 0 0 0 17.52 8H14"/><circle cx="17" cy="18" r="2"/><circle cx="7" cy="18" r="2"/></svg>
+  html: `<div style="cursor: pointer; display: flex; align-items: center; justify-content: center; filter: drop-shadow(0 4px 10px rgba(0,0,0,0.3));">
+    <img src="/Vehiculo_nuevo_win.png" width="58" height="35" alt="Técnico WIN" style="object-fit: contain; pointer-events: none;" />
   </div>`,
-  iconSize: [44, 44],
-  iconAnchor: [22, 22],
-  popupAnchor: [0, -22],
+  iconSize: [58, 35],
+  iconAnchor: [29, 17],
+  popupAnchor: [0, -17],
 });
 
 const destIcon = L.divIcon({

@@ -133,6 +133,16 @@ function decodePolyline(encoded: string): [number, number][] {
   return points;
 }
 
+// Helper para calcular rumbo (bearing) entre dos puntos geográficos
+function calculateBearing(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const y = Math.sin(dLon) * Math.cos(lat2 * Math.PI / 180);
+  const x = Math.cos(lat1 * Math.PI / 180) * Math.sin(lat2 * Math.PI / 180) -
+            Math.sin(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.cos(dLon);
+  const brng = Math.atan2(y, x) * 180 / Math.PI;
+  return (brng + 360) % 360;
+}
+
 export default function GoogleTrackingMap({
   customerCoords,
   technicianCoords,
@@ -207,11 +217,15 @@ export default function GoogleTrackingMap({
     class HTMLMarkerOverlay extends google.maps.OverlayView {
       private position: google.maps.LatLng;
       private content: HTMLElement;
+      private anchor: 'center' | 'bottom';
+      private rotation: number;
 
-      constructor(position: google.maps.LatLng, content: HTMLElement) {
+      constructor(position: google.maps.LatLng, content: HTMLElement, anchor: 'center' | 'bottom' = 'center') {
         super();
         this.position = position;
         this.content = content;
+        this.anchor = anchor;
+        this.rotation = 0;
       }
 
       onAdd() {
@@ -229,7 +243,9 @@ export default function GoogleTrackingMap({
           this.content.style.position = 'absolute';
           this.content.style.left = `${point.x}px`;
           this.content.style.top = `${point.y}px`;
-          this.content.style.transform = 'translate(-50%, -50%)';
+          const translate = this.anchor === 'bottom' ? 'translate(-50%, -100%)' : 'translate(-50%, -50%)';
+          this.content.style.transform = `${translate} rotate(${this.rotation}deg)`;
+          this.content.style.transformOrigin = 'center center';
           this.content.style.zIndex = '10';
         }
       }
@@ -240,38 +256,31 @@ export default function GoogleTrackingMap({
         }
       }
 
-      setPosition(newPos: google.maps.LatLng) {
+      setPosition(newPos: google.maps.LatLng, rotationDeg?: number) {
         this.position = newPos;
+        if (typeof rotationDeg === 'number') {
+          this.rotation = rotationDeg;
+        }
         this.draw();
       }
     }
 
-    // --- Marcador de Casa (Destino) ---
+    // --- Marcador de Casa / Destino (Pin oficial Figma con Rayo WIN) ---
     if (!destMarkerRef.current) {
       const destDiv = document.createElement('div');
       destDiv.className = 'custom-google-dest-pin';
       destDiv.innerHTML = `
-        <div style="
-          background-color: #0F090B;
-          border: 3px solid #FF5A0A;
-          border-radius: 50%;
-          width: 42px;
-          height: 42px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          box-shadow: 0 6px 16px rgba(0,0,0,0.35);
-          cursor: pointer;
-        ">
-          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-            <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
-            <polyline points="9 22 9 12 15 12 15 22"/>
+        <div style="filter: drop-shadow(0 4px 10px rgba(0,0,0,0.35)); cursor: pointer;">
+          <svg width="34" height="46" viewBox="26 403 34 46" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="43" cy="420" r="11.5" fill="white"/>
+            <path d="M42.9979 403.874C33.7312 403.874 26.2188 411.387 26.2188 420.653C26.2188 434.307 42.9979 448.125 42.9979 448.125C42.9979 448.125 59.7771 434.307 59.7771 420.653C59.7771 411.387 52.2646 403.874 42.9979 403.874ZM31.3595 419.913C31.3595 413.508 36.5516 408.316 42.9567 408.316C43.7933 408.316 44.6081 408.406 45.3947 408.574L34.6979 423.161H42.4762L39.9484 431.114C35.0021 429.789 31.3595 425.278 31.3595 419.913V419.913ZM42.9567 431.51C42.5211 431.51 42.0914 431.484 41.6683 431.437L51.6951 418.263H43.9169L46.5354 408.881C51.1887 410.389 54.5544 414.756 54.5544 419.912C54.5544 426.318 49.3623 431.51 42.9572 431.51L42.9567 431.51Z" fill="#FF5A0A"/>
           </svg>
         </div>
       `;
       const destOverlay = new HTMLMarkerOverlay(
         new google.maps.LatLng(customerCoords[0], customerCoords[1]),
-        destDiv
+        destDiv,
+        'bottom'
       );
       destOverlay.setMap(map);
       destMarkerRef.current = destOverlay;
@@ -281,36 +290,19 @@ export default function GoogleTrackingMap({
       );
     }
 
-    // --- Marcador de Camión del Técnico ---
+    // --- Marcador de Camión del Técnico (Camioneta 3D oficial Figma) ---
     if (!techMarkerRef.current) {
       const techDiv = document.createElement('div');
       techDiv.className = 'custom-google-tech-pin';
       techDiv.innerHTML = `
-        <div style="
-          background: linear-gradient(135deg, #FF6B1A 0%, #FF5A0A 100%);
-          border: 3px solid white;
-          border-radius: 50%;
-          width: 46px;
-          height: 46px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          box-shadow: 0 6px 20px rgba(255, 90, 10, 0.45);
-          cursor: pointer;
-          position: relative;
-        ">
-          <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2"/>
-            <path d="M15 18H9"/>
-            <path d="M19 18h2a1 1 0 0 0 1-1v-3.65a1 1 0 0 0-.22-.624l-3.48-4.35A1 1 0 0 0 17.52 8H14"/>
-            <circle cx="17" cy="18" r="2"/>
-            <circle cx="7" cy="18" r="2"/>
-          </svg>
+        <div style="filter: drop-shadow(0 4px 10px rgba(0,0,0,0.3)); cursor: pointer; display: flex; align-items: center; justify-content: center;">
+          <img src="/Vehiculo_nuevo_win.png" width="58" height="35" alt="Técnico WIN" style="object-fit: contain; pointer-events: none;" />
         </div>
       `;
       const techOverlay = new HTMLMarkerOverlay(
         new google.maps.LatLng(technicianCoords[0], technicianCoords[1]),
-        techDiv
+        techDiv,
+        'center'
       );
       techOverlay.setMap(map);
       techMarkerRef.current = techOverlay;
@@ -337,25 +329,25 @@ export default function GoogleTrackingMap({
           const pathPoints = decodePolyline(result.polyline);
           const googlePath = pathPoints.map(p => ({ lat: p[0], lng: p[1] }));
 
-          // 1. Línea Base (borde suave estilo Uber)
+          // 1. Línea Base (borde sutil blanco de contraste)
           if (routeBgPolylineRef.current) routeBgPolylineRef.current.setMap(null);
           routeBgPolylineRef.current = new google.maps.Polyline({
             path: googlePath,
             geodesic: true,
             strokeColor: '#FFFFFF',
-            strokeOpacity: 0.9,
-            strokeWeight: 8,
+            strokeOpacity: 0.85,
+            strokeWeight: 6,
             map: map,
             zIndex: 1
           });
 
-          // 2. Línea Principal (Color Naranja WIN)
+          // 2. Línea Principal Naranja Oficial WIN (Figma Step 33)
           if (routeMainPolylineRef.current) routeMainPolylineRef.current.setMap(null);
           routeMainPolylineRef.current = new google.maps.Polyline({
             path: googlePath,
             geodesic: true,
             strokeColor: '#FF5A0A',
-            strokeOpacity: 0.95,
+            strokeOpacity: 1.0,
             strokeWeight: 4,
             map: map,
             zIndex: 2
@@ -412,17 +404,46 @@ export default function GoogleTrackingMap({
                   const curLat = p1[0] + (p2[0] - p1[0]) * remainder;
                   const curLng = p1[1] + (p2[1] - p1[1]) * remainder;
 
+                  // Rumbo de desplazamiento y corrección de orientación del carro
+                  // La van original apunta a 270° (Oeste). Al sumar 90°, 0° apunta al Norte real.
+                  const bearing = calculateBearing(p1[0], p1[1], p2[0], p2[1]);
+                  const rotationDeg = (bearing + 90) % 360;
+
                   if (techMarkerRef.current) {
                     (techMarkerRef.current as any).setPosition(
-                      new google.maps.LatLng(curLat, curLng)
+                      new google.maps.LatLng(curLat, curLng),
+                      rotationDeg
                     );
+                  }
+
+                  // Limpiar la línea que va quedando atrás (mostrar solo el trayecto restante)
+                  const remainingPath = [
+                    { lat: curLat, lng: curLng },
+                    ...googlePath.slice(idx + 1)
+                  ];
+                  if (routeMainPolylineRef.current) {
+                    routeMainPolylineRef.current.setPath(remainingPath);
+                  }
+                  if (routeBgPolylineRef.current) {
+                    routeBgPolylineRef.current.setPath(remainingPath);
                   }
                 } else if (pathPoints.length > 0) {
                   const last = pathPoints[pathPoints.length - 1];
+                  const prev = pathPoints[pathPoints.length - 2] || last;
+                  const bearing = calculateBearing(prev[0], prev[1], last[0], last[1]);
+                  const rotationDeg = (bearing + 90) % 360;
+
                   if (techMarkerRef.current) {
                     (techMarkerRef.current as any).setPosition(
-                      new google.maps.LatLng(last[0], last[1])
+                      new google.maps.LatLng(last[0], last[1]),
+                      rotationDeg
                     );
+                  }
+                  if (routeMainPolylineRef.current) {
+                    routeMainPolylineRef.current.setPath([{ lat: last[0], lng: last[1] }]);
+                  }
+                  if (routeBgPolylineRef.current) {
+                    routeBgPolylineRef.current.setPath([{ lat: last[0], lng: last[1] }]);
                   }
                 }
               }
