@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 
-import { Phone, User, Star, Bell, Check, MapPin, AlertTriangle, CalendarDays, ChevronDown, ChevronLeft, X, IdCard, Calendar, Clock } from "lucide-react";
+import { User, Star, Bell, Check, MapPin, AlertTriangle, CalendarDays, ChevronDown, ChevronLeft, X, IdCard, Calendar, Clock, Copy, CheckCheck } from "lucide-react";
 import { PiPackage, PiShieldCheck, PiLightning, PiPhone } from "react-icons/pi";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
@@ -99,6 +99,7 @@ const parseSafeDate = (dateStr?: string) => {
 // Componente para animar elementos al entrar
 export interface InstalacionData {
  cliente_nombre?: string;
+ cliente_telefono?: string;
  direccion?: string;
  idoperacion?: string | number;
  status: 'programada' | 'asignado' | 'en_camino' | 'en_proceso' | 'finalizada' | 'cerrada' | string;
@@ -139,9 +140,17 @@ const Seguimiento = () => {
  const [isReprogramCompletada, setIsReprogramCompletada] = useState(false);
  const [isPhotoModalOpen, setIsPhotoModalOpen] = useState(false);
  const [hasImageError, setHasImageError] = useState(false);
- const [reprogramStep, setReprogramStep] = useState<'form' | 'confirm_popup' | 'success'>('form');
+ const [reprogramStep, setReprogramStep] = useState<'form' | 'confirm_popup' | 'confirm_identity' | 'success'>('form');
  const [reprogramData, setReprogramData] = useState({ fecha: '', turno: '', motivo: '', motivoSeleccionado: '' });
  const [isSubmittingReprogram, setIsSubmittingReprogram] = useState(false);
+ const [pin, setPin] = useState<string[]>(['', '', '', '']);
+ const [pinError, setPinError] = useState(false);
+ const pinRefs = [
+   useRef<HTMLInputElement>(null),
+   useRef<HTMLInputElement>(null),
+   useRef<HTMLInputElement>(null),
+   useRef<HTMLInputElement>(null)
+ ];
  
  const [encuesta, setEncuesta] = useState({
  instalacion_concretada: '',
@@ -159,6 +168,7 @@ const Seguimiento = () => {
  const [encuestaEnviada, setEncuestaEnviada] = useState(false);
  const [surveyStep, setSurveyStep] = useState<1 | 2 | 3>(1);
  const [isSurveyModalOpen, setIsSurveyModalOpen] = useState(true);
+ const [pinCopied, setPinCopied] = useState(false);
 
  const previousStatus = useRef<string | null>(null);
  const previousTechnician = useRef<string | null>(null);
@@ -337,7 +347,126 @@ const Seguimiento = () => {
    const mesesFull = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
    const mesIdx = parseInt(parts[1], 10) - 1;
    const dia = parseInt(parts[2], 10);
-   return `${dia} de ${mesesFull[mesIdx] || parts[1]}`;
+   const y = parseInt(parts[0], 10);
+   try {
+     const dObj = new Date(y, mesIdx, dia);
+     const dayName = format(dObj, 'EEEE', { locale: es });
+     const capDay = dayName.charAt(0).toUpperCase() + dayName.slice(1);
+     return `${capDay} ${dia} de ${mesesFull[mesIdx] || parts[1]}`;
+   } catch {
+     return `${dia} de ${mesesFull[mesIdx] || parts[1]}`;
+   }
+ };
+
+ const getMaskedClientPhone = () => {
+   const raw = data?.cliente_telefono || data?.tecnico?.telefono || (data as any)?.telefono || (data as any)?.celular || (data as any)?.TeleMovilNume;
+   if (raw) {
+     const clean = String(raw).replace(/\D/g, '');
+     if (clean.length >= 9) {
+       const last9 = clean.slice(-9);
+       return `+51 ${last9.slice(0, 3)} *** ${last9.slice(-3)}`;
+     } else if (clean.length >= 6) {
+       return `+51 ${clean.slice(0, 3)} *** ${clean.slice(-3)}`;
+     }
+   }
+   return "+51 987 *** 321";
+ };
+
+ const handleCopyPin = (textToCopy: string) => {
+   if (!navigator.clipboard) {
+     try {
+       const textarea = document.createElement('textarea');
+       textarea.value = textToCopy;
+       document.body.appendChild(textarea);
+       textarea.select();
+       document.execCommand('copy');
+       document.body.removeChild(textarea);
+       setPinCopied(true);
+       setTimeout(() => setPinCopied(false), 2000);
+     } catch {}
+     return;
+   }
+   navigator.clipboard.writeText(textToCopy).then(() => {
+     setPinCopied(true);
+     setTimeout(() => setPinCopied(false), 2000);
+   }).catch(() => {});
+ };
+
+ useEffect(() => {
+   if (reprogramStep === 'confirm_identity') {
+     const timer = setTimeout(() => {
+       pinRefs[0].current?.focus();
+     }, 150);
+     return () => clearTimeout(timer);
+   }
+ }, [reprogramStep]);
+
+ const handlePinChange = (index: number, val: string) => {
+   const digit = val.replace(/\D/g, '').slice(-1);
+   const newPin = [...pin];
+   newPin[index] = digit;
+   setPin(newPin);
+   if (pinError) setPinError(false);
+
+   if (digit && index < 3) {
+     pinRefs[index + 1].current?.focus();
+   }
+ };
+
+ const handlePinKeyDown = (index: number, e: React.KeyboardEvent<HTMLInputElement>) => {
+   if (e.key === 'Backspace') {
+     if (!pin[index] && index > 0) {
+       const newPin = [...pin];
+       newPin[index - 1] = '';
+       setPin(newPin);
+       if (pinError) setPinError(false);
+       pinRefs[index - 1].current?.focus();
+     } else {
+       const newPin = [...pin];
+       newPin[index] = '';
+       setPin(newPin);
+       if (pinError) setPinError(false);
+     }
+   } else if (e.key === 'ArrowLeft' && index > 0) {
+     pinRefs[index - 1].current?.focus();
+   } else if (e.key === 'ArrowRight' && index < 3) {
+     pinRefs[index + 1].current?.focus();
+   } else if (e.key === 'Enter' && pin.join('').length === 4) {
+     handlePinSubmit();
+   }
+ };
+
+ const handlePinPaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
+   e.preventDefault();
+   const pasted = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 4);
+   if (pasted.length > 0) {
+     const newPin = ['', '', '', ''];
+     for (let i = 0; i < pasted.length; i++) {
+       newPin[i] = pasted[i];
+     }
+     setPin(newPin);
+     if (pinError) setPinError(false);
+     const nextIdx = Math.min(pasted.length, 3);
+     pinRefs[nextIdx].current?.focus();
+   }
+ };
+
+ const handlePinSubmit = () => {
+   const enteredPin = pin.join('');
+   if (enteredPin.length !== 4) return;
+
+   const expectedPin = data?.pin_token ? String(data.pin_token).trim() : null;
+   const isCorrect = expectedPin
+     ? enteredPin === expectedPin
+     : false;
+
+   if (!isCorrect) {
+     setPinError(true);
+     return;
+   }
+
+   setPinError(false);
+   handleReprogramSubmit();
  };
 
  const handleReprogramSubmit = async () => {
@@ -633,43 +762,77 @@ return (
 
  if (isReprogramCompletada) {
    return (
-     <div className="min-h-[100dvh] w-full bg-[#f3f4f6] flex flex-col font-sans">
-       {/* Header WIN */}
-       <div className="bg-primary w-full py-6 px-6 text-white shrink-0 relative z-30 shadow-sm flex flex-col justify-center">
-         <div className="flex justify-between items-center w-full">
-           <div className="flex flex-col items-start gap-0.5">
-             <MainLogo white className="h-8 sm:h-10" />
-             <h1 className="text-[20px] font-bold tracking-tight leading-tight mt-1">
-               {data?.cliente_nombre ? `Hola, ${data.cliente_nombre.split(' ')[0].toUpperCase()}` : 'Detalle de visita'}
-             </h1>
-           </div>
+     <div className="min-h-[100dvh] w-full bg-white flex flex-col font-sans justify-center items-center p-6">
+       {/* Contenido centrado final sin botones ni retroceso */}
+       <div className="flex flex-col items-center max-w-[360px] mx-auto w-full text-center">
+         <div className="w-[84px] h-[84px] relative flex items-center justify-center mb-6">
+           <svg width="84" height="84" viewBox="140 109 95 95" fill="none" className="shrink-0">
+             <path 
+               d="M228.665 152.19V156.024C228.66 165.009 225.751 173.751 220.371 180.948C214.991 188.144 207.429 193.409 198.813 195.956C190.196 198.504 180.987 198.198 172.559 195.084C164.131 191.97 156.935 186.216 152.044 178.678C147.154 171.14 144.831 162.224 145.422 153.258C146.014 144.293 149.487 135.758 155.325 128.928C161.163 122.098 169.052 117.338 177.816 115.357C186.58 113.377 195.75 114.283 203.957 117.94" 
+               stroke="#FF5A0A" 
+               strokeWidth="8" 
+               strokeLinecap="round" 
+               strokeLinejoin="round" 
+             />
+             <path 
+               d="M228.667 122.667L187 164.375L174.5 151.875" 
+               stroke="#301D19" 
+               strokeWidth="8" 
+               strokeLinecap="round" 
+               strokeLinejoin="round" 
+             />
+           </svg>
          </div>
+
+         <h2 className="text-[20px] font-bold text-[#26292E] mb-2 leading-snug">
+           Visita reprogramada
+         </h2>
+         <p className="text-[13px] text-[#535C67] leading-relaxed max-w-[290px]">
+           Tu nueva visita ha sido confirmada. Revisa todos los detalles desde el historial de visitas.
+         </p>
+       </div>
+     </div>
+   );
+ }
+
+ {/* Pantalla Visita Cancelada (Figma Pantlla_de_mantenimiento) */}
+ if (data.status === 'cerrada') {
+   const isVt = data.tipo === 'ticket';
+   const wspNumber = isVt ? '51922863186' : '51923229369';
+   const msg = encodeURIComponent(isVt ? "Hola, necesito soporte sobre mi Visita Cancelada." : "Hola, necesito soporte sobre mi visita cancelada.");
+
+   return (
+     <div className="min-h-[100dvh] w-full bg-white flex flex-col justify-between font-sans overflow-y-auto">
+       <div className="flex-1 flex flex-col items-center justify-center pt-10 pb-6 px-6 max-w-[360px] mx-auto w-full text-center">
+         {/* Mascota Figma Pantlla_de_mantenimiento */}
+         <div className="w-[176px] h-[177px] mb-8 relative flex items-center justify-center">
+           <img 
+             src="/visita_cancelada_mascot.png" 
+             alt="Visita Cancelada" 
+             className="w-full h-full object-contain pointer-events-none" 
+           />
+         </div>
+
+         <h1 className="text-[22px] font-bold text-[#26292E] mb-2.5 leading-snug">
+           Visita Cancelada
+         </h1>
+         <p className="text-[14px] text-[#535C67] leading-relaxed max-w-[285px] mx-auto font-normal">
+           Si no reconoces esta cancelación, comunícate con nosotros para ayudarte.
+         </p>
        </div>
 
-       {/* Full Screen Completion Body */}
-       <div className="flex-1 flex items-center justify-center p-6">
-         <motion.div 
-           initial={{ opacity: 0, scale: 0.95, y: 10 }}
-           animate={{ opacity: 1, scale: 1, y: 0 }}
-           className="bg-white rounded-[24px] p-8 w-full max-w-[340px] flex flex-col items-center text-center shadow-[0_4px_20px_rgba(0,0,0,0.08)] border border-gray-100"
+       {/* Botón Ir a WhatsApp al pie */}
+       <div className="p-4 w-full max-w-[360px] mx-auto shrink-0 mb-4">
+         <button 
+           type="button"
+           onClick={() => {
+             trackEvent('click_contactar_soporte_cerrada', { token });
+             window.open(`https://wa.me/${wspNumber}?text=${msg}`);
+           }}
+           className="w-full bg-[#FF5A0A] hover:bg-[#E04E07] text-white font-bold h-12 rounded-full text-[14px] shadow-md shadow-[#FF5A0A]/20 active:scale-95 transition-transform cursor-pointer"
          >
-           <div className="w-16 h-16 bg-[#FFF7ED] border-2 border-[#FF5A0A] rounded-full flex items-center justify-center mb-5 shadow-sm">
-             <Check className="w-8 h-8 text-[#FF5A0A]" strokeWidth={3} />
-           </div>
-           <h2 className="text-[18px] font-bold text-[#0F090B] mb-2 leading-snug">
-             Solicitud de reprogramación enviada
-           </h2>
-           <p className="text-[13px] text-gray-600 font-normal leading-relaxed mb-6">
-             Tu solicitud de reprogramación se ha enviado con éxito.
-           </p>
-           <div className="w-full bg-gray-50 border border-gray-100 rounded-2xl p-4 text-left space-y-1.5">
-             <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wide">Estado de la atención</p>
-             <div className="flex items-center gap-2">
-               <span className="w-2.5 h-2.5 rounded-full bg-[#FF5A0A] animate-pulse"></span>
-               <p className="text-[13px] font-bold text-[#0F090B]">Reprogramación en gestión</p>
-             </div>
-           </div>
-         </motion.div>
+           Ir a WhatsApp
+         </button>
        </div>
      </div>
    );
@@ -681,6 +844,12 @@ return (
  const vehiclePosition: [number, number] = data.coordenadas_tecnico || [-12.0950, -77.0320];
 
  const isVt = data.tipo === 'ticket';
+
+ const displayPin = data.pin_token
+   ? String(data.pin_token).trim()
+   : data.token_inicio
+   ? String(data.token_inicio).replace(/\D/g, '').slice(0, 4) || String(data.token_inicio).slice(0, 4)
+   : null;
 
  const steps = [
  { id: 'programada', label: 'Agendada', sub: 'Tu visita ha sido programada.', date: fecha_programacion },
@@ -905,6 +1074,64 @@ return (
      }}
      className="h-full w-full"
    />
+
+   {/* Floating Pin Token Overlay - Encima del mapa, justo antes de la tarjeta inferior */}
+   {displayPin && (
+     <div 
+       className="absolute left-1/2 -translate-x-1/2 z-10 w-[92%] max-w-[360px] transition-all duration-300 pointer-events-auto"
+       style={{
+         bottom: sheetHeight > 30 ? 'calc(85vh + 12px)' : '110px'
+       }}
+     >
+       <div className="bg-white/95 backdrop-blur-md border border-[#FFD8C2] rounded-[22px] px-3.5 py-2.5 shadow-[0_8px_24px_rgba(255,90,10,0.18)] flex items-center justify-between gap-2.5">
+         <div className="flex items-center gap-2.5 min-w-0 flex-1">
+           <div className="w-8 h-8 rounded-full bg-[#FF5A0A]/10 flex items-center justify-center shrink-0">
+             <svg width="15" height="17" viewBox="0 0 13 15" fill="none" xmlns="http://www.w3.org/2000/svg">
+               <path d="M6.5 1C4.4 2.1 1.7 3 1.7 6.1C1.7 10.8 5 13.7 6.5 14.5C8 13.7 11.3 10.8 11.3 6.1C11.3 3 8.6 2.1 6.5 1Z" stroke="#FF5A0A" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
+               <path d="M6.5 5V8.5" stroke="#FF5A0A" strokeWidth="1.3" strokeLinecap="round"/>
+               <circle cx="6.5" cy="11" r="0.8" fill="#FF5A0A"/>
+             </svg>
+           </div>
+           <div className="flex flex-col text-left min-w-0">
+             <span className="text-[10px] font-bold text-[#FF5A0A] uppercase tracking-wider leading-none">Código de inicio</span>
+             <span className="text-[11px] text-[#535C67] leading-tight truncate">Bríndalo al técnico al llegar</span>
+           </div>
+         </div>
+
+         {/* Casillas del PIN + Botón de Copiar */}
+         <div className="flex items-center gap-1.5 shrink-0">
+           <div className="flex items-center gap-1 bg-[#F8F9FA] border border-[#E5E7EB] rounded-[10px] px-2 py-1 shadow-xs">
+             {displayPin.split('').map((char, i) => (
+               <span key={i} className="text-[14px] font-black text-[#26292E] tracking-widest font-mono">
+                 {char}
+               </span>
+             ))}
+           </div>
+           
+           <button
+             type="button"
+             onClick={(e) => {
+               e.stopPropagation();
+               handleCopyPin(displayPin);
+             }}
+             title={pinCopied ? "Copiado" : "Copiar código"}
+             aria-label="Copiar código de inicio"
+             className={`w-8 h-8 rounded-[10px] flex items-center justify-center transition-all cursor-pointer select-none active:scale-95 ${
+               pinCopied 
+                 ? 'bg-[#E6F4EA] text-[#137333] border border-[#CEEAD6]' 
+                 : 'bg-[#FFEDE0] text-[#FF5A0A] hover:bg-[#FFD8C2] border border-[#FFD8C2]'
+             }`}
+           >
+             {pinCopied ? (
+               <CheckCheck className="w-4 h-4 stroke-[2.5]" />
+             ) : (
+               <Copy className="w-4 h-4 stroke-[2]" />
+             )}
+           </button>
+         </div>
+       </div>
+     </div>
+   )}
  </div>
  )}
 
@@ -990,7 +1217,7 @@ return (
    <h2 className="text-[17px] font-bold text-[#FF5A0A] leading-tight text-center tracking-tight">
      Tu técnico está en camino
    </h2>
-   <p className="text-[12px] text-[#26292E] font-normal leading-tight mt-1.5 text-center">
+   <p className="text-[12px] text-[#26292E] font-normal leading-tight mt-1 text-center">
      Tiempo de llegada estimado: <span className="font-bold">{calculatedEta || eta || 'Calculando...'}</span>
    </p>
  </div>
@@ -999,32 +1226,6 @@ return (
  {/* Scrollable Content inside Sheet */}
  <div className={`flex-1 overflow-y-auto px-5 pb-32 scrollbar-hide pt-0 ${status === 'en_camino' && sheetHeight <= 30 ? 'hidden' : ''}`}>
  
- {status === 'cerrada' && !encuestaEnviada && localStorage.getItem(`encuesta_completada_${token}`) !== 'true' ? (
- <div className="py-6">
- <div className="bg-white border border-gray-200 rounded-[24px] p-6 sm:p-8 shadow-sm text-center">
- <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-5 border border-gray-100">
- <AlertTriangle className="w-8 h-8 text-gray-400" />
- </div>
- <h2 className="text-2xl font-bold text-gray-900 mb-3">Atención Cerrada</h2>
- <p className="text-[15px] text-gray-500 mb-8 font-normal leading-relaxed px-2">
- Tu visita ha sido cerrada. Si no reconoces esta cancelación, comunícate con nosotros, con gusto te atenderemos.
- </p>
- <button 
- onClick={() => {
-  trackEvent('click_contactar_soporte_cerrada', { token });
-  const isVt = data?.tipo === 'ticket';
-  const wspNumber = isVt ? '51922863186' : '51923229369';
-  const msg = encodeURIComponent(isVt ? "Hola, necesito soporte sobre mi Visita Técnica cerrada." : "Hola, necesito soporte sobre mi atención cerrada.");
-  window.open(`https://wa.me/${wspNumber}?text=${msg}`);
-}} 
- className="w-full bg-primary text-white font-bold rounded-2xl h-14 shadow-lg text-[15px] flex items-center justify-center gap-2 transition-transform active:scale-95"
- >
- <Phone className="w-5 h-5" /> Contactar con Soporte
- </button>
- </div>
- </div>
- ) : (
- <>
  {/* Info Card de Visita (Frame 14804 de Figma) */}
  <div className={`border border-gray-100 rounded-[24px] p-5 mb-6 bg-white shadow-[0_4px_20px_rgba(0,0,0,0.03)] mt-4`}>
  <div className="flex flex-col gap-3.5">
@@ -1258,8 +1459,6 @@ return (
    </button>
  </div>
  </div>
- </>
- )}
  </div>
  </motion.div>
 
@@ -1319,152 +1518,306 @@ return (
  transition={{ type: "spring", damping: 25, stiffness: 200 }}
  className="fixed inset-0 z-[100] bg-[#F5F6F8] flex flex-col font-sans"
  >
- {/* Header */}
- <div className="bg-white px-4 py-3.5 flex items-center shadow-sm z-10 shrink-0 border-b border-gray-100">
- <button 
- onClick={() => {
-   setIsReprogramModalOpen(false);
-   setReprogramStep('form');
- }} 
- className="p-1 -ml-1 text-[#FF5A0A] hover:bg-orange-50 rounded-full transition-colors cursor-pointer"
- >
- <ChevronLeft className="w-6 h-6 stroke-[2.5]" />
- </button>
- <h2 className="flex-1 text-center font-semibold text-[#FF5A0A] pr-7 text-[16px]">Reprogramación de visita</h2>
- </div>
- 
- {/* Body */}
- <div className="flex-1 overflow-y-auto p-4 space-y-3.5">
- {/* Direction Box */}
- <div className="bg-white p-4 rounded-[16px] flex items-center gap-3.5 border border-[#E4E7E9] shadow-sm">
- <div className="w-10 h-10 rounded-full bg-[#F3F3F3] flex items-center justify-center shrink-0">
-   <MapPin className="w-5 h-5 text-[#141414] stroke-[2]" />
- </div>
- <div className="min-w-0 flex-1">
-   <p className="text-[11px] text-[#535C67] font-medium mb-0.5">Dirección</p>
-   <p className="text-[13px] font-semibold text-[#26292E] leading-snug line-clamp-2">
-     {data.direccion ? data.direccion.split(/\|\|referencia:|\|referencia:|referencia:/i)[0].trim() : 'Cargando...'}
-   </p>
- </div>
- </div>
-
- {/* Date Box */}
- <div className="bg-white p-4 rounded-[22px] shadow-sm border border-[#E4E7E9]">
- <div className="mb-2">
-   <h3 className="font-semibold text-[15px] text-[#26292E]">Selecciona la fecha</h3>
- </div>
- <div className="flex items-center gap-2 mb-3.5">
-   <svg width="15" height="15" viewBox="0 0 15 15" fill="none" className="shrink-0">
-     <circle cx="7.5" cy="7.5" r="6.5" stroke="#FF5A0A" strokeWidth="1.2" />
-     <path d="M7.5 4.5V7.5M7.5 10.5H7.51" stroke="#FF5A0A" strokeWidth="1.2" strokeLinecap="round" />
-   </svg>
-   <p className="text-[12px] text-[#FF5A0A] leading-tight font-normal">
-     Ten en cuenta que depende de la disponibilidad de cupos.
-   </p>
- </div>
-
- {/* Selector interactivo de los 7 días (4 en primera fila, 3 en segunda fila) */}
- <div className="grid grid-cols-4 gap-2.5">
-   {getAvailableDays().map((day) => {
-     const isSelected = reprogramData.fecha === day.iso;
-     return (
-       <button
-         key={day.iso}
+ {reprogramStep === 'confirm_identity' ? (
+   <div className="flex-1 bg-white flex flex-col justify-between overflow-y-auto">
+     {/* Header con botón atrás */}
+     <div className="bg-white px-4 pt-4 pb-2 flex items-center shrink-0">
+       <button 
          type="button"
-         onClick={() => setReprogramData({ ...reprogramData, fecha: day.iso })}
-         className={`flex flex-col items-center justify-center h-[69px] rounded-[12px] border transition-all cursor-pointer ${
-           isSelected
-             ? 'border-[#FF5A0A] bg-[#FFEDE0] text-[#FF5A0A]'
-             : 'border-[#D9D9D9] bg-white text-[#9CA5AB] hover:border-[#FF5A0A]/40'
-         }`}
+         onClick={() => setReprogramStep('confirm_popup')} 
+         className="p-1 -ml-1 text-[#FF5A0A] hover:bg-orange-50 active:bg-orange-100 rounded-full transition-colors cursor-pointer"
+         aria-label="Volver"
        >
-         <span className={`text-[11px] ${isSelected ? 'text-[#FF5A0A] font-semibold' : 'text-[#9CA5AB] font-normal'}`}>
-           {day.isTomorrow ? 'Mañana' : day.dayOfWeek}
-         </span>
-         <span className={`text-[17px] font-bold my-0.5 ${isSelected ? 'text-[#FF5A0A]' : 'text-[#26292E]'}`}>
-           {day.dayNum}
-         </span>
-         <span className={`text-[11px] ${isSelected ? 'text-[#FF5A0A] font-semibold' : 'text-[#9CA5AB] font-normal'}`}>
-           {day.monthName}
-         </span>
+         <ChevronLeft className="w-6 h-6 stroke-[2.5]" />
        </button>
-     );
-   })}
- </div>
- </div>
+     </div>
 
- {/* Time Slot Box */}
- <div className="bg-white p-4 rounded-[22px] shadow-sm border border-[#E4E7E9]">
- <h3 className="font-semibold text-[15px] text-[#26292E] mb-3">Selecciona el tramo horario</h3>
- <div className="flex flex-col gap-2.5">
- {['08:00 a.m. - 12:00 p.m.', '12:00 p.m. - 4:00 p.m.', '04:00 p.m. - 8:00 p.m.'].map((turno) => {
-   const isSelected = reprogramData.turno === turno;
-   return (
-     <button
-       key={turno}
-       type="button"
-       onClick={() => setReprogramData({ ...reprogramData, turno })}
-       className={`w-full h-[46px] rounded-[14px] flex items-center justify-center font-semibold text-[13px] transition-all cursor-pointer ${
-         isSelected
-           ? 'border border-[#FF5A0A] bg-[#FFEDE0] text-[#FF5903]'
-           : 'border border-[#D1D5DC] bg-white text-[#26292E] hover:border-[#FF5A0A]/50'
+     {/* Contenido alineado hacia arriba como en Figma */}
+     <div className="flex-1 flex flex-col items-center pt-2 pb-4 px-6 max-w-[360px] mx-auto w-full">
+       {/* Icono Escudo exacto de Figma (FirmaNuevoSVG) */}
+       <div className="w-[73px] h-[81px] relative flex items-center justify-center mb-6">
+         <svg width="73" height="81" viewBox="0 0 73 81" fill="none" xmlns="http://www.w3.org/2000/svg" className="shrink-0">
+           <path d="M36.5 25.5V40.5V25.5Z" fill="#FF5A0A"/>
+           <path d="M36.5 25.5V40.5" stroke="#26292E" strokeWidth="6" strokeLinecap="round"/>
+           <path d="M36.5 55.5C38.7091 55.5 40.5 53.7091 40.5 51.5C40.5 49.2909 38.7091 47.5 36.5 47.5C34.2909 47.5 32.5 49.2909 32.5 51.5C32.5 53.7091 34.2909 55.5 36.5 55.5Z" fill="#26292E"/>
+           <path d="M3.5 34.6418C3.5 22.8106 3.5 16.895 4.88424 14.9049C6.26844 12.9148 11.7805 11.0109 22.8047 7.20292L24.905 6.47746C30.6517 4.49249 33.5249 3.5 36.5 3.5C39.4751 3.5 42.3483 4.49249 48.0951 6.47746L50.1954 7.20292C61.2196 11.0109 66.7317 12.9148 68.1158 14.9049C69.5 16.895 69.5 22.8106 69.5 34.6418C69.5 36.4285 69.5 38.3666 69.5 40.4682C69.5 49.7363 66.4317 56.8851 62.1667 62.3452M4.20708 47.9C7.35095 63.8041 20.2802 71.9977 28.7947 75.751C31.44 76.9169 32.7626 77.5 36.5 77.5C40.2374 77.5 41.56 76.9169 44.2051 75.751C46.3252 74.8164 48.7188 73.6069 51.1667 72.0714" stroke="#FF5A0A" strokeWidth="7" strokeLinecap="round"/>
+         </svg>
+       </div>
+
+       <h2 className="text-[20px] font-bold text-[#1F2937] mb-2 leading-snug text-center">
+         Confirma tu identidad
+       </h2>
+       <p className="text-[13px] text-[#6B7280] leading-relaxed mb-6 max-w-[290px] text-center">
+         Ingresa el código de validación que enviamos a tu WhatsApp{' '}
+         <span className="font-semibold text-gray-800">{getMaskedClientPhone()}</span>
+       </p>
+
+       {/* Inputs de 4 dígitos */}
+       <div className="flex items-center justify-center gap-3 w-full max-w-[280px]">
+         {pin.map((digit, idx) => (
+           <input
+             key={idx}
+             ref={pinRefs[idx]}
+             type="text"
+             inputMode="numeric"
+             pattern="[0-9]*"
+             maxLength={1}
+             value={digit}
+             onChange={(e) => handlePinChange(idx, e.target.value)}
+             onKeyDown={(e) => handlePinKeyDown(idx, e)}
+             onPaste={idx === 0 ? handlePinPaste : undefined}
+             className={`w-12 h-14 sm:w-14 sm:h-16 text-center text-[22px] font-bold rounded-[16px] border-2 transition-all bg-white text-gray-900 focus:outline-none ${
+               pinError 
+                 ? 'border-[#FF4D4F] bg-[#FFF2F0] text-[#FF4D4F] focus:border-[#FF4D4F]' 
+                 : digit 
+                   ? 'border-gray-300 focus:border-[#FF5A0A] focus:ring-2 focus:ring-[#FF5A0A]/10' 
+                   : 'border-gray-200 focus:border-[#FF5A0A] focus:ring-2 focus:ring-[#FF5A0A]/10'
+             }`}
+           />
+         ))}
+       </div>
+
+       {/* Badge de Error si el PIN no coincide */}
+       {pinError && (
+         <motion.div 
+           initial={{ opacity: 0, y: -4 }}
+           animate={{ opacity: 1, y: 0 }}
+           className="flex items-center justify-center gap-1.5 bg-[#FFF2F0] border border-[#FFCCC7] rounded-full py-1.5 px-3.5 mt-5 text-[12px] font-medium text-[#CF1322]"
+         >
+           <svg width="14" height="14" viewBox="0 0 14 14" fill="none" className="shrink-0">
+             <circle cx="7" cy="7" r="6" stroke="#CF1322" strokeWidth="1.2" />
+             <path d="M7 4.2V7.5M7 9.8H7.01" stroke="#CF1322" strokeWidth="1.3" strokeLinecap="round" />
+           </svg>
+           <span>El PIN no coincide Inténtalo nuevamente.</span>
+         </motion.div>
+       )}
+     </div>
+
+     {/* Botón Continuar al pie */}
+     <div className="p-4 w-full max-w-[360px] mx-auto shrink-0">
+       <button 
+         type="button"
+         disabled={pin.join('').length !== 4 || isSubmittingReprogram}
+         onClick={handlePinSubmit}
+         className="w-full bg-[#FF5A0A] disabled:bg-[#E4E7E9] disabled:text-[#A0A2AC] text-white font-bold h-12 rounded-full text-[14px] transition-all shadow-md disabled:shadow-none cursor-pointer disabled:cursor-not-allowed active:scale-95 disabled:active:scale-100"
+       >
+         {isSubmittingReprogram ? "Validando..." : "Continuar"}
+       </button>
+     </div>
+   </div>
+ ) : reprogramStep === 'success' ? (
+   <div className="flex-1 bg-white flex flex-col justify-between overflow-y-auto">
+     {/* Header con botón atrás */}
+     <div className="bg-white px-4 pt-4 pb-2 flex items-center shrink-0">
+       <button 
+         type="button"
+         onClick={() => {
+           setIsReprogramModalOpen(false);
+           setReprogramStep('form');
+           setIsReprogramCompletada(true);
+         }} 
+         className="p-1 -ml-1 text-[#FF5A0A] hover:bg-orange-50 active:bg-orange-100 rounded-full transition-colors cursor-pointer"
+         aria-label="Volver"
+       >
+         <ChevronLeft className="w-6 h-6 stroke-[2.5]" />
+       </button>
+     </div>
+
+     {/* Contenido centrado arriba según Figma (Image 3) */}
+     <div className="flex-1 flex flex-col items-center pt-8 pb-4 px-6 max-w-[360px] mx-auto w-full text-center">
+       {/* Icono Checkmark en Círculo oficial de Figma */}
+       <div className="w-[84px] h-[84px] relative flex items-center justify-center mb-6">
+         <svg width="84" height="84" viewBox="140 109 95 95" fill="none" className="shrink-0">
+           <path 
+             d="M228.665 152.19V156.024C228.66 165.009 225.751 173.751 220.371 180.948C214.991 188.144 207.429 193.409 198.813 195.956C190.196 198.504 180.987 198.198 172.559 195.084C164.131 191.97 156.935 186.216 152.044 178.678C147.154 171.14 144.831 162.224 145.422 153.258C146.014 144.293 149.487 135.758 155.325 128.928C161.163 122.098 169.052 117.338 177.816 115.357C186.58 113.377 195.75 114.283 203.957 117.94" 
+             stroke="#FF5A0A" 
+             strokeWidth="8" 
+             strokeLinecap="round" 
+             strokeLinejoin="round" 
+           />
+           <path 
+             d="M228.667 122.667L187 164.375L174.5 151.875" 
+             stroke="#301D19" 
+             strokeWidth="8" 
+             strokeLinecap="round" 
+             strokeLinejoin="round" 
+           />
+         </svg>
+       </div>
+
+       <h2 className="text-[20px] font-bold text-[#26292E] mb-2 leading-snug">
+         Visita reprogramada
+       </h2>
+       <p className="text-[13px] text-[#535C67] leading-relaxed max-w-[290px]">
+         Tu nueva visita ha sido confirmada. Revisa todos los detalles desde el historial de visitas.
+       </p>
+     </div>
+
+     {/* Botón Aceptar al pie */}
+     <div className="p-4 w-full max-w-[360px] mx-auto shrink-0">
+       <button 
+         type="button"
+         onClick={() => {
+           setIsReprogramModalOpen(false);
+           setReprogramStep('form');
+           setIsReprogramCompletada(true);
+         }}
+         className="w-full bg-[#FF5A0A] text-white font-bold h-12 rounded-full text-[14px] shadow-md shadow-[#FF5A0A]/20 active:scale-95 transition-transform cursor-pointer"
+       >
+         Aceptar
+       </button>
+     </div>
+   </div>
+ ) : (
+   <>
+     {/* Header */}
+     <div className="bg-white px-4 py-3.5 flex items-center shadow-sm z-10 shrink-0 border-b border-gray-100">
+     <button 
+     onClick={() => {
+       setIsReprogramModalOpen(false);
+       setReprogramStep('form');
+     }} 
+     className="p-1 -ml-1 text-[#FF5A0A] hover:bg-orange-50 rounded-full transition-colors cursor-pointer"
+     >
+     <ChevronLeft className="w-6 h-6 stroke-[2.5]" />
+     </button>
+     <h2 className="flex-1 text-center font-semibold text-[#FF5A0A] pr-7 text-[16px]">Reprogramación de visita</h2>
+     </div>
+     
+     {/* Body */}
+     <div className="flex-1 overflow-y-auto p-4 space-y-3.5">
+     {/* Direction Box */}
+     <div className="bg-white p-4 rounded-[16px] flex items-center gap-3.5 border border-[#E4E7E9] shadow-sm">
+     <div className="w-10 h-10 rounded-full bg-[#F3F3F3] flex items-center justify-center shrink-0">
+       <MapPin className="w-5 h-5 text-[#141414] stroke-[2]" />
+     </div>
+     <div className="min-w-0 flex-1">
+       <p className="text-[11px] text-[#535C67] font-medium mb-0.5">Dirección</p>
+       <p className="text-[13px] font-semibold text-[#26292E] leading-snug line-clamp-2">
+         {data.direccion ? data.direccion.split(/\|\|referencia:|\|referencia:|referencia:/i)[0].trim() : 'Cargando...'}
+       </p>
+     </div>
+     </div>
+
+     {/* Date Box */}
+     <div className="bg-white p-4 rounded-[22px] shadow-sm border border-[#E4E7E9]">
+     <div className="mb-2">
+       <h3 className="font-semibold text-[15px] text-[#26292E]">Selecciona la fecha</h3>
+     </div>
+     <div className="flex items-center gap-2 mb-3.5">
+       <svg width="15" height="15" viewBox="0 0 15 15" fill="none" className="shrink-0">
+         <circle cx="7.5" cy="7.5" r="6.5" stroke="#FF5A0A" strokeWidth="1.2" />
+         <path d="M7.5 4.5V7.5M7.5 10.5H7.51" stroke="#FF5A0A" strokeWidth="1.2" strokeLinecap="round" />
+       </svg>
+       <p className="text-[12px] text-[#FF5A0A] leading-tight font-normal">
+         Ten en cuenta que depende de la disponibilidad de cupos.
+       </p>
+     </div>
+
+     {/* Selector interactivo de los 7 días (4 en primera fila, 3 en segunda fila) */}
+     <div className="grid grid-cols-4 gap-2.5">
+       {getAvailableDays().map((day) => {
+         const isSelected = reprogramData.fecha === day.iso;
+         return (
+           <button
+             key={day.iso}
+             type="button"
+             onClick={() => setReprogramData({ ...reprogramData, fecha: day.iso })}
+             className={`flex flex-col items-center justify-center h-[69px] rounded-[12px] border transition-all cursor-pointer ${
+               isSelected
+                 ? 'border-[#FF5A0A] bg-[#FFEDE0] text-[#FF5A0A]'
+                 : 'border-[#D9D9D9] bg-white text-[#9CA5AB] hover:border-[#FF5A0A]/40'
+             }`}
+           >
+             <span className={`text-[11px] ${isSelected ? 'text-[#FF5A0A] font-semibold' : 'text-[#9CA5AB] font-normal'}`}>
+               {day.isTomorrow ? 'Mañana' : day.dayOfWeek}
+             </span>
+             <span className={`text-[17px] font-bold my-0.5 ${isSelected ? 'text-[#FF5A0A]' : 'text-[#26292E]'}`}>
+               {day.dayNum}
+             </span>
+             <span className={`text-[11px] ${isSelected ? 'text-[#FF5A0A] font-semibold' : 'text-[#9CA5AB] font-normal'}`}>
+               {day.monthName}
+             </span>
+           </button>
+         );
+       })}
+     </div>
+     </div>
+
+     {/* Time Slot Box */}
+     <div className="bg-white p-4 rounded-[22px] shadow-sm border border-[#E4E7E9]">
+     <h3 className="font-semibold text-[15px] text-[#26292E] mb-3">Selecciona el tramo horario</h3>
+     <div className="flex flex-col gap-2.5">
+     {['08:00 a.m. - 12:00 p.m.', '12:00 p.m. - 4:00 p.m.', '04:00 p.m. - 8:00 p.m.'].map((turno) => {
+       const isSelected = reprogramData.turno === turno;
+       return (
+         <button
+           key={turno}
+           type="button"
+           onClick={() => setReprogramData({ ...reprogramData, turno })}
+           className={`w-full h-[46px] rounded-[14px] flex items-center justify-center font-semibold text-[13px] transition-all cursor-pointer ${
+             isSelected
+               ? 'border border-[#FF5A0A] bg-[#FFEDE0] text-[#FF5903]'
+               : 'border border-[#D1D5DC] bg-white text-[#26292E] hover:border-[#FF5A0A]/50'
+           }`}
+         >
+           {turno}
+         </button>
+       );
+     })}
+     </div>
+     </div>
+
+     {/* Motivo Box */}
+     <div className="bg-white p-4 rounded-[22px] shadow-sm border border-[#E4E7E9]">
+     <h3 className="font-semibold text-[15px] text-[#26292E] mb-3">Motivo de reprogramación</h3>
+     
+     <div className="mb-4 relative">
+     <select
+       value={reprogramData.motivoSeleccionado}
+       onChange={(e) => setReprogramData({ ...reprogramData, motivoSeleccionado: e.target.value })}
+       className={`w-full h-[46px] rounded-[14px] px-4 pr-10 text-[13px] font-medium border appearance-none transition-all cursor-pointer focus:outline-none ${
+         reprogramData.motivoSeleccionado
+           ? 'border-[#FF5A0A] bg-[#FFEDE0] text-[#FF5903]'
+           : 'border-[#D1D5DC] bg-white text-gray-500 hover:border-gray-400'
        }`}
      >
-       {turno}
+       <option value="" disabled>Elige una opción</option>
+       <option value="emergencia_personal">Emergencia personal / familiar</option>
+       <option value="problemas_salud">Problemas de salud</option>
+       <option value="viaje_inesperado">Viaje de último minuto</option>
+       <option value="choque_horarios">Cruce de horarios con el trabajo / estudios</option>
+       <option value="olvido">Olvidé la cita original</option>
+       <option value="otro">Otro motivo</option>
+     </select>
+     <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3.5">
+       <ChevronDown className={`w-4 h-4 ${reprogramData.motivoSeleccionado ? 'text-[#FF5903]' : 'text-gray-400'}`} />
+     </div>
+     </div>
+
+     <h3 className="font-semibold text-[14px] text-[#26292E] mb-2.5">Detalle adicional (Opcional)</h3>
+     <textarea 
+       value={reprogramData.motivo}
+       onChange={(e) => setReprogramData({ ...reprogramData, motivo: e.target.value })}
+       className="w-full bg-[#F9F9F9] border border-[#E4E7E9] rounded-[14px] p-3 text-[13px] text-gray-800 focus:outline-none focus:border-[#FF5A0A] resize-none placeholder:text-gray-400" 
+       rows={2} 
+       placeholder="Ej: No estaré en casa, por favor venir por la tarde..."
+     ></textarea>
+     </div>
+     </div>
+
+     {/* Footer CTA */}
+     <div className="bg-white p-4 shadow-[0_-10px_20px_rgba(0,0,0,0.05)] shrink-0 border-t border-gray-100">
+     <button 
+     disabled={!reprogramData.fecha || !reprogramData.turno || !reprogramData.motivoSeleccionado}
+     onClick={() => setReprogramStep('confirm_popup')}
+     className="w-full bg-[#FF5A0A] disabled:bg-[#E4E7E9] disabled:text-[#A0A2AC] text-white font-bold h-12 rounded-full text-[14px] transition-all shadow-md disabled:shadow-none cursor-pointer disabled:cursor-not-allowed active:scale-95 disabled:active:scale-100"
+     >
+     Confirmar reprogramación
      </button>
-   );
- })}
- </div>
- </div>
-
- {/* Motivo Box */}
- <div className="bg-white p-4 rounded-[22px] shadow-sm border border-[#E4E7E9]">
- <h3 className="font-semibold text-[15px] text-[#26292E] mb-3">Motivo de reprogramación</h3>
- 
- <div className="mb-4 relative">
- <select
-   value={reprogramData.motivoSeleccionado}
-   onChange={(e) => setReprogramData({ ...reprogramData, motivoSeleccionado: e.target.value })}
-   className={`w-full h-[46px] rounded-[14px] px-4 pr-10 text-[13px] font-medium border appearance-none transition-all cursor-pointer focus:outline-none ${
-     reprogramData.motivoSeleccionado
-       ? 'border-[#FF5A0A] bg-[#FFEDE0] text-[#FF5903]'
-       : 'border-[#D1D5DC] bg-white text-gray-500 hover:border-gray-400'
-   }`}
- >
-   <option value="" disabled>Elige una opción</option>
-   <option value="emergencia_personal">Emergencia personal / familiar</option>
-   <option value="problemas_salud">Problemas de salud</option>
-   <option value="viaje_inesperado">Viaje de último minuto</option>
-   <option value="choque_horarios">Cruce de horarios con el trabajo / estudios</option>
-   <option value="olvido">Olvidé la cita original</option>
-   <option value="otro">Otro motivo</option>
- </select>
- <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3.5">
-   <ChevronDown className={`w-4 h-4 ${reprogramData.motivoSeleccionado ? 'text-[#FF5903]' : 'text-gray-400'}`} />
- </div>
- </div>
-
- <h3 className="font-semibold text-[14px] text-[#26292E] mb-2.5">Detalle adicional (Opcional)</h3>
- <textarea 
-   value={reprogramData.motivo}
-   onChange={(e) => setReprogramData({ ...reprogramData, motivo: e.target.value })}
-   className="w-full bg-[#F9F9F9] border border-[#E4E7E9] rounded-[14px] p-3 text-[13px] text-gray-800 focus:outline-none focus:border-[#FF5A0A] resize-none placeholder:text-gray-400" 
-   rows={2} 
-   placeholder="Ej: No estaré en casa, por favor venir por la tarde..."
- ></textarea>
- </div>
- </div>
-
- {/* Footer CTA */}
- <div className="bg-white p-4 shadow-[0_-10px_20px_rgba(0,0,0,0.05)] shrink-0 border-t border-gray-100">
- <button 
- disabled={!reprogramData.fecha || !reprogramData.turno || !reprogramData.motivoSeleccionado}
- onClick={() => setReprogramStep('confirm_popup')}
- className="w-full bg-[#FF5A0A] disabled:bg-[#E4E7E9] disabled:text-[#A0A2AC] text-white font-bold h-12 rounded-full text-[14px] transition-all shadow-md disabled:shadow-none cursor-pointer disabled:cursor-not-allowed active:scale-95 disabled:active:scale-100"
- >
- Confirmar reprogramación
- </button>
- </div>
+     </div>
+   </>
+ )}
  </motion.div>
  )}
  </AnimatePresence>
@@ -1500,34 +1853,29 @@ return (
     Tu visita técnica actual será reemplazada por la nueva fecha y horario que elegiste.
   </p>
 
-  {/* Resumen Box */}
-  <div className="w-full bg-[#F8F9FA] rounded-[20px] p-4 flex flex-col gap-3.5 mb-6 text-left border border-gray-100">
-    <div className="flex items-center gap-3">
-      <div className="w-10 h-10 rounded-full bg-[#F3F3F3] flex items-center justify-center shrink-0">
-        <Calendar className="w-5 h-5 text-[#141414] stroke-[1.8]" />
-      </div>
-      <div className="min-w-0 flex-1">
-        <p className="text-[10px] font-bold text-[#9CA5AB] uppercase tracking-wider">Nueva fecha</p>
-        <p className="text-[14px] font-bold text-[#26292E] truncate">{formatSelectedDate(reprogramData.fecha)}</p>
-      </div>
+  {/* Resumen Box (Figma Pop1) */}
+  <div className="w-full bg-[#FFF9F6] rounded-[20px] p-4 flex flex-col gap-2.5 mb-6 text-left border border-[#FFD8C2]">
+    <p className="text-[11px] font-bold text-[#FF5A0A] uppercase tracking-wider mb-0.5">Nueva visita técnica</p>
+    <div className="flex items-center gap-2.5">
+      <Calendar className="w-4 h-4 text-[#FF5A0A] shrink-0 stroke-[2]" />
+      <p className="text-[13px] font-bold text-[#26292E] truncate">{formatSelectedDate(reprogramData.fecha)}</p>
     </div>
-    <div className="flex items-center gap-3">
-      <div className="w-10 h-10 rounded-full bg-[#F3F3F3] flex items-center justify-center shrink-0">
-        <Clock className="w-5 h-5 text-[#141414] stroke-[1.8]" />
-      </div>
-      <div className="min-w-0 flex-1">
-        <p className="text-[10px] font-bold text-[#9CA5AB] uppercase tracking-wider">Tramo horario</p>
-        <p className="text-[14px] font-bold text-[#26292E] truncate">{reprogramData.turno}</p>
-      </div>
+    <div className="flex items-center gap-2.5">
+      <Clock className="w-4 h-4 text-[#FF5A0A] shrink-0 stroke-[2]" />
+      <p className="text-[12px] font-medium text-[#535C67] truncate">{reprogramData.turno}</p>
     </div>
   </div>
 
   <button 
   disabled={isSubmittingReprogram}
-  onClick={handleReprogramSubmit}
+  onClick={() => {
+    setPin(['', '', '', '']);
+    setPinError(false);
+    setReprogramStep('confirm_identity');
+  }}
   className="w-full bg-[#FF5A0A] text-white font-bold h-12 rounded-full text-[14px] mb-2.5 shadow-md shadow-[#FF5A0A]/20 active:scale-95 transition-transform cursor-pointer"
   >
-  {isSubmittingReprogram ? "Confirmando..." : "Confirmar"}
+  Confirmar
   </button>
   <button 
   disabled={isSubmittingReprogram}
@@ -1535,45 +1883,6 @@ return (
   className="w-full bg-transparent border border-[#FF5A0A] text-[#FF5A0A] font-bold h-12 rounded-full text-[14px] active:scale-95 transition-transform cursor-pointer hover:bg-orange-50"
   >
   Cancelar
-  </button>
-  </motion.div>
-  </motion.div>
-  )}
-
-  {isReprogramModalOpen && reprogramStep === 'success' && (
-  <motion.div 
-  initial={{ opacity: 0 }}
-  animate={{ opacity: 1 }}
-  exit={{ opacity: 0 }}
-  className="fixed inset-0 z-[120] bg-[#26292E]/40 flex items-center justify-center p-4 backdrop-blur-sm"
-  >
-  <motion.div 
-  initial={{ scale: 0.9, y: 20 }}
-  animate={{ scale: 1, y: 0 }}
-  exit={{ scale: 0.9, y: 20 }}
-  className="bg-white rounded-[32px] p-6 w-[342px] max-w-full relative flex flex-col items-center text-center shadow-xl"
-  >
-  {/* Circular Icon with Checkmark (Exact Figma Pop2) */}
-  <div className="w-[72px] h-[72px] relative flex items-center justify-center mb-4">
-    <svg width="72" height="72" viewBox="0 0 72 72" fill="none" className="shrink-0">
-      <path d="M62 26C58.5 15.5 48 8 36 8C20.5 8 8 20.5 8 36C8 51.5 20.5 64 36 64C47.5 64 57.5 57 61.5 47" stroke="#FF5A0A" strokeWidth="4.5" strokeLinecap="round" strokeLinejoin="round"/>
-      <path d="M50 25L32 45L23 36" stroke="#301D19" strokeWidth="4.5" strokeLinecap="round" strokeLinejoin="round"/>
-    </svg>
-  </div>
-
-  <h3 className="text-[18px] font-bold text-[#26292E] mb-2 leading-tight">Visita reprogramada</h3>
-  <p className="text-[13px] text-[#535C67] mb-6 font-normal leading-relaxed px-1">
-  Tu nueva visita ha sido confirmada, revisa todos los detalles desde el historial de visitas.
-  </p>
-  <button 
-  onClick={() => {
-    setIsReprogramModalOpen(false);
-    setReprogramStep('form');
-    setIsReprogramCompletada(true);
-  }}
-  className="w-full bg-[#FF5A0A] text-white font-bold h-12 rounded-full text-[14px] shadow-md shadow-[#FF5A0A]/20 active:scale-95 transition-transform cursor-pointer"
-  >
-  Aceptar
   </button>
   </motion.div>
   </motion.div>

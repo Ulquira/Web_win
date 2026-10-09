@@ -296,7 +296,7 @@ export default function GoogleTrackingMap({
       techDiv.className = 'custom-google-tech-pin';
       techDiv.innerHTML = `
         <div style="filter: drop-shadow(0 4px 10px rgba(0,0,0,0.3)); cursor: pointer; display: flex; align-items: center; justify-content: center;">
-          <img src="/win_technician_van.png" width="50" height="30" alt="Técnico WIN" style="object-fit: contain; pointer-events: none;" />
+          <img src="/Vehiculo_nuevo_win.png" width="58" height="35" alt="Técnico WIN" style="object-fit: contain; pointer-events: none;" />
         </div>
       `;
       const techOverlay = new HTMLMarkerOverlay(

@@ -286,6 +286,7 @@ app.get('/api/v1/terceros/instalaciones/:token', verificarTercero, async (req, r
       fecha_programacion: op.fecha_programacion,
       tramo: op.Tramo_Atencio,
       cliente_nombre: op.nom_cliente,
+      cliente_telefono: op.telefono || null,
       direccion: op.direccion_cliente,
       campana: op.Campaña,
       token_inicio: tokenInicio || null,
