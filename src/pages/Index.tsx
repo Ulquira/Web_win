@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Check, ShieldCheck } from "lucide-react";
 import { PortadaIlustracion } from "@/components/PortadaIlustracion";
-import textBannerImg from "@/assets/text-banner.png";
+import textBannerImg from "@/assets/pantalla_win_en_ruta.png";
 
 const Index = () => {
   const navigate = useNavigate();
