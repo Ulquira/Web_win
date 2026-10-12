@@ -13,11 +13,65 @@ export interface VisitaItem {
   ticketLabel: string;
   codisegui?: string | null;
   producto: string;
+  campana?: string | null;
   direccion: string;
   estado: string;
   estado_raw?: string;
   fecha?: string;
   tramo?: string;
+}
+
+// Helper para formatear fecha en formato corto (ej. "NOV23", "OCT24")
+function formatMonthYearShort(dateStr?: string): string {
+  if (!dateStr) return '';
+  try {
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return '';
+    const months = ['ENE', 'FEB', 'MAR', 'ABR', 'MAY', 'JUN', 'JUL', 'AGO', 'SEP', 'OCT', 'NOV', 'DIC'];
+    const month = months[d.getUTCMonth()];
+    const yearShort = String(d.getUTCFullYear()).slice(-2);
+    return `${month}${yearShort}`;
+  } catch {
+    return '';
+  }
+}
+
+// Extraer nombre del plan asignado formateado con fecha (como en Figma: "Mono 200 Mbps - NOV23")
+function getPlanDisplayName(visita?: VisitaItem): string {
+  if (!visita) return 'Mi Servicio';
+
+  let basePlan = '';
+
+  // 1. Extraer del campo campana si tiene "Paquete:"
+  if (visita.campana && visita.campana.includes('|')) {
+    const parts = visita.campana.split('|');
+    for (const part of parts) {
+      const [k, ...v] = part.split(':');
+      if (k && k.trim().toLowerCase() === 'paquete') {
+        const val = v.join(':').trim();
+        if (val && !/aprobado/i.test(val)) {
+          basePlan = val;
+          break;
+        }
+      }
+    }
+  }
+
+  // 2. Si no, tomar de producto
+  if (!basePlan) {
+    basePlan = visita.producto || visita.titulo || 'Plan Internet';
+  }
+
+  // Limpiar sufijos técnicos
+  basePlan = basePlan.replace(/\b(SGI|SGA|SGM|FTTH)\b/gi, '').trim();
+
+  // 3. Añadir fecha en formato corto (ej. "- NOV23") si existe fecha
+  const dateTag = formatMonthYearShort(visita.fecha);
+  if (dateTag && !basePlan.toUpperCase().includes(dateTag)) {
+    return `${basePlan} - ${dateTag}`;
+  }
+
+  return basePlan;
 }
 
 export default function MiWinSeguimiento() {
@@ -121,32 +175,38 @@ export default function MiWinSeguimiento() {
   const renderServiceSelector = () => {
     if (visitas.length <= 1) return null;
 
-    // Obtener el nombre del servicio o plan para mostrar en la píldora (como en Figma: "Mono 200 Mbps - NOV23")
-    const displayLabel = selectedVisita?.producto || selectedVisita?.titulo || 'Mi Servicio';
+    // Obtener el nombre del servicio o plan con fecha asignada (como en Figma: "Mono 200 Mbps - NOV23")
+    const displayLabel = getPlanDisplayName(selectedVisita);
 
     return (
       <div className="w-full flex justify-center mb-1 mt-1">
         <button
           type="button"
           onClick={() => setIsSelectorOpen(true)}
-          className="inline-flex items-center justify-between gap-2.5 bg-white hover:bg-gray-50 active:scale-98 border border-gray-100 shadow-[0_2px_10px_rgba(0,0,0,0.04)] rounded-full px-4 py-2 transition-all cursor-pointer max-w-full"
+          className="inline-flex items-center justify-between gap-2.5 bg-white hover:bg-gray-50 active:scale-98 border border-gray-100 shadow-[0_2px_10px_rgba(0,0,0,0.04)] rounded-full px-3.5 py-1.5 transition-all cursor-pointer max-w-full"
         >
-          {/* Icono de red/servicio naranja como en Figma */}
-          <div className="w-4 h-4 rounded-full text-[#FF5A0A] flex items-center justify-center shrink-0">
-            <svg width="15" height="15" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M2.667 6.667L8 2.667L13.333 6.667V13.333H10.667V9.333H5.333V13.333H2.667V6.667Z" stroke="#FF5A0A" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
+          {/* Icono oficial de Figma (Antena / Emisor naranja #FF5A0A del SVG 251x24) */}
+          <div className="w-4 h-4 flex items-center justify-center shrink-0">
+            <svg width="16" height="16" viewBox="0 0 16 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path 
+                d="M10.6666 12.9163C13.0211 13.3792 14.6666 14.4365 14.6666 15.6667C14.6666 17.3235 11.6818 18.6667 7.99992 18.6667C4.31802 18.6667 1.33325 17.3235 1.33325 15.6667C1.33325 14.4365 2.97871 13.3792 5.33325 12.9163M7.99992 15.3333V10M7.99992 10C9.10449 10 9.99992 9.10457 9.99992 8C9.99992 6.89543 9.10449 6 7.99992 6C6.89535 6 5.99992 6.89543 5.99992 8C5.99992 9.10457 6.89535 10 7.99992 10Z" 
+                stroke="#FF5A0A" 
+                strokeWidth="1.33333" 
+                strokeLinecap="round" 
+                strokeLinejoin="round"
+              />
             </svg>
           </div>
 
-          {/* Nombre del servicio */}
-          <span className="text-[13px] font-bold text-[#26292E] tracking-tight truncate max-w-[240px]">
+          {/* Nombre del servicio con plan y fecha asignada */}
+          <span className="text-[13px] font-bold text-[#26292E] tracking-tight truncate max-w-[230px]">
             {displayLabel}
           </span>
 
-          {/* Flecha Chevron hacia abajo */}
-          <div className="shrink-0 text-gray-500 pl-0.5">
-            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M3 4.5L6 7.5L9 4.5" stroke="#26292E" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
+          {/* Flecha Chevron hacia abajo oficial de Figma: M239 10L243 14L247 10 */}
+          <div className="shrink-0 pl-1 flex items-center justify-center">
+            <svg width="10" height="6" viewBox="0 0 10 6" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M1 1L5 5L9 1" stroke="#26292E" strokeWidth="1.33333" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
           </div>
         </button>
@@ -214,7 +274,7 @@ export default function MiWinSeguimiento() {
               <div className="flex flex-col px-3 py-2 max-h-[60vh] overflow-y-auto">
                 {visitas.map((v, idx) => {
                   const isSelected = v.token === selectedToken;
-                  const itemTitle = v.producto || v.titulo;
+                  const itemTitle = getPlanDisplayName(v);
 
                   return (
                     <div key={v.token}>
@@ -228,12 +288,18 @@ export default function MiWinSeguimiento() {
                         }`}
                       >
                         <div className="flex items-start gap-3 min-w-0 pr-3">
-                          {/* Icono de Casa según Figma */}
+                          {/* Icono de Casa / Antena según Figma */}
                           <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${
                             isSelected ? 'bg-[#FFEFE7]' : 'bg-gray-100'
                           }`}>
-                            <svg width="15" height="15" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-                              <path d="M2.667 6.667L8 2.667L13.333 6.667V13.333H10.667V9.333H5.333V13.333H2.667V6.667Z" stroke={isSelected ? "#FF5A0A" : "#616E79"} strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
+                            <svg width="15" height="15" viewBox="0 0 16 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                              <path 
+                                d="M10.6666 12.9163C13.0211 13.3792 14.6666 14.4365 14.6666 15.6667C14.6666 17.3235 11.6818 18.6667 7.99992 18.6667C4.31802 18.6667 1.33325 17.3235 1.33325 15.6667C1.33325 14.4365 2.97871 13.3792 5.33325 12.9163M7.99992 15.3333V10M7.99992 10C9.10449 10 9.99992 9.10457 9.99992 8C9.99992 6.89543 9.10449 6 7.99992 6C6.89535 6 5.99992 6.89543 5.99992 8C5.99992 9.10457 6.89535 10 7.99992 10Z" 
+                                stroke={isSelected ? "#FF5A0A" : "#616E79"} 
+                                strokeWidth="1.33333" 
+                                strokeLinecap="round" 
+                                strokeLinejoin="round"
+                              />
                             </svg>
                           </div>
 
@@ -244,11 +310,6 @@ export default function MiWinSeguimiento() {
                             <span className="text-[12px] text-gray-500 leading-snug mt-0.5 line-clamp-2">
                               {v.direccion}
                             </span>
-                            {v.ticketLabel && v.tipo === 'ticket' && (
-                              <span className="text-[11px] text-[#FF5A0A] font-medium mt-0.5">
-                                {v.ticketLabel}
-                              </span>
-                            )}
                           </div>
                         </div>
 
