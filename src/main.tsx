@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom/client'
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import Index from '@/pages/Index'
 import Seguimiento from '@/pages/Seguimiento'
+import MiWinSeguimiento from '@/pages/MiWinSeguimiento'
 import './index.css'
 import { Toaster } from "@/components/ui/toaster"
 import { ThemeProvider } from '@/components/ThemeProvider'
@@ -21,6 +22,8 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
         <Routes>
           <Route path="/" element={<Index />} />
           <Route path="/seguimiento/:token" element={<Seguimiento />} />
+          <Route path="/miwin/:dni" element={<MiWinSeguimiento />} />
+          <Route path="/miwin" element={<MiWinSeguimiento />} />
           <Route path="/admin" element={<div className="p-10 min-h-screen text-center text-xl">Admin Page</div>} />
         </Routes>
         <Toaster />

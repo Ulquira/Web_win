@@ -354,6 +354,151 @@ app.get('/api/v1/terceros/instalaciones/:token', verificarTercero, async (req, r
   }
 });
 
+// Endpoint exclusivo MiWIN: Consulta multi-visitas por DNI del cliente
+app.get('/api/v1/terceros/cliente/visitas/:dni', verificarTercero, async (req, res) => {
+  const { dni } = req.params;
+  const cleanDni = String(dni || '').trim();
+
+  if (!cleanDni || cleanDni.length < 5) {
+    return res.status(400).json({ success: false, message: 'Número de documento inválido' });
+  }
+
+  const cacheKey = `dni_visitas_${cleanDni}`;
+  const cached = memoryCache.get(cacheKey);
+  if (cached && cached.expiresAt > Date.now()) {
+    return res.json(cached.data);
+  }
+
+  try {
+    // 1. Consultar órdenes en VW_WinORdeTraba (o Testmantra como fallback)
+    const querySQL = `
+      SELECT 
+        w.OrdenId AS idoperacion,
+        w.Estado,
+        w.\`Estado OT\` AS SubEstado,
+        w.token,
+        w.Pin_token,
+        w.CodiSegui AS codisegui,
+        w.CodiSeguiClien AS codiseguiclien,
+        w.Producto AS producto,
+        w.Direccion AS direccion,
+        DATE(w.\`F.Soli\`) AS fecha_programacion,
+        TIME(w.\`F.Soli\`) AS tramo,
+        w.ClienteFinal AS nom_cliente,
+        ts.Tipo AS tipo_servicio
+      FROM VW_WinORdeTraba w
+      LEFT JOIN tiposervicio ts ON UPPER(TRIM(w.Producto)) = UPPER(TRIM(ts.Servicio))
+      WHERE w.\`Número Documento\` = ?
+      ORDER BY w.\`F.Soli\` DESC, w.OrdenId DESC
+    `;
+
+    let [rows] = await pool.query(querySQL, [cleanDni]);
+    let list = rows as any[];
+
+    if (list.length === 0) {
+      const [testRows] = await pool.query(
+        `SELECT 
+          w.OrdenId AS idoperacion,
+          w.Estado,
+          w.\`Estado OT\` AS SubEstado,
+          w.token,
+          w.Pin_token,
+          w.CodiSegui AS codisegui,
+          w.CodiSeguiClien AS codiseguiclien,
+          w.Producto AS producto,
+          w.Direccion AS direccion,
+          DATE(w.\`F.Soli\`) AS fecha_programacion,
+          TIME(w.\`F.Soli\`) AS tramo,
+          w.ClienteFinal AS nom_cliente,
+          ts.Tipo AS tipo_servicio
+        FROM Testmantra w
+        LEFT JOIN tiposervicio ts ON UPPER(TRIM(w.Producto)) = UPPER(TRIM(ts.Servicio))
+        WHERE w.\`Número Documento\` = ?
+        ORDER BY w.\`F.Soli\` DESC, w.OrdenId DESC`,
+        [cleanDni]
+      );
+      list = testRows as any[];
+    }
+
+    if (list.length === 0) {
+      return res.json({ success: true, count: 0, visitas: [], cliente_nombre: null });
+    }
+
+    // 2. Agrupar por caso (CodiSegui o CodiSeguiClien o idoperacion) para no duplicar regestiones del mismo ticket
+    const casesMap = new Map<string, any>();
+
+    for (const item of list) {
+      const caseKey = item.codisegui || item.codiseguiclien || `ord_${item.idoperacion}`;
+      if (!casesMap.has(caseKey)) {
+        casesMap.set(caseKey, item);
+      }
+    }
+
+    const uniqueCases = Array.from(casesMap.values());
+    const clienteNombre = list[0].nom_cliente || 'Cliente';
+
+    // 3. Formatear cada visita con sus tokens y labels para MiWIN
+    const visitas = uniqueCases.map((op) => {
+      const tipoServicioUpper = (op.tipo_servicio || '').toUpperCase().trim();
+      const productoUpper = (op.producto || '').toUpperCase().trim();
+      const isTicket = tipoServicioUpper === 'AVERIAS' || productoUpper.includes('AVERIA') || productoUpper === 'MOTOWIN';
+
+      let statusFront = 'programada';
+      const estadoDB = (op.Estado || '').toUpperCase().trim();
+      if (estadoDB === 'PENDIENTE') statusFront = 'programada';
+      else if (estadoDB === 'AGENDADA' || estadoDB === 'PROGRAMADO') statusFront = 'asignado';
+      else if (estadoDB === 'EN CAMINO') statusFront = 'en_camino';
+      else if (estadoDB === 'INICIADA' || estadoDB === 'EN PROCESO') statusFront = 'en_proceso';
+      else if (estadoDB === 'FINALIZADA' || estadoDB === 'FINALIZADO') statusFront = 'finalizada';
+      else if (['ANULADA', 'REGESTION', 'CANCELADA', 'REVISIÓN', 'REVISION', 'AUSENTE', 'CANCELADO', 'DULPLICADO', 'INASISTENCIA', 'PEXT', 'REPROGRAMA'].includes(estadoDB)) {
+        statusFront = 'cerrada';
+      }
+
+      // Nombre amigable del servicio
+      let titulo = isTicket ? 'Avería' : 'Instalación';
+      if (productoUpper.includes('MOTO')) titulo = 'Avería Motowin';
+      else if (productoUpper.includes('PLANTA EXTERNA')) titulo = 'Avería Planta Externa';
+
+      // Etiqueta de ticket o código
+      const ticketLabel = op.codisegui ? `Ticket: ${op.codisegui}` : (isTicket ? `Ticket: ${op.idoperacion}` : 'Instalación');
+
+      return {
+        idoperacion: op.idoperacion,
+        token: op.token,
+        pin_token: op.Pin_token || null,
+        tipo: isTicket ? 'ticket' : 'instalacion',
+        titulo,
+        ticketLabel,
+        codisegui: op.codisegui || null,
+        producto: op.producto || (isTicket ? 'Visita Técnica' : 'Instalación Fibra'),
+        direccion: op.direccion || 'Dirección registrada',
+        estado: statusFront,
+        estado_raw: op.Estado,
+        fecha: op.fecha_programacion,
+        tramo: op.tramo
+      };
+    });
+
+    const payload = {
+      success: true,
+      count: visitas.length,
+      cliente_nombre: clienteNombre,
+      visitas
+    };
+
+    memoryCache.set(cacheKey, {
+      data: payload,
+      expiresAt: Date.now() + CACHE_TTL_MS
+    });
+
+    res.json(payload);
+
+  } catch (error) {
+    console.error('Error DB en /api/v1/terceros/cliente/visitas:', error);
+    res.status(500).json({ success: false, message: 'Error interno consultando visitas' });
+  }
+});
+
 // Endpoint para guardar Encuestas (Oculto al mundo exterior directo sin llave)
 app.post('/api/encuesta', verificarTercero, async (req, res) => {
   const { 

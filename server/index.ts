@@ -428,6 +428,44 @@ app.get('/api/instalaciones/:token', async (req, res) => {
   }
 });
 
+// Endpoint MiWIN: Consulta de atenciones por DNI
+app.get('/api/cliente/visitas/:dni', async (req, res) => {
+  const { dni } = req.params;
+  const cleanDni = String(dni || '').trim();
+
+  if (!cleanDni || cleanDni.length < 5) {
+    return res.status(400).json({ success: false, message: 'DNI inválido' });
+  }
+
+  const cacheKey = `cliente_visitas_${cleanDni}`;
+  const cached = apiCache.get(cacheKey);
+  if (cached && cached.expiresAt > Date.now()) {
+    return res.json(cached.data);
+  }
+
+  try {
+    const capaResponse = await fetch(`${CAPA_INTERMEDIA_URL}/api/v1/terceros/cliente/visitas/${cleanDni}`, {
+      headers: { 'Authorization': `Bearer ${SECRET_API_KEY}` }
+    });
+
+    if (!capaResponse.ok) {
+      return res.status(502).json({ success: false, message: 'Error consultando visitas del cliente' });
+    }
+
+    const data = await capaResponse.json();
+
+    apiCache.set(cacheKey, {
+      data,
+      expiresAt: Date.now() + INST_CACHE_TTL_MS
+    });
+
+    res.json(data);
+  } catch (error) {
+    console.error('Error en /api/cliente/visitas:', error);
+    res.status(500).json({ success: false, message: 'Error interno consultando visitas' });
+  }
+});
+
 // Endpoint para calcular la ruta con tráfico real usando Google Maps API
 app.post('/api/route', async (req, res) => {
   const { start, end } = req.body;

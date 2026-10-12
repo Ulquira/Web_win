@@ -123,8 +123,13 @@ export interface InstalacionData {
  tipo?: 'instalacion' | 'ticket';
 }
 
-const Seguimiento = () => {
- const { token } = useParams<{ token: string }>();
+interface SeguimientoProps {
+  customToken?: string;
+}
+
+const Seguimiento = ({ customToken }: SeguimientoProps = {}) => {
+ const { token: paramToken } = useParams<{ token: string }>();
+ const token = customToken || paramToken;
  const navigate = useNavigate();
  
  const [data, setData] = useState<InstalacionData | null>(null);
