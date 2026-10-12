@@ -125,9 +125,10 @@ export interface InstalacionData {
 
 interface SeguimientoProps {
   customToken?: string;
+  renderServiceSelector?: () => React.ReactNode;
 }
 
-const Seguimiento = ({ customToken }: SeguimientoProps = {}) => {
+const Seguimiento = ({ customToken, renderServiceSelector }: SeguimientoProps = {}) => {
  const { token: paramToken } = useParams<{ token: string }>();
  const token = customToken || paramToken;
  const navigate = useNavigate();
@@ -1213,8 +1214,11 @@ return (
  {/* Scrollable Content inside Sheet */}
  <div className={`flex-1 overflow-y-auto px-5 pb-32 scrollbar-hide pt-0 ${status === 'en_camino' && sheetHeight <= 30 ? 'hidden' : ''}`}>
  
+ {/* Selector de Servicios en MiWIN (Frame Figma encima de la tarjeta) */}
+ {renderServiceSelector && renderServiceSelector()}
+
  {/* Info Card de Visita (Frame 14804 de Figma) */}
- <div className={`border border-gray-100 rounded-[24px] p-5 mb-6 bg-white shadow-[0_4px_20px_rgba(0,0,0,0.03)] mt-4`}>
+ <div className={`border border-gray-100 rounded-[24px] p-5 mb-6 bg-white shadow-[0_4px_20px_rgba(0,0,0,0.03)] ${renderServiceSelector ? 'mt-2' : 'mt-4'}`}>
  <div className="flex flex-col gap-3.5">
    {/* Día */}
    <div className="flex justify-between items-center">

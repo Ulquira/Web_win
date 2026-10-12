@@ -117,54 +117,57 @@ export default function MiWinSeguimiento() {
     );
   }
 
+  // Componente del Selector de Servicio que se inserta de forma nativa en la vista
+  const renderServiceSelector = () => {
+    if (visitas.length <= 1) return null;
+
+    // Obtener el nombre del servicio o plan para mostrar en la píldora (como en Figma: "Mono 200 Mbps - NOV23")
+    const displayLabel = selectedVisita?.producto || selectedVisita?.titulo || 'Mi Servicio';
+
+    return (
+      <div className="w-full flex justify-center mb-1 mt-1">
+        <button
+          type="button"
+          onClick={() => setIsSelectorOpen(true)}
+          className="inline-flex items-center justify-between gap-2.5 bg-white hover:bg-gray-50 active:scale-98 border border-gray-100 shadow-[0_2px_10px_rgba(0,0,0,0.04)] rounded-full px-4 py-2 transition-all cursor-pointer max-w-full"
+        >
+          {/* Icono de red/servicio naranja como en Figma */}
+          <div className="w-4 h-4 rounded-full text-[#FF5A0A] flex items-center justify-center shrink-0">
+            <svg width="15" height="15" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M2.667 6.667L8 2.667L13.333 6.667V13.333H10.667V9.333H5.333V13.333H2.667V6.667Z" stroke="#FF5A0A" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          </div>
+
+          {/* Nombre del servicio */}
+          <span className="text-[13px] font-bold text-[#26292E] tracking-tight truncate max-w-[240px]">
+            {displayLabel}
+          </span>
+
+          {/* Flecha Chevron hacia abajo */}
+          <div className="shrink-0 text-gray-500 pl-0.5">
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M3 4.5L6 7.5L9 4.5" stroke="#26292E" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          </div>
+        </button>
+      </div>
+    );
+  };
+
   return (
     <div className="relative min-h-screen w-full bg-[#F4F5F7] overflow-x-hidden">
-      {/* 
-        Si el cliente tiene más de 1 visita, renderizamos en la parte superior 
-        el Selector Pill de Figma Frame 1 (375x44)
-      */}
-      {visitas.length > 1 && (
-        <div className="sticky top-0 z-40 w-full max-w-md mx-auto bg-white border-b border-gray-100 shadow-sm px-4 py-2 flex items-center justify-center">
-          <button
-            onClick={() => setIsSelectorOpen(true)}
-            className="w-full flex items-center justify-between bg-white hover:bg-gray-50 active:scale-[0.99] border border-gray-200/80 rounded-[18px] px-3.5 py-2.5 transition-all shadow-sm"
-          >
-            <div className="flex items-center gap-2.5 min-w-0">
-              {/* Icono de servicio según Figma (Pin / Ubicación / Casa) */}
-              <div className="w-6 h-6 rounded-full bg-[#FFEFE7] flex items-center justify-center shrink-0">
-                <svg width="14" height="14" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M2.667 6.667L8 2.667L13.333 6.667V13.333H10.667V9.333H5.333V13.333H2.667V6.667Z" stroke="#FF5A0A" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
-              </div>
-              <div className="flex flex-col text-left truncate">
-                <span className="text-[13px] font-bold text-[#26292E] leading-tight truncate">
-                  {selectedVisita?.titulo} • {selectedVisita?.ticketLabel}
-                </span>
-                <span className="text-[11px] text-gray-500 truncate">
-                  {selectedVisita?.direccion}
-                </span>
-              </div>
-            </div>
-
-            {/* Chevron hacia abajo según Figma */}
-            <div className="shrink-0 pl-2">
-              <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M3 4.5L6 7.5L9 4.5" stroke="#26292E" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
-            </div>
-          </button>
-        </div>
-      )}
-
-      {/* Vista de seguimiento embebida reutilizando el token activo */}
+      {/* Vista de seguimiento embebida inyectándole el selector interno */}
       {selectedToken && (
         <div key={selectedToken} className="w-full">
-          <Seguimiento customToken={selectedToken} />
+          <Seguimiento 
+            customToken={selectedToken} 
+            renderServiceSelector={renderServiceSelector}
+          />
         </div>
       )}
 
       {/* 
-        BOTTOM SHEET MODAL DE SELECCIÓN (FIGMA FRAME 2: 375x352)
+        BOTTOM SHEET MODAL DE SELECCIÓN (FIGMA FRAME 2: "Selecciona un servicio")
       */}
       <AnimatePresence>
         {isSelectorOpen && (
@@ -194,7 +197,7 @@ export default function MiWinSeguimiento() {
               {/* Cabecera del Bottom Sheet */}
               <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100">
                 <h3 className="text-[16px] font-bold text-[#26292E] tracking-tight">
-                  Selecciona la visita
+                  Selecciona un servicio
                 </h3>
                 {/* Botón X de cierre según Figma */}
                 <button
@@ -211,6 +214,8 @@ export default function MiWinSeguimiento() {
               <div className="flex flex-col px-3 py-2 max-h-[60vh] overflow-y-auto">
                 {visitas.map((v, idx) => {
                   const isSelected = v.token === selectedToken;
+                  const itemTitle = v.producto || v.titulo;
+
                   return (
                     <div key={v.token}>
                       <div
@@ -222,33 +227,33 @@ export default function MiWinSeguimiento() {
                           isSelected ? 'bg-[#FFF9F5]' : 'hover:bg-gray-50'
                         }`}
                       >
-                        <div className="flex items-center gap-3 min-w-0 pr-3">
-                          {/* Icono de Casa / Edificio según Figma */}
-                          <div className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 ${
+                        <div className="flex items-start gap-3 min-w-0 pr-3">
+                          {/* Icono de Casa según Figma */}
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${
                             isSelected ? 'bg-[#FFEFE7]' : 'bg-gray-100'
                           }`}>
-                            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <svg width="15" height="15" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
                               <path d="M2.667 6.667L8 2.667L13.333 6.667V13.333H10.667V9.333H5.333V13.333H2.667V6.667Z" stroke={isSelected ? "#FF5A0A" : "#616E79"} strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
                             </svg>
                           </div>
 
                           <div className="flex flex-col text-left min-w-0">
                             <span className="text-[14px] font-bold text-[#26292E] leading-snug truncate">
-                              {v.titulo} ({v.ticketLabel})
+                              {itemTitle}
                             </span>
-                            <span className="text-[12px] text-gray-500 truncate leading-snug mt-0.5">
+                            <span className="text-[12px] text-gray-500 leading-snug mt-0.5 line-clamp-2">
                               {v.direccion}
                             </span>
-                            {v.fecha && (
+                            {v.ticketLabel && v.tipo === 'ticket' && (
                               <span className="text-[11px] text-[#FF5A0A] font-medium mt-0.5">
-                                {v.fecha} {v.tramo ? `• ${v.tramo}` : ''}
+                                {v.ticketLabel}
                               </span>
                             )}
                           </div>
                         </div>
 
                         {/* Radio Button Custom Figma */}
-                        <div className="shrink-0 flex items-center justify-center">
+                        <div className="shrink-0 flex items-center justify-center pl-2">
                           {isSelected ? (
                             <div className="w-[23px] h-[23px] rounded-full border border-[#FF5A0A] bg-[#FFF6ED] flex items-center justify-center">
                               <div className="w-[10px] h-[10px] rounded-full bg-[#FF5A0A]" />
