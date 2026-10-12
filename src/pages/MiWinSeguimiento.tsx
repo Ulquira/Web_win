@@ -46,7 +46,17 @@ export default function MiWinSeguimiento() {
       try {
         setLoading(true);
         setErrorMsg(null);
-        const res = await fetch(`${import.meta.env.VITE_API_URL}/api/cliente/visitas/${dni}`);
+        const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+        let res = await fetch(`${baseUrl}/api/cliente/visitas/${dni}`);
+        
+        // Fallback al backend local si el entorno remoto no tiene aún el endpoint
+        if (!res.ok && baseUrl !== 'http://localhost:3001') {
+          try {
+            const localRes = await fetch(`http://localhost:3001/api/cliente/visitas/${dni}`);
+            if (localRes.ok) res = localRes;
+          } catch {}
+        }
+
         if (!res.ok) {
           throw new Error("No se pudieron cargar las visitas.");
         }
