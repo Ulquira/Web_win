@@ -1087,34 +1087,32 @@ return (
    {/* Floating Pin Token Overlay - Encima del mapa, homologado con Figma (Pasted Image / FirmaNuevoSVG) */}
    {displayPin && (
      <div 
-       className="absolute left-1/2 -translate-x-1/2 z-10 w-[94%] max-w-[365px] transition-all duration-300 pointer-events-auto cursor-pointer"
+       className="absolute left-1/2 -translate-x-1/2 z-10 w-[94%] max-w-[380px] transition-all duration-300 pointer-events-auto cursor-pointer"
        style={{
          bottom: sheetHeight > 30 ? 'calc(85vh + 12px)' : '110px'
        }}
        onClick={() => handleCopyPin(displayPin)}
        title={pinCopied ? "¡Código copiado!" : "Toca para copiar código"}
      >
-       <div className="bg-[#FFF6ED] rounded-[18px] px-4 py-2.5 shadow-[0_4px_16px_rgba(255,90,10,0.14)] border border-[#FFE7D4] flex items-center justify-between gap-3 select-none active:scale-[0.99] transition-transform">
+       <div className="bg-[#FFF6ED] rounded-[24px] pl-3.5 pr-4 py-2.5 shadow-[0_4px_16px_rgba(0,0,0,0.06)] border border-[#FFE7D4] flex items-center justify-between gap-2.5 select-none active:scale-[0.99] transition-transform">
          <div className="flex items-center gap-2.5 min-w-0 flex-1">
-           {/* Escudo de seguridad naranja oficial Figma */}
-           <div className="w-8 h-8 rounded-full bg-[#FF5A0A]/10 flex items-center justify-center shrink-0">
-             <svg width="20" height="22" viewBox="0 0 20 22" fill="none" xmlns="http://www.w3.org/2000/svg" className="shrink-0">
-               <path d="M19 8.25C19 12 16.375 13.875 13.255 14.9625C13.0916 15.0179 12.9142 15.0153 12.7525 14.955C9.625 13.875 7 12 7 8.25V3C7 2.80109 7.07902 2.61032 7.21967 2.46967C7.36032 2.32902 7.55109 2.25 7.75 2.25C9.25 2.25 11.125 1.35 12.43 0.210001C12.5889 0.0746002 12.791 0 13 0C13.209 0 13.4111 0.0746002 13.57 0.210001C14.8825 1.3575 16.75 2.25 18.25 2.25C18.4489 2.25 18.6397 2.32902 18.7803 2.46967C18.921 2.61032 19 2.80109 19 3V8.25Z" stroke="#FF5A0A" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
-               <path d="M10.75 7.5L12.25 9L15.25 6" stroke="#FF5A0A" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
-             </svg>
-           </div>
+           {/* Escudo de seguridad naranja oficial Figma sin círculo de fondo */}
+           <svg width="22" height="24" viewBox="0 0 20 22" fill="none" xmlns="http://www.w3.org/2000/svg" className="shrink-0">
+             <path d="M19 8.25C19 12 16.375 13.875 13.255 14.9625C13.0916 15.0179 12.9142 15.0153 12.7525 14.955C9.625 13.875 7 12 7 8.25V3C7 2.80109 7.07902 2.61032 7.21967 2.46967C7.36032 2.32902 7.55109 2.25 7.75 2.25C9.25 2.25 11.125 1.35 12.43 0.210001C12.5889 0.0746002 12.791 0 13 0C13.209 0 13.4111 0.0746002 13.57 0.210001C14.8825 1.3575 16.75 2.25 18.25 2.25C18.4489 2.25 18.6397 2.32902 18.7803 2.46967C18.921 2.61032 19 2.80109 19 3V8.25Z" stroke="#FF5A0A" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+             <path d="M10.75 7.5L12.25 9L15.25 6" stroke="#FF5A0A" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+           </svg>
            <div className="flex flex-col text-left min-w-0">
-             <span className="text-[14px] font-bold text-[#FF5A0A] leading-tight">Código de validación</span>
-             <span className="text-[11px] text-[#FF5A0A] leading-tight mt-0.5 font-normal truncate">
+             <span className="text-[14px] font-bold text-[#FF5A0A] leading-tight">Código de seguimiento</span>
+             <span className="text-[11px] text-[#FF5A0A] leading-tight mt-0.5 font-normal">
                {pinCopied ? "¡Código copiado al portapapeles!" : "Brinda este código al técnico para iniciar tu visita"}
              </span>
            </div>
          </div>
 
-         {/* Código destacado en color naranja */}
-         <div className="shrink-0 flex items-center">
-           <span className="text-[20px] font-extrabold text-[#FF5A0A] tracking-[0.18em] font-sans">
-             {displayPin.split('').join(' ')}
+         {/* Código destacado en color naranja más pegado y con fuente más moderada */}
+         <div className="shrink-0 flex items-center pl-1">
+           <span className="text-[17px] font-extrabold text-[#FF5A0A] tracking-[0.14em] font-sans">
+             {displayPin}
            </span>
          </div>
        </div>
