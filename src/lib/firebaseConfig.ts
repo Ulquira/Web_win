@@ -2,13 +2,13 @@ import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getAnalytics, isSupported, logEvent, Analytics } from 'firebase/analytics';
 
 const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "",
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "",
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || "",
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || "",
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "",
-  appId: import.meta.env.VITE_FIREBASE_APP_ID || "",
-  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID || "",
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "AIzaSyAXszU1L5M-1H73V94vwWvoMQ7buzsAOkc",
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "dynamic-radar-470920-g9.firebaseapp.com",
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || "dynamic-radar-470920-g9",
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || "dynamic-radar-470920-g9.firebasestorage.app",
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "890927779001",
+  appId: import.meta.env.VITE_FIREBASE_APP_ID || "1:890927779001:web:caba1676ca6e01ec225f68",
+  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID || "G-PJ9989CHGF",
 };
 
 // Inicializar Firebase app (evitar duplicados)
@@ -70,7 +70,12 @@ export const trackEvent = async (eventName: string, eventParams?: Record<string,
       const detalles = { ...eventParams };
       delete detalles.token;
 
-      fetch(`${import.meta.env.VITE_API_URL}/api/log`, {
+      const isLocalHost = typeof window !== 'undefined' && (
+        window.location.hostname === 'localhost' || 
+        window.location.hostname === '127.0.0.1'
+      );
+      const apiBase = isLocalHost ? 'http://localhost:3001' : (import.meta.env.VITE_API_URL || 'https://webwin-api-service.azurewebsites.net');
+      fetch(`${apiBase}/api/log`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

@@ -99,8 +99,13 @@ export default function MiWinSeguimiento() {
     async function fetchVisitas() {
       try {
         setLoading(true);
-        setErrorMsg(null);
-        const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+        const isLocalHost = typeof window !== 'undefined' && (
+          window.location.hostname === 'localhost' || 
+          window.location.hostname === '127.0.0.1'
+        );
+        const baseUrl = isLocalHost 
+          ? 'http://localhost:3001' 
+          : (import.meta.env.VITE_API_URL || 'https://webwin-api-service.azurewebsites.net');
         let res = await fetch(`${baseUrl}/api/cliente/visitas/${dni}`);
         
         // Fallback al backend local si el entorno remoto no tiene aún el endpoint
