@@ -87,6 +87,7 @@ export default function MiWinSeguimiento() {
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [isSelectorOpen, setIsSelectorOpen] = useState(false);
+  const [inputDoc, setInputDoc] = useState(dni);
 
   useEffect(() => {
     if (!dni || dni.length < 5) {
@@ -156,19 +157,44 @@ export default function MiWinSeguimiento() {
     );
   }
 
+  const handleBuscarDoc = (e: React.FormEvent) => {
+    e.preventDefault();
+    const clean = inputDoc.trim();
+    if (clean.length >= 5) {
+      navigate(`/miwin/${clean}`);
+    }
+  };
+
   if (errorMsg || visitas.length === 0) {
     return (
-      <div className="min-h-screen bg-white flex flex-col items-center justify-center p-6 text-center">
+      <div className="min-h-screen bg-white flex flex-col items-center justify-center p-6 text-center font-sans">
         <div className="w-16 h-16 rounded-full bg-[#FFF6ED] flex items-center justify-center mb-4">
           <AlertCircle className="w-8 h-8 text-[#FF5A0A]" />
         </div>
-        <h2 className="text-[18px] font-bold text-[#26292E] mb-2">Visitas no encontradas</h2>
+        <h2 className="text-[20px] font-bold text-[#26292E] mb-2">Consulta de Visitas Mi WIN</h2>
         <p className="text-[14px] text-gray-500 max-w-xs mb-6 leading-relaxed">
-          {errorMsg || "No se encontraron atenciones activas asociadas a este documento."}
+          {errorMsg || "Ingresa tu número de documento para consultar tus visitas técnicas o instalaciones activas."}
         </p>
+
+        <form onSubmit={handleBuscarDoc} className="w-full max-w-xs flex flex-col gap-3 mb-4">
+          <input
+            type="text"
+            value={inputDoc}
+            onChange={(e) => setInputDoc(e.target.value)}
+            placeholder="Número de DNI o RUC"
+            className="w-full h-12 px-4 rounded-xl border border-gray-300 text-center text-[15px] font-semibold text-[#26292E] focus:outline-none focus:border-[#FF5A0A]"
+          />
+          <button
+            type="submit"
+            className="w-full h-12 rounded-xl bg-[#FF5A0A] text-white text-[14px] font-bold shadow-md hover:bg-[#E04E07] transition-all cursor-pointer"
+          >
+            Consultar visitas
+          </button>
+        </form>
+
         <button
           onClick={() => navigate('/')}
-          className="px-6 py-3 rounded-full bg-[#FF5A0A] text-white text-[14px] font-bold shadow-md hover:bg-[#E04E07] transition-all"
+          className="text-gray-400 hover:text-gray-600 text-[13px] font-medium transition-colors"
         >
           Volver al inicio
         </button>

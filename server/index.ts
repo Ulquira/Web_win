@@ -630,7 +630,7 @@ app.get('/api/instalaciones/:token', async (req, res) => {
   }
 });
 
-// Endpoint MiWIN: Consulta de atenciones por DNI
+// Endpoint MiWIN: Consulta de atenciones por DNI con fallback directo a base de datos
 app.get('/api/cliente/visitas/:dni', async (req, res) => {
   const { dni } = req.params;
   const cleanDni = String(dni || '').trim();
@@ -646,15 +646,133 @@ app.get('/api/cliente/visitas/:dni', async (req, res) => {
   }
 
   try {
-    const capaResponse = await fetch(`${CAPA_INTERMEDIA_URL}/api/v1/terceros/cliente/visitas/${cleanDni}`, {
-      headers: { 'Authorization': `Bearer ${SECRET_API_KEY}` }
-    });
+    let data: any = null;
 
-    if (!capaResponse.ok) {
-      return res.status(502).json({ success: false, message: 'Error consultando visitas del cliente' });
+    try {
+      const capaResponse = await fetch(`${CAPA_INTERMEDIA_URL}/api/v1/terceros/cliente/visitas/${cleanDni}`, {
+        headers: { 'Authorization': `Bearer ${SECRET_API_KEY}` }
+      });
+      if (capaResponse.ok) {
+        data = await capaResponse.json();
+      }
+    } catch {
+      // Fallback a consulta directa
     }
 
-    const data = await capaResponse.json();
+    if (!data) {
+      const querySQL = `
+        SELECT 
+          w.OrdenId AS idoperacion,
+          w.Estado,
+          w.\`Estado OT\` AS SubEstado,
+          w.token,
+          w.Pin_token,
+          w.CodiSegui AS codisegui,
+          w.CodiSeguiClien AS codiseguiclien,
+          w.Producto AS producto,
+          w.IdenServi AS campana,
+          w.Direccion AS direccion,
+          DATE(w.\`F.Soli\`) AS fecha_programacion,
+          TIME(w.\`F.Soli\`) AS tramo,
+          w.ClienteFinal AS nom_cliente,
+          ts.Tipo AS tipo_servicio
+        FROM VW_WinORdeTraba w
+        LEFT JOIN tiposervicio ts ON UPPER(TRIM(w.Producto)) = UPPER(TRIM(ts.Servicio))
+        WHERE (REPLACE(w.\`Número Documento\`, '*', '') = ? OR w.\`Número Documento\` = ?)
+        ORDER BY w.\`F.Soli\` DESC, w.OrdenId DESC
+      `;
+
+      let [rows]: any = await pool.query(querySQL, [cleanDni, cleanDni]);
+      let list = rows as any[];
+
+      if (list.length === 0) {
+        const [testRows]: any = await pool.query(
+          `SELECT 
+            w.OrdenId AS idoperacion,
+            w.Estado,
+            w.\`Estado OT\` AS SubEstado,
+            w.token,
+            w.Pin_token,
+            w.CodiSegui AS codisegui,
+            w.CodiSeguiClien AS codiseguiclien,
+            w.Producto AS producto,
+            w.IdenServi AS campana,
+            w.Direccion AS direccion,
+            DATE(w.\`F.Soli\`) AS fecha_programacion,
+            TIME(w.\`F.Soli\`) AS tramo,
+            w.ClienteFinal AS nom_cliente,
+            ts.Tipo AS tipo_servicio
+          FROM Testmantra w
+          LEFT JOIN tiposervicio ts ON UPPER(TRIM(w.Producto)) = UPPER(TRIM(ts.Servicio))
+          WHERE (REPLACE(w.\`Número Documento\`, '*', '') = ? OR w.\`Número Documento\` = ?)
+          ORDER BY w.\`F.Soli\` DESC, w.OrdenId DESC`,
+          [cleanDni, cleanDni]
+        );
+        list = testRows as any[];
+      }
+
+      if (list.length === 0) {
+        data = { success: true, count: 0, cliente_nombre: null, visitas: [] };
+      } else {
+        const casesMap = new Map<string, any>();
+        for (const item of list) {
+          const caseKey = item.codisegui || item.codiseguiclien || `ord_${item.idoperacion}`;
+          if (!casesMap.has(caseKey)) {
+            casesMap.set(caseKey, item);
+          }
+        }
+
+        const uniqueCases = Array.from(casesMap.values());
+        const clienteNombre = list[0].nom_cliente || 'Cliente';
+
+        const visitas = uniqueCases.map((op: any) => {
+          const tipoServicioUpper = (op.tipo_servicio || '').toUpperCase().trim();
+          const productoUpper = (op.producto || '').toUpperCase().trim();
+          const isTicket = tipoServicioUpper === 'AVERIAS' || productoUpper.includes('AVERIA') || productoUpper === 'MOTOWIN';
+
+          let statusFront = 'programada';
+          const estadoDB = (op.Estado || '').toUpperCase().trim();
+          if (estadoDB === 'PENDIENTE') statusFront = 'programada';
+          else if (estadoDB === 'AGENDADA' || estadoDB === 'PROGRAMADO') statusFront = 'asignado';
+          else if (estadoDB === 'EN CAMINO') statusFront = 'en_camino';
+          else if (estadoDB === 'INICIADA' || estadoDB === 'EN PROCESO') statusFront = 'en_proceso';
+          else if (estadoDB === 'FINALIZADA' || estadoDB === 'FINALIZADO') statusFront = 'finalizada';
+          else if (['ANULADA', 'REGESTION', 'CANCELADA', 'REVISIÓN', 'REVISION', 'AUSENTE', 'CANCELADO', 'DULPLICADO', 'INASISTENCIA', 'PEXT', 'REPROGRAMA'].includes(estadoDB)) {
+            statusFront = 'cerrada';
+          }
+
+          let titulo = isTicket ? 'Avería' : 'Instalación';
+          if (productoUpper.includes('MOTO')) titulo = 'Avería Motowin';
+          else if (productoUpper.includes('PLANTA EXTERNA')) titulo = 'Avería Planta Externa';
+
+          const ticketLabel = op.codisegui ? `Ticket: ${op.codisegui}` : (isTicket ? `Ticket: ${op.idoperacion}` : 'Instalación');
+
+          return {
+            idoperacion: op.idoperacion,
+            token: op.token,
+            pin_token: op.Pin_token || null,
+            tipo: isTicket ? 'ticket' : 'instalacion',
+            titulo,
+            ticketLabel,
+            codisegui: op.codisegui || null,
+            producto: op.producto || (isTicket ? 'Visita Técnica' : 'Instalación Fibra'),
+            campana: op.campana || null,
+            direccion: op.direccion || 'Dirección registrada',
+            estado: statusFront,
+            estado_raw: op.Estado,
+            fecha: op.fecha_programacion,
+            tramo: op.tramo
+          };
+        });
+
+        data = {
+          success: true,
+          count: visitas.length,
+          cliente_nombre: clienteNombre,
+          visitas
+        };
+      }
+    }
 
     apiCache.set(cacheKey, {
       data,
