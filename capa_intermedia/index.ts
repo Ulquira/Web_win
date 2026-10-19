@@ -393,11 +393,11 @@ app.get('/api/v1/terceros/cliente/visitas/:dni', verificarTercero, async (req, r
         ts.Tipo AS tipo_servicio
       FROM VW_WinORdeTraba w
       LEFT JOIN tiposervicio ts ON UPPER(TRIM(w.Producto)) = UPPER(TRIM(ts.Servicio))
-      WHERE w.\`Número Documento\` = ?
+      WHERE (REPLACE(w.\`Número Documento\`, '*', '') = ? OR w.\`Número Documento\` = ?)
       ORDER BY w.\`F.Soli\` DESC, w.OrdenId DESC
     `;
 
-    let [rows] = await pool.query(querySQL, [cleanDni]);
+    let [rows] = await pool.query(querySQL, [cleanDni, cleanDni]);
     let list = rows as any[];
 
     if (list.length === 0) {
@@ -419,9 +419,9 @@ app.get('/api/v1/terceros/cliente/visitas/:dni', verificarTercero, async (req, r
           ts.Tipo AS tipo_servicio
         FROM Testmantra w
         LEFT JOIN tiposervicio ts ON UPPER(TRIM(w.Producto)) = UPPER(TRIM(ts.Servicio))
-        WHERE w.\`Número Documento\` = ?
+        WHERE (REPLACE(w.\`Número Documento\`, '*', '') = ? OR w.\`Número Documento\` = ?)
         ORDER BY w.\`F.Soli\` DESC, w.OrdenId DESC`,
-        [cleanDni]
+        [cleanDni, cleanDni]
       );
       list = testRows as any[];
     }
