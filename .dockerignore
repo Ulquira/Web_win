@@ -1,5 +1,11 @@
 node_modules
 dist
-.env
+dist-server
+.env*
 .git
-backup
+backup*
+src
+public
+.agents
+.vscode
+*.md

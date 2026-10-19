@@ -653,7 +653,10 @@ app.get('/api/cliente/visitas/:dni', async (req, res) => {
         headers: { 'Authorization': `Bearer ${SECRET_API_KEY}` }
       });
       if (capaResponse.ok) {
-        data = await capaResponse.json();
+        const json = await capaResponse.json();
+        if (json && json.visitas && json.visitas.length > 0) {
+          data = json;
+        }
       }
     } catch {
       // Fallback a consulta directa
