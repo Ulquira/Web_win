@@ -81,6 +81,36 @@ const SvaServiceIcon = ({ name }: { name: string }) => {
     return <PiLightning className="w-3.5 h-3.5 text-[#FF5A0A]" />;
   }
 
+  // 7. Traslado / Reubicación (Icono de cambio de domicilio / traslado)
+  if (lower.includes('traslado') || lower.includes('reubic')) {
+    return (
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M3 9L12 2L21 9V20C21 20.5304 20.7893 21.0391 20.4142 21.4142C20.0391 21.7893 19.5304 22 19 22H5C4.46957 22 3.96086 21.7893 3.58579 21.4142C3.21071 21.0391 3 20.5304 3 20V9Z" stroke="#FF5A0A" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+        <path d="M9 22V12H15V22" stroke="#FF5A0A" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+      </svg>
+    );
+  }
+
+  // 8. Cambio de ONT / Modem / Router
+  if (lower.includes('ont') || lower.includes('router') || lower.includes('modem') || lower.includes('módem')) {
+    return (
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect x="2" y="14" width="20" height="7" rx="2" stroke="#FF5A0A" strokeWidth="1.5"/>
+        <path d="M6 18H6.01M10 18H10.01" stroke="#FF5A0A" strokeWidth="2" strokeLinecap="round"/>
+        <path d="M16 14V8M19 14V5M13 14V11" stroke="#FF5A0A" strokeWidth="1.5" strokeLinecap="round"/>
+      </svg>
+    );
+  }
+
+  // 9. Recableado / Cableado / UTP / Patchcord
+  if (lower.includes('cable') || lower.includes('recableado') || lower.includes('utp') || lower.includes('patch')) {
+    return (
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M12 2V6M12 18V22M4.93 4.93L7.76 7.76M16.24 16.24L19.07 19.07M2 12H6M18 12H22M4.93 19.07L7.76 16.24M16.24 7.76L19.07 4.93" stroke="#FF5A0A" strokeWidth="1.5" strokeLinecap="round"/>
+      </svg>
+    );
+  }
+
   // Fallback estándar
   return <PiPackage className="w-3.5 h-3.5 text-[#FF5A0A]" />;
 };
@@ -120,13 +150,23 @@ export interface InstalacionData {
  pin_token?: string;
  campana?: string;
  codisegui?: string;
- tipo?: 'instalacion' | 'ticket';
+ tipo?: 'instalacion' | 'ticket' | 'postventa' | string;
+ tipo_servicio?: string;
+ tipo_trabajo?: string;
+ motivo_postventa?: string;
+ producto?: string;
 }
 
 interface SeguimientoProps {
   customToken?: string;
   renderServiceSelector?: () => React.ReactNode;
 }
+
+const isLocalHost = typeof window !== 'undefined' && (
+  window.location.hostname === 'localhost' || 
+  window.location.hostname === '127.0.0.1'
+);
+const API_BASE_URL = isLocalHost ? 'http://localhost:3001' : (import.meta.env.VITE_API_URL || '');
 
 const Seguimiento = ({ customToken, renderServiceSelector }: SeguimientoProps = {}) => {
  const { token: paramToken } = useParams<{ token: string }>();
@@ -215,7 +255,7 @@ const Seguimiento = ({ customToken, renderServiceSelector }: SeguimientoProps = 
      });
 
      // El uso de fetch con keepalive es el estándar moderno y 100% confiable
-     fetch(`${import.meta.env.VITE_API_URL}/api/log`, {
+     fetch(`${API_BASE_URL}/api/log`, {
        method: 'POST',
        headers: { 'Content-Type': 'application/json' },
        body: logData,
@@ -485,7 +525,7 @@ const Seguimiento = ({ customToken, renderServiceSelector }: SeguimientoProps = 
 
    setIsSubmittingReprogram(true);
    try {
-     const response = await fetch(`${import.meta.env.VITE_API_URL}/api/reprogramar`, {
+     const response = await fetch(`${API_BASE_URL}/api/reprogramar`, {
        method: 'POST',
        headers: { 'Content-Type': 'application/json' },
        body: JSON.stringify({
@@ -532,7 +572,7 @@ const Seguimiento = ({ customToken, renderServiceSelector }: SeguimientoProps = 
        facilidad_gestion: encuesta.facilidad_gestion || encuesta.satisfaccion_general || '5',
      };
 
-     const response = await fetch(`${import.meta.env.VITE_API_URL}/api/encuesta`, {
+     const response = await fetch(`${API_BASE_URL}/api/encuesta`, {
        method: 'POST',
        headers: { 'Content-Type': 'application/json' },
        body: JSON.stringify(payload)
@@ -599,7 +639,7 @@ const Seguimiento = ({ customToken, renderServiceSelector }: SeguimientoProps = 
 
     const fetchInstalacion = async () => {
       try {
-        const response = await fetch(`${import.meta.env.VITE_API_URL}/api/instalaciones/${token}`);
+        const response = await fetch(`${API_BASE_URL}/api/instalaciones/${token}`);
         const result = await response.json();
         
         if (result.success) {
@@ -655,6 +695,10 @@ const Seguimiento = ({ customToken, renderServiceSelector }: SeguimientoProps = 
             }
           }
           
+          if (fetchedData.status === 'cerrada' && intervalId) {
+            clearInterval(intervalId);
+          }
+
           if (previousStatus.current && previousStatus.current !== fetchedData.status) {
             trackEvent('actualizacion_estado_visto', { 
               token, 
@@ -705,13 +749,23 @@ const Seguimiento = ({ customToken, renderServiceSelector }: SeguimientoProps = 
       }
     };
 
+    const handleVisibilityChange = () => {
+      if (!document.hidden && token) {
+        fetchInstalacion();
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
     if (token) {
       fetchInstalacion();
       intervalId = setInterval(fetchInstalacion, 10000);
     }
 
-    return () => clearInterval(intervalId);
- }, [token]);
+    return () => {
+      clearInterval(intervalId);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [token]);
 
  if (loading) {
 return (
@@ -854,6 +908,12 @@ return (
 
  const isVt = data.tipo === 'ticket';
 
+ const isPostventa = 
+   data.tipo === 'postventa' ||
+   Boolean(data.tipo_servicio && data.tipo_servicio.toUpperCase().includes('POSTVENTA')) ||
+   Boolean(data.producto && data.producto.toUpperCase().includes('POSTVENTA')) ||
+   Boolean(data.tipo_trabajo && ['TRASLADO', 'RECABLEADO', 'CAMBIO DE ONT', 'REUBICACIÓN', 'CABLEADO DE MESH', '1 MESH', 'KIT WIFI PRO', 'WIN BOX'].some(t => data.tipo_trabajo?.toUpperCase().includes(t)));
+
  const displayPin = data.pin_token
    ? String(data.pin_token).trim()
    : data.token_inicio
@@ -864,8 +924,8 @@ return (
  { id: 'programada', label: 'Agendada', sub: 'Tu visita ha sido programada.', date: fecha_programacion },
  { id: 'asignado', label: 'Técnico Asignado', sub: 'Tenemos un técnico para ti.' },
  { id: 'en_camino', label: 'En Camino', sub: 'El técnico ya está en ruta.' },
- { id: 'en_proceso', label: 'Iniciada', sub: 'Técnico revisando o instalando.' },
- { id: 'finalizada', label: 'Finalizada', sub: isVt ? 'Visita completada.' : 'Instalación completada.' },
+ { id: 'en_proceso', label: 'Iniciada', sub: isPostventa ? 'Técnico realizando la atención.' : (isVt ? 'Técnico revisando avería.' : 'Técnico revisando o instalando.') },
+ { id: 'finalizada', label: 'Finalizada', sub: isPostventa ? 'Atención completada.' : (isVt ? 'Visita completada.' : 'Instalación completada.') },
  ];
 
  const statusIndex = ['programada', 'asignado', 'en_camino', 'en_proceso', 'finalizada', 'cerrada'].indexOf(status);
@@ -1087,32 +1147,34 @@ return (
    {/* Floating Pin Token Overlay - Encima del mapa, homologado con Figma (Pasted Image / FirmaNuevoSVG) */}
    {displayPin && (
      <div 
-       className="absolute left-1/2 -translate-x-1/2 z-10 w-[94%] max-w-[380px] transition-all duration-300 pointer-events-auto cursor-pointer"
+       className="absolute left-1/2 -translate-x-1/2 z-10 w-[94%] max-w-[365px] transition-all duration-300 pointer-events-auto cursor-pointer"
        style={{
          bottom: sheetHeight > 30 ? 'calc(85vh + 12px)' : '110px'
        }}
        onClick={() => handleCopyPin(displayPin)}
        title={pinCopied ? "¡Código copiado!" : "Toca para copiar código"}
      >
-       <div className="bg-[#FFF6ED] rounded-[24px] pl-3.5 pr-4 py-2.5 shadow-[0_4px_16px_rgba(0,0,0,0.06)] border border-[#FFE7D4] flex items-center justify-between gap-2.5 select-none active:scale-[0.99] transition-transform">
+       <div className="bg-[#FFF6ED] rounded-[18px] px-4 py-2.5 shadow-[0_4px_16px_rgba(255,90,10,0.14)] border border-[#FFE7D4] flex items-center justify-between gap-3 select-none active:scale-[0.99] transition-transform">
          <div className="flex items-center gap-2.5 min-w-0 flex-1">
-           {/* Escudo de seguridad naranja oficial Figma sin círculo de fondo */}
-           <svg width="22" height="24" viewBox="0 0 20 22" fill="none" xmlns="http://www.w3.org/2000/svg" className="shrink-0">
-             <path d="M19 8.25C19 12 16.375 13.875 13.255 14.9625C13.0916 15.0179 12.9142 15.0153 12.7525 14.955C9.625 13.875 7 12 7 8.25V3C7 2.80109 7.07902 2.61032 7.21967 2.46967C7.36032 2.32902 7.55109 2.25 7.75 2.25C9.25 2.25 11.125 1.35 12.43 0.210001C12.5889 0.0746002 12.791 0 13 0C13.209 0 13.4111 0.0746002 13.57 0.210001C14.8825 1.3575 16.75 2.25 18.25 2.25C18.4489 2.25 18.6397 2.32902 18.7803 2.46967C18.921 2.61032 19 2.80109 19 3V8.25Z" stroke="#FF5A0A" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
-             <path d="M10.75 7.5L12.25 9L15.25 6" stroke="#FF5A0A" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
-           </svg>
+           {/* Escudo de seguridad naranja oficial Figma */}
+           <div className="w-8 h-8 rounded-full bg-[#FF5A0A]/10 flex items-center justify-center shrink-0">
+             <svg width="20" height="22" viewBox="0 0 20 22" fill="none" xmlns="http://www.w3.org/2000/svg" className="shrink-0">
+               <path d="M19 8.25C19 12 16.375 13.875 13.255 14.9625C13.0916 15.0179 12.9142 15.0153 12.7525 14.955C9.625 13.875 7 12 7 8.25V3C7 2.80109 7.07902 2.61032 7.21967 2.46967C7.36032 2.32902 7.55109 2.25 7.75 2.25C9.25 2.25 11.125 1.35 12.43 0.210001C12.5889 0.0746002 12.791 0 13 0C13.209 0 13.4111 0.0746002 13.57 0.210001C14.8825 1.3575 16.75 2.25 18.25 2.25C18.4489 2.25 18.6397 2.32902 18.7803 2.46967C18.921 2.61032 19 2.80109 19 3V8.25Z" stroke="#FF5A0A" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
+               <path d="M10.75 7.5L12.25 9L15.25 6" stroke="#FF5A0A" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
+             </svg>
+           </div>
            <div className="flex flex-col text-left min-w-0">
-             <span className="text-[14px] font-bold text-[#FF5A0A] leading-tight">Código de seguimiento</span>
-             <span className="text-[11px] text-[#FF5A0A] leading-tight mt-0.5 font-normal">
+             <span className="text-[14px] font-bold text-[#FF5A0A] leading-tight">Código de validación</span>
+             <span className="text-[11px] text-[#FF5A0A] leading-tight mt-0.5 font-normal truncate">
                {pinCopied ? "¡Código copiado al portapapeles!" : "Brinda este código al técnico para iniciar tu visita"}
              </span>
            </div>
          </div>
 
-         {/* Código destacado en color naranja más pegado y con fuente más moderada */}
-         <div className="shrink-0 flex items-center pl-1">
-           <span className="text-[17px] font-extrabold text-[#FF5A0A] tracking-[0.14em] font-sans">
-             {displayPin}
+         {/* Código destacado en color naranja */}
+         <div className="shrink-0 flex items-center">
+           <span className="text-[20px] font-extrabold text-[#FF5A0A] tracking-[0.18em] font-sans">
+             {displayPin.split('').join(' ')}
            </span>
          </div>
        </div>
@@ -1254,7 +1316,7 @@ return (
      </span>
    </div>
 
-   {/* Ticket Asignado (solo para Visita Técnica) o Plan y Servicios (para Instalación) */}
+   {/* Ticket Asignado (solo para Visita Técnica), Caso POSTVENTA o Plan y Servicios (para Instalación) */}
    {data.tipo === 'ticket' ? (
      <div className="bg-[#F8F9FA] border border-gray-100/90 rounded-[18px] p-4 mt-1 flex flex-col">
        <p className="text-[11px] font-medium text-gray-500 tracking-normal mb-1">Ticket</p>
@@ -1262,7 +1324,47 @@ return (
          {data.codisegui || data.idoperacion || 'No especificado'}
        </p>
      </div>
-   ) : (() => {
+   ) : isPostventa ? (() => {
+     const motivoPostventa = data.motivo_postventa || data.tipo_trabajo || 'Atención Postventa';
+     const parsedPlan = parsePlanData(data.campana);
+     const serviciosAMostrar = [
+       motivoPostventa,
+       ...parsedPlan.svas.filter(s => s.toLowerCase() !== motivoPostventa.toLowerCase())
+     ].filter(Boolean);
+
+     return (
+       <div className="flex flex-col w-full mt-1 pt-2">
+         {/* Arriba: donde está el plan, sale el Ticket */}
+         <div className="mb-3 text-left">
+           <p className="text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-1">
+             Ticket
+           </p>
+           <p className="text-[17px] font-bold text-gray-900 tracking-tight">
+             {data.codisegui || data.idoperacion || 'No especificado'}
+           </p>
+         </div>
+
+         {/* Abajo: contenedor para el motivo de la postventa */}
+         <div className="bg-[#F8F9FA] rounded-[18px] p-4 border border-gray-100/90">
+           <p className="text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-3">
+             Servicio Solicitado
+           </p>
+           <div className="flex flex-col gap-3">
+             {serviciosAMostrar.map((sva, idx) => (
+               <div key={idx} className="flex items-center gap-2.5">
+                 <div className="w-6 h-6 rounded-full bg-[#FFEFE7] flex items-center justify-center shrink-0">
+                   <SvaServiceIcon name={sva} />
+                 </div>
+                 <span className="text-[13px] font-semibold text-gray-900 leading-tight">
+                   {formatSvaName(sva)}
+                 </span>
+               </div>
+             ))}
+           </div>
+         </div>
+       </div>
+     );
+   })() : (() => {
      const parsedPlan = parsePlanData(data.campana);
      return (
        <div className="flex flex-col w-full mt-1 pt-2">
@@ -1936,13 +2038,6 @@ return (
               <span className="text-[12px] font-bold text-gray-700">4.9</span>
             </div>
           </div>
-
-          <button
-            onClick={() => setIsPhotoModalOpen(false)}
-            className="w-full mt-6 py-3 bg-gray-100 hover:bg-gray-200 active:scale-95 text-gray-700 font-bold rounded-full text-[13px] transition-all"
-          >
-            Cerrar
-          </button>
         </motion.div>
       </motion.div>
     )}

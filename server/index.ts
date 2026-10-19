@@ -21,7 +21,7 @@ const port = parseInt(process.env.PORT || '3001', 10);
 
 // Micro-caché en memoria de alto rendimiento para mitigar carga masiva en DB y Google APIs
 const apiCache = new Map<string, { data: any, expiresAt: number }>();
-const INST_CACHE_TTL_MS = 3500; // 3.5 segundos para instalaciones
+const INST_CACHE_TTL_MS = 8000; // 8 segundos para absorber peticiones recurrentes sin sobrecargar BD
 const ROUTE_CACHE_TTL_MS = 60000; // 60 segundos para rutas idénticas
 
 setInterval(() => {
@@ -401,17 +401,219 @@ app.get('/api/instalaciones/:token', async (req, res) => {
       if (encuestaRows && encuestaRows.length > 0) encuestaCompletadaBD = true;
     }
 
-    // Evaluación de respuesta de Capa Intermedia
-    if (capaResponse.status !== 'fulfilled' || !capaResponse.value.ok) {
-      const errorMsg = capaResponse.status === 'rejected' ? capaResponse.reason : 'Error en la capa intermedia';
-      console.error('Error capa intermedia:', errorMsg);
-      return res.status(500).json({ success: false, message: 'Error consultando la orden' });
+    // Evaluación de respuesta de Capa Intermedia o Fallback a BD directa
+    let data: any = null;
+
+    if (capaResponse.status === 'fulfilled' && capaResponse.value.ok) {
+      data = await capaResponse.value.json();
+    } else {
+      // Fallback local robusto: Consultar directamente en BD_Phoenix si la capa intermedia no está activa localmente
+      let [rows]: any = await pool.query(
+        `SELECT 
+           w.OrdenId AS idoperacion, 
+           w.Estado, 
+           w.\`Estado OT\` AS SubEstado, 
+           w.Cuadrilla,
+           w.Cuadrilla_nombre,
+           vc.Nombre_Tecnico_Limpio AS nombre_tecnico_completo,
+           vc.Documento AS dni_tecnico,
+           vc.Img_mejorada AS foto_mejorada,
+           vc.Foto_Img AS foto_original,
+           vc.foto_aprobada AS foto_aprobada,
+           w.Proveedeor, 
+           w.Georeferencia AS coordenadas_direccion, 
+           w.Georeferencia_tecnico AS Ubi_TEC, 
+           w.TeleMovilNume AS telefono, 
+           DATE(w.\`F.Soli\`) AS fecha_programacion, 
+           TIME(w.\`F.Soli\`) AS Tramo_Atencio, 
+           w.ClienteFinal AS nom_cliente, 
+           w.Direccion AS direccion_cliente, 
+           w.IdenServi AS Campaña, 
+           w.token AS Token_inicio,
+           w.Pin_token AS pin_token,
+           w.link,
+           w.CodiSegui AS codisegui,
+           w.CodiSeguiClien AS codiseguiclien,
+           w.Producto AS producto,
+           w.TipoTraba AS tipo_trabajo,
+           ts.Tipo AS tipo_servicio
+         FROM VW_WinORdeTraba w
+         LEFT JOIN vw_info_cuadrillas vc ON w.Cuadrilla = vc.Cuadrilla
+         LEFT JOIN tiposervicio ts ON UPPER(TRIM(w.Producto)) = UPPER(TRIM(ts.Servicio))
+         WHERE w.token = ? 
+         ORDER BY w.\`F.Soli\` DESC LIMIT 1`,
+        [token]
+      );
+
+      if (!rows || rows.length === 0) {
+        [rows] = await pool.query(
+          `SELECT 
+             w.OrdenId AS idoperacion, 
+             w.Estado, 
+             w.\`Estado OT\` AS SubEstado, 
+             w.Cuadrilla,
+             w.Cuadrilla_nombre,
+             vc.Nombre_Tecnico_Limpio AS nombre_tecnico_completo,
+             vc.Documento AS dni_tecnico,
+             vc.Img_mejorada AS foto_mejorada,
+             vc.Foto_Img AS foto_original,
+             vc.foto_aprobada AS foto_aprobada,
+             w.Proveedeor, 
+             w.Georeferencia AS coordenadas_direccion, 
+             w.Georeferencia_tecnico AS Ubi_TEC, 
+             w.TeleMovilNume AS telefono, 
+             DATE(w.\`F.Soli\`) AS fecha_programacion, 
+             TIME(w.\`F.Soli\`) AS Tramo_Atencio, 
+             w.ClienteFinal AS nom_cliente, 
+             w.Direccion AS direccion_cliente, 
+             w.IdenServi AS Campaña, 
+             w.token AS Token_inicio,
+             w.Pin_token AS pin_token,
+             w.link,
+             w.CodiSegui AS codisegui,
+             w.CodiSeguiClien AS codiseguiclien,
+             w.Producto AS producto,
+             w.TipoTraba AS tipo_trabajo,
+             ts.Tipo AS tipo_servicio
+           FROM Testmantra w
+           LEFT JOIN vw_info_cuadrillas vc ON w.Cuadrilla = vc.Cuadrilla
+           LEFT JOIN tiposervicio ts ON UPPER(TRIM(w.Producto)) = UPPER(TRIM(ts.Servicio))
+           WHERE w.token = ? 
+           ORDER BY w.\`F.Soli\` DESC LIMIT 1`,
+          [token]
+        );
+      }
+
+      if (!rows || rows.length === 0) {
+        return res.status(404).json({ success: false, message: 'Operación no encontrada' });
+      }
+
+      const op = rows[0];
+      const tipoServicioUpper = (op.tipo_servicio || '').toUpperCase().trim();
+      const productoUpper = (op.producto || '').toUpperCase().trim();
+      const isPostventa = tipoServicioUpper === 'POSTVENTA' || productoUpper.includes('POSTVENTA');
+      const isTicket = tipoServicioUpper === 'AVERIAS' || productoUpper.includes('AVERIA') || productoUpper === 'MOTOWIN';
+
+      let statusFront = 'programada';
+      const estadoDB = (op.Estado || '').toUpperCase().trim();
+      if (estadoDB === 'PENDIENTE') statusFront = 'programada';
+      else if (estadoDB === 'AGENDADA' || estadoDB === 'PROGRAMADO') statusFront = 'asignado';
+      else if (estadoDB === 'EN CAMINO') statusFront = 'en_camino';
+      else if (estadoDB === 'INICIADA' || estadoDB === 'EN PROCESO') statusFront = 'en_proceso';
+      else if (estadoDB === 'FINALIZADA' || estadoDB === 'FINALIZADO') statusFront = 'finalizada';
+      else if (['ANULADA', 'REGESTION', 'CANCELADA', 'REVISIÓN', 'REVISION', 'AUSENTE', 'CANCELADO', 'DULPLICADO', 'INASISTENCIA', 'PEXT', 'REPROGRAMA'].includes(estadoDB)) statusFront = 'cerrada';
+
+      let coordsCliente = null;
+      let coordsTecnico = null;
+      try {
+        if (op.coordenadas_direccion) {
+          const str = op.coordenadas_direccion.replace(/\s/g, '');
+          const match = str.match(/(-?\d+\.\d+)(-?\d+\.\d+)/);
+          if (match) coordsCliente = [parseFloat(match[1]), parseFloat(match[2])];
+          else {
+            const parts = str.split(',');
+            if (parts.length === 2) coordsCliente = [parseFloat(parts[0]), parseFloat(parts[1])];
+          }
+        }
+        if (op.Ubi_TEC) {
+          const str = op.Ubi_TEC.replace(/\s/g, '');
+          const match = str.match(/(-?\d+\.\d+)(-?\d+\.\d+)/);
+          if (match) coordsTecnico = [parseFloat(match[1]), parseFloat(match[2])];
+          else {
+            const parts = str.split(',');
+            if (parts.length === 2) coordsTecnico = [parseFloat(parts[0]), parseFloat(parts[1])];
+          }
+        }
+      } catch(e) {}
+
+      let fotoTecnico: string | null = null;
+      const isFotoAprobada = Boolean(
+        op.foto_aprobada === 1 || 
+        op.foto_aprobada === '1' || 
+        op.foto_aprobada === true || 
+        String(op.foto_aprobada || '').trim().toLowerCase() === 'yes' ||
+        String(op.foto_aprobada || '').trim().toLowerCase() === 'true'
+      );
+
+      const parseValidImage = (imgCandidate?: string | null): string | null => {
+        if (!imgCandidate) return null;
+        const clean = String(imgCandidate).trim();
+        if (clean.startsWith('data:image/')) return clean;
+        if (clean.startsWith('http://') || clean.startsWith('https://')) return clean;
+        if (clean.startsWith('/9j/') || clean.startsWith('iVBORw0KGgo')) return `data:image/jpeg;base64,${clean}`;
+        return null;
+      };
+
+      if (isFotoAprobada) {
+        fotoTecnico = parseValidImage(op.foto_mejorada) || parseValidImage(op.foto_original) || null;
+      }
+
+      data = {
+        success: true,
+        data: {
+          idoperacion: op.idoperacion,
+          codisegui: op.codisegui || null,
+          status: statusFront,
+          eta: op.SubEstado ? op.SubEstado : null,
+          trafico: null,
+          coordenadas_cliente: coordsCliente,
+          coordenadas_tecnico: coordsTecnico,
+          fecha_programacion: op.fecha_programacion,
+          tramo: op.Tramo_Atencio,
+          cliente_nombre: op.nom_cliente,
+          cliente_telefono: op.telefono || null,
+          direccion: op.direccion_cliente,
+          campana: op.Campaña,
+          token_inicio: op.Token_inicio || null,
+          pin_token: op.pin_token || null,
+          tipo: isPostventa ? 'postventa' : (isTicket ? 'ticket' : 'instalacion'),
+          tipo_servicio: isPostventa ? 'POSTVENTA' : (op.tipo_servicio || (isTicket ? 'AVERIAS' : 'INSTALACION')),
+          tipo_trabajo: op.tipo_trabajo || null,
+          motivo_postventa: op.tipo_trabajo || null,
+          producto: op.producto || null,
+          tecnico: (op.Cuadrilla || op.Cuadrilla_nombre || op.nombre_tecnico_completo) ? {
+            nombre: op.nombre_tecnico_completo || op.Cuadrilla_nombre || 'Técnico Asignado',
+            dni: op.dni_tecnico ? '****' + String(op.dni_tecnico).slice(4) : null,
+            foto: fotoTecnico,
+            cuadrilla: op.Cuadrilla,
+            telefono: op.telefono || 'Central'
+          } : undefined
+        }
+      };
     }
 
-    const data = await capaResponse.value.json();
     if (data && data.data) {
       data.data.reprogramada = reprogramadaBD;
       data.data.encuesta_completada = encuestaCompletadaBD;
+
+      // Enriquecer metadatos si vinieron de la capa intermedia
+      if (!data.data.tipo_trabajo || !data.data.motivo_postventa) {
+        try {
+          const [omRows]: any = await pool.query(
+            `SELECT w.TipoTraba, w.Producto, ts.Tipo as tipo_servicio
+             FROM VW_WinORdeTraba w
+             LEFT JOIN tiposervicio ts ON UPPER(TRIM(w.Producto)) = UPPER(TRIM(ts.Servicio))
+             WHERE w.token = ? LIMIT 1`,
+            [token]
+          );
+          if (omRows && omRows.length > 0) {
+            const om = omRows[0];
+            const tsCalc = (om.tipo_servicio || '').toUpperCase().trim();
+            const prodUpper = (om.Producto || '').toUpperCase().trim();
+            const isPostventa = tsCalc === 'POSTVENTA' || prodUpper.includes('POSTVENTA');
+
+            data.data.tipo_trabajo = om.TipoTraba || null;
+            data.data.tipo_servicio = isPostventa ? 'POSTVENTA' : (tsCalc || data.data.tipo_servicio);
+            data.data.motivo_postventa = om.TipoTraba || null;
+            data.data.producto = om.Producto || null;
+            if (isPostventa) {
+              data.data.tipo = 'postventa';
+            }
+          }
+        } catch (e) {
+          console.error('Error enriqueciendo orden con metadatos:', e);
+        }
+      }
     }
 
     // Guardar en micro-caché (TTL: 3.5s)
@@ -555,6 +757,372 @@ app.post('/api/route', async (req, res) => {
   } catch (error: any) {
     console.error('Error calculando ruta:', error);
     res.status(500).json({ success: false, message: 'Error interno calculando ruta' });
+  }
+});
+
+// ==========================================
+// ENDPOINTS ADMINISTRACIÓN LOCAL / DASHBOARD
+// ==========================================
+
+// Middleware de seguridad: estrictamente local (bloquea peticiones externas si se ejecutara en producción)
+const requireLocalAdminOnly = (req: express.Request, res: express.Response, next: express.NextFunction) => {
+  const ip = req.ip || req.socket.remoteAddress || '';
+  const host = req.get('host') || '';
+  const isLocal = 
+    ip === '127.0.0.1' || 
+    ip === '::1' || 
+    ip === '::ffff:127.0.0.1' || 
+    host.includes('localhost') || 
+    host.includes('127.0.0.1');
+
+  if (!isLocal && process.env.NODE_ENV === 'production') {
+    return res.status(403).json({
+      success: false,
+      message: 'Acceso restringido: El panel de administración solo está habilitado en entorno local.'
+    });
+  }
+  next();
+};
+
+app.use('/api/admin', requireLocalAdminOnly);
+
+// 1. Obtener opciones para filtros (Tipos de Servicio / Trabajos)
+app.get('/api/admin/filtros', async (_req, res) => {
+  try {
+    const [tiposTraba]: any = await pool.query(
+      'SELECT DISTINCT TipoTraba FROM vw_winordetraba WHERE TipoTraba IS NOT NULL AND TipoTraba != "" ORDER BY TipoTraba ASC'
+    );
+    const [productos]: any = await pool.query(
+      'SELECT DISTINCT Producto FROM vw_winordetraba WHERE Producto IS NOT NULL AND Producto != "" ORDER BY Producto ASC'
+    );
+    const [tiposServicio]: any = await pool.query(
+      'SELECT DISTINCT Servicio, Tipo FROM tiposervicio ORDER BY Servicio ASC'
+    );
+    const [tiposClasificados]: any = await pool.query(
+      'SELECT DISTINCT Tipo FROM tiposervicio WHERE Tipo IS NOT NULL AND Tipo != "" AND Tipo != "NO" ORDER BY Tipo ASC'
+    );
+
+    res.json({
+      success: true,
+      tiposTraba: tiposTraba.map((r: any) => r.TipoTraba),
+      productos: productos.map((r: any) => r.Producto),
+      tiposServicio,
+      tiposClasificados: tiposClasificados.map((r: any) => r.Tipo)
+    });
+  } catch (error: any) {
+    console.error('Error obteniendo filtros admin:', error);
+    res.status(500).json({ success: false, message: 'Error al obtener filtros' });
+  }
+});
+
+// 2. Consulta de tablas con filtros dinámicos, paginación y ordenamiento
+app.get('/api/admin/data', async (req, res) => {
+  try {
+    const tabla = String(req.query.tabla || 'principal').toLowerCase();
+    const search = String(req.query.search || '').trim();
+    const fechaInicio = String(req.query.fechaInicio || '').trim();
+    const fechaFin = String(req.query.fechaFin || '').trim();
+    const tipoServicio = String(req.query.tipoServicio || '').trim();
+    const page = Math.max(1, parseInt(String(req.query.page || '1'), 10));
+    const limit = Math.min(200, Math.max(10, parseInt(String(req.query.limit || '50'), 10)));
+    const offset = (page - 1) * limit;
+
+    let countQuery = '';
+    let selectQuery = '';
+    const params: any[] = [];
+    const countParams: any[] = [];
+
+    if (tabla === 'encuestas') {
+      let whereClauses: string[] = ['1=1'];
+
+      if (fechaInicio) {
+        whereClauses.push('e.fecha_registro >= ?');
+        params.push(`${fechaInicio} 00:00:00`);
+        countParams.push(`${fechaInicio} 00:00:00`);
+      }
+      if (fechaFin) {
+        whereClauses.push('e.fecha_registro <= ?');
+        params.push(`${fechaFin} 23:59:59`);
+        countParams.push(`${fechaFin} 23:59:59`);
+      }
+      if (search) {
+        whereClauses.push('(e.token LIKE ? OR e.satisfaccion_comentario LIKE ? OR e.facilidad_motivo LIKE ?)');
+        const s = `%${search}%`;
+        params.push(s, s, s);
+        countParams.push(s, s, s);
+      }
+
+      const whereSql = whereClauses.join(' AND ');
+      countQuery = `SELECT COUNT(*) as total FROM encuestas e WHERE ${whereSql}`;
+      selectQuery = `
+        SELECT 
+          e.id,
+          e.token,
+          e.instalacion_concretada,
+          e.tecnico_trato,
+          e.tecnico_puntualidad,
+          e.tecnico_claridad,
+          e.tecnico_orden,
+          e.tecnico_efectividad,
+          e.satisfaccion_general,
+          e.satisfaccion_comentario,
+          e.facilidad_gestion,
+          e.facilidad_motivo,
+          e.fecha_registro
+        FROM encuestas e
+        WHERE ${whereSql}
+        ORDER BY e.fecha_registro DESC
+        LIMIT ? OFFSET ?
+      `;
+      params.push(limit, offset);
+    } else if (tabla === 'reprogramaciones') {
+      let whereClauses: string[] = ['1=1'];
+
+      if (fechaInicio) {
+        whereClauses.push('(r.fecha_registro >= ? OR r.fecha_solicitada >= ?)');
+        params.push(`${fechaInicio} 00:00:00`, `${fechaInicio} 00:00:00`);
+        countParams.push(`${fechaInicio} 00:00:00`, `${fechaInicio} 00:00:00`);
+      }
+      if (fechaFin) {
+        whereClauses.push('(r.fecha_registro <= ? OR r.fecha_solicitada <= ?)');
+        params.push(`${fechaFin} 23:59:59`, `${fechaFin} 23:59:59`);
+        countParams.push(`${fechaFin} 23:59:59`, `${fechaFin} 23:59:59`);
+      }
+      if (search) {
+        whereClauses.push('(r.token LIKE ? OR r.motivo LIKE ? OR r.turno LIKE ?)');
+        const s = `%${search}%`;
+        params.push(s, s, s);
+        countParams.push(s, s, s);
+      }
+
+      const whereSql = whereClauses.join(' AND ');
+      countQuery = `SELECT COUNT(*) as total FROM reprogramaciones r WHERE ${whereSql}`;
+      selectQuery = `
+        SELECT 
+          r.id,
+          r.token,
+          r.fecha_solicitada,
+          r.turno,
+          r.motivo,
+          r.fecha_registro
+        FROM reprogramaciones r
+        WHERE ${whereSql}
+        ORDER BY r.fecha_registro DESC
+        LIMIT ? OFFSET ?
+      `;
+      params.push(limit, offset);
+    } else {
+      // Tabla principal: vw_winordetraba cruzada con tiposervicio
+      let whereClauses: string[] = ['1=1'];
+
+      if (fechaInicio) {
+        whereClauses.push('w.`F.Visita` >= ?');
+        params.push(`${fechaInicio} 00:00:00`);
+        countParams.push(`${fechaInicio} 00:00:00`);
+      }
+      if (fechaFin) {
+        whereClauses.push('w.`F.Visita` <= ?');
+        params.push(`${fechaFin} 23:59:59`);
+        countParams.push(`${fechaFin} 23:59:59`);
+      }
+      if (tipoServicio) {
+        whereClauses.push('COALESCE(ts_prod.Tipo, ts_traba.Tipo, w.TipoTraba) = ?');
+        params.push(tipoServicio);
+        countParams.push(tipoServicio);
+      }
+      if (search) {
+        whereClauses.push('(w.OrdenId LIKE ? OR w.Cliente LIKE ? OR w.`Número Documento` LIKE ? OR w.token LIKE ? OR w.CodiSegui LIKE ? OR w.Direccion LIKE ?)');
+        const s = `%${search}%`;
+        params.push(s, s, s, s, s, s);
+        countParams.push(s, s, s, s, s, s);
+      }
+
+      const whereSql = whereClauses.join(' AND ');
+      countQuery = `
+        SELECT COUNT(*) as total 
+        FROM vw_winordetraba w
+        LEFT JOIN tiposervicio ts_prod ON w.Producto = ts_prod.Servicio
+        LEFT JOIN tiposervicio ts_traba ON w.TipoTraba = ts_traba.Servicio
+        WHERE ${whereSql}
+      `;
+      selectQuery = `
+        SELECT 
+          w.*,
+          COALESCE(ts_prod.Tipo, ts_traba.Tipo, w.TipoTraba) as TipoServicioCalculado
+        FROM vw_winordetraba w
+        LEFT JOIN tiposervicio ts_prod ON w.Producto = ts_prod.Servicio
+        LEFT JOIN tiposervicio ts_traba ON w.TipoTraba = ts_traba.Servicio
+        WHERE ${whereSql}
+        ORDER BY w.\`F.Visita\` DESC
+        LIMIT ? OFFSET ?
+      `;
+      params.push(limit, offset);
+    }
+
+    const [countRows]: any = await pool.query(countQuery, countParams);
+    const total = countRows[0]?.total || 0;
+
+    const [rows]: any = await pool.query(selectQuery, params);
+
+    res.json({
+      success: true,
+      tabla,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit) || 1,
+      data: rows
+    });
+  } catch (error: any) {
+    console.error('Error en consulta admin/data:', error);
+    res.status(500).json({ success: false, message: 'Error interno consultando datos' });
+  }
+});
+
+// 3. Exportar datos filtrados en CSV / JSON completo
+app.get('/api/admin/export', async (req, res) => {
+  try {
+    const tabla = String(req.query.tabla || 'principal').toLowerCase();
+    const format = String(req.query.format || 'csv').toLowerCase();
+    const search = String(req.query.search || '').trim();
+    const fechaInicio = String(req.query.fechaInicio || '').trim();
+    const fechaFin = String(req.query.fechaFin || '').trim();
+    const tipoServicio = String(req.query.tipoServicio || '').trim();
+
+    const maxExportRows = 5000;
+    const params: any[] = [];
+    let selectQuery = '';
+
+    if (tabla === 'encuestas') {
+      let whereClauses: string[] = ['1=1'];
+      if (fechaInicio) {
+        whereClauses.push('e.fecha_registro >= ?');
+        params.push(`${fechaInicio} 00:00:00`);
+      }
+      if (fechaFin) {
+        whereClauses.push('e.fecha_registro <= ?');
+        params.push(`${fechaFin} 23:59:59`);
+      }
+      if (search) {
+        whereClauses.push('(e.token LIKE ? OR e.satisfaccion_comentario LIKE ? OR e.facilidad_motivo LIKE ?)');
+        const s = `%${search}%`;
+        params.push(s, s, s);
+      }
+      selectQuery = `
+        SELECT 
+          e.id,
+          e.token,
+          e.instalacion_concretada,
+          e.tecnico_trato,
+          e.tecnico_puntualidad,
+          e.tecnico_claridad,
+          e.tecnico_orden,
+          e.tecnico_efectividad,
+          e.satisfaccion_general,
+          e.satisfaccion_comentario,
+          e.facilidad_gestion,
+          e.facilidad_motivo,
+          e.fecha_registro
+        FROM encuestas e
+        WHERE ${whereClauses.join(' AND ')}
+        ORDER BY e.fecha_registro DESC
+        LIMIT ${maxExportRows}
+      `;
+    } else if (tabla === 'reprogramaciones') {
+      let whereClauses: string[] = ['1=1'];
+      if (fechaInicio) {
+        whereClauses.push('(r.fecha_registro >= ? OR r.fecha_solicitada >= ?)');
+        params.push(`${fechaInicio} 00:00:00`, `${fechaInicio} 00:00:00`);
+      }
+      if (fechaFin) {
+        whereClauses.push('(r.fecha_registro <= ? OR r.fecha_solicitada <= ?)');
+        params.push(`${fechaFin} 23:59:59`, `${fechaFin} 23:59:59`);
+      }
+      if (search) {
+        whereClauses.push('(r.token LIKE ? OR r.motivo LIKE ? OR r.turno LIKE ?)');
+        const s = `%${search}%`;
+        params.push(s, s, s);
+      }
+      selectQuery = `
+        SELECT 
+          r.id,
+          r.token,
+          r.fecha_solicitada,
+          r.turno,
+          r.motivo,
+          r.fecha_registro
+        FROM reprogramaciones r
+        WHERE ${whereClauses.join(' AND ')}
+        ORDER BY r.fecha_registro DESC
+        LIMIT ${maxExportRows}
+      `;
+    } else {
+      let whereClauses: string[] = ['1=1'];
+      if (fechaInicio) {
+        whereClauses.push('w.`F.Visita` >= ?');
+        params.push(`${fechaInicio} 00:00:00`);
+      }
+      if (fechaFin) {
+        whereClauses.push('w.`F.Visita` <= ?');
+        params.push(`${fechaFin} 23:59:59`);
+      }
+      if (tipoServicio) {
+        whereClauses.push('COALESCE(ts_prod.Tipo, ts_traba.Tipo, w.TipoTraba) = ?');
+        params.push(tipoServicio);
+      }
+      if (search) {
+        whereClauses.push('(w.OrdenId LIKE ? OR w.Cliente LIKE ? OR w.`Número Documento` LIKE ? OR w.token LIKE ? OR w.CodiSegui LIKE ? OR w.Direccion LIKE ?)');
+        const s = `%${search}%`;
+        params.push(s, s, s, s, s, s);
+      }
+      selectQuery = `
+        SELECT 
+          w.*,
+          COALESCE(ts_prod.Tipo, ts_traba.Tipo, w.TipoTraba) as TipoServicioCalculado
+        FROM vw_winordetraba w
+        LEFT JOIN tiposervicio ts_prod ON w.Producto = ts_prod.Servicio
+        LEFT JOIN tiposervicio ts_traba ON w.TipoTraba = ts_traba.Servicio
+        WHERE ${whereClauses.join(' AND ')}
+        ORDER BY w.\`F.Visita\` DESC
+        LIMIT ${maxExportRows}
+      `;
+    }
+
+    const [rows]: any = await pool.query(selectQuery, params);
+
+    if (format === 'json') {
+      res.setHeader('Content-Type', 'application/json');
+      res.setHeader('Content-Disposition', `attachment; filename="${tabla}_${Date.now()}.json"`);
+      return res.send(JSON.stringify(rows, null, 2));
+    }
+
+    // Formato CSV con BOM UTF-8 para apertura directa en Excel
+    if (rows.length === 0) {
+      res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+      res.setHeader('Content-Disposition', `attachment; filename="${tabla}_vacio.csv"`);
+      return res.send('\uFEFFSin registros');
+    }
+
+    const headers = Object.keys(rows[0]);
+    const csvLines = [
+      headers.join(';'),
+      ...rows.map((row: any) =>
+        headers.map(h => {
+          let val = row[h];
+          if (val instanceof Date) val = val.toISOString();
+          if (val === null || val === undefined) return '""';
+          const str = String(val).replace(/"/g, '""');
+          return `"${str}"`;
+        }).join(';')
+      )
+    ];
+
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="${tabla}_${new Date().toISOString().slice(0, 10)}.csv"`);
+    res.send('\uFEFF' + csvLines.join('\r\n'));
+  } catch (error: any) {
+    console.error('Error exportando datos admin:', error);
+    res.status(500).json({ success: false, message: 'Error interno generando exportación' });
   }
 });
 

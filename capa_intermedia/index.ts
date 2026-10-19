@@ -81,8 +81,7 @@ app.get('/api/v1/terceros/instalaciones/:token', verificarTercero, async (req, r
          w.link,
          w.CodiSegui AS codisegui,
          w.CodiSeguiClien AS codiseguiclien,
-         w.Producto AS producto,
-         ts.Tipo AS tipo_servicio
+         w.Producto AS producto,         w.TipoTraba AS tipo_trabajo,         ts.Tipo AS tipo_servicio
        FROM VW_WinORdeTraba w
        LEFT JOIN vw_info_cuadrillas vc ON w.Cuadrilla = vc.Cuadrilla
        LEFT JOIN tiposervicio ts ON UPPER(TRIM(w.Producto)) = UPPER(TRIM(ts.Servicio))
@@ -122,8 +121,7 @@ app.get('/api/v1/terceros/instalaciones/:token', verificarTercero, async (req, r
            w.link,
            w.CodiSegui AS codisegui,
            w.CodiSeguiClien AS codiseguiclien,
-           w.Producto AS producto,
-           ts.Tipo AS tipo_servicio
+           w.Producto AS producto,           w.TipoTraba AS tipo_trabajo,           ts.Tipo AS tipo_servicio
          FROM Testmantra w
          LEFT JOIN vw_info_cuadrillas vc ON w.Cuadrilla = vc.Cuadrilla
          LEFT JOIN tiposervicio ts ON UPPER(TRIM(w.Producto)) = UPPER(TRIM(ts.Servicio))
@@ -176,6 +174,7 @@ app.get('/api/v1/terceros/instalaciones/:token', verificarTercero, async (req, r
            w.CodiSegui AS codisegui, 
            w.CodiSeguiClien AS codiseguiclien, 
            w.Producto AS producto, 
+           w.TipoTraba AS tipo_trabajo,
            ts.Tipo AS tipo_servicio 
          FROM ${sourceTable} w 
          LEFT JOIN vw_info_cuadrillas vc ON w.Cuadrilla = vc.Cuadrilla
@@ -191,6 +190,7 @@ app.get('/api/v1/terceros/instalaciones/:token', verificarTercero, async (req, r
     }
     const tipoServicioUpper = (op.tipo_servicio || '').toUpperCase().trim();
     const productoUpper = (op.producto || '').toUpperCase().trim();
+    const isPostventa = tipoServicioUpper === 'POSTVENTA' || productoUpper.includes('POSTVENTA');
     const isTicket = tipoServicioUpper === 'AVERIAS' || productoUpper.includes('AVERIA') || productoUpper === 'MOTOWIN';
 
     // Mapeamos el estado real de tu BBDD a los estados que entiende el frontend del tercero
@@ -291,7 +291,11 @@ app.get('/api/v1/terceros/instalaciones/:token', verificarTercero, async (req, r
       campana: op.Campaña,
       token_inicio: tokenInicio || null,
       pin_token: pinToken || null,
-      tipo: isTicket ? 'ticket' : 'instalacion'
+      tipo: isPostventa ? 'postventa' : (isTicket ? 'ticket' : 'instalacion'),
+      tipo_servicio: isPostventa ? 'POSTVENTA' : (op.tipo_servicio || (isTicket ? 'AVERIAS' : 'INSTALACION')),
+      tipo_trabajo: op.tipo_trabajo || null,
+      motivo_postventa: op.tipo_trabajo || null,
+      producto: op.producto || null
     };
 
     const isFotoAprobada = Boolean(

@@ -6,7 +6,14 @@ export default defineConfig({
   server: {
     host: true,
     cors: true,
-    allowedHosts: true
+    allowedHosts: true,
+    proxy: {
+      '/api': {
+        target: 'http://localhost:3001',
+        changeOrigin: true,
+        secure: false
+      }
+    }
   },
   plugins: [react()],
   resolve: {

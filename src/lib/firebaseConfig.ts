@@ -1,8 +1,6 @@
-import { initializeApp } from 'firebase/app';
-import { getAnalytics, logEvent } from 'firebase/analytics';
+import { initializeApp, getApps, getApp } from 'firebase/app';
+import { getAnalytics, isSupported, logEvent, Analytics } from 'firebase/analytics';
 
-// Reemplaza estos valores con tu configuración de Firebase
-// Obtén estos valores desde: Firebase Console > Proyecto > Configuración > Tu aplicación web
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "",
   authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "",
@@ -13,19 +11,56 @@ const firebaseConfig = {
   measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID || "",
 };
 
-// Inicializar Firebase
-const app = initializeApp(firebaseConfig);
+// Inicializar Firebase app (evitar duplicados)
+export const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 
-// Inicializar Analytics
-const analytics = getAnalytics(app);
-
-// Función para rastrear eventos custom en Firebase y en nuestra BD MySQL local
-export const trackEvent = (eventName: string, eventParams?: Record<string, any>) => {
-  // 1. Firebase Analytics (Existente)
+// Instancia de Analytics con soporte asíncrono seguro
+let analyticsInstance: Analytics | null = null;
+const analyticsPromise = (async () => {
+  if (typeof window === 'undefined') return null;
   try {
-    logEvent(analytics, eventName, eventParams);
+    const supported = await isSupported();
+    if (supported && firebaseConfig.measurementId) {
+      analyticsInstance = getAnalytics(app);
+      console.log(`[Firebase] Analytics inicializado correctamente (${firebaseConfig.measurementId})`);
+      return analyticsInstance;
+    } else {
+      console.warn('[Firebase] Analytics no está soportado en este entorno o falta measurementId.');
+      return null;
+    }
+  } catch (err) {
+    console.warn('[Firebase] Error al inicializar Analytics (posible bloqueador de anuncios o privacidad activa):', err);
+    return null;
+  }
+})();
+
+// Determinar si debemos activar debug_mode para DebugView de Google Analytics
+const isDebugMode = 
+  import.meta.env.DEV || 
+  (typeof window !== 'undefined' && (
+    window.location.search.includes('debug_ga=true') || 
+    window.location.hostname === 'localhost' ||
+    window.location.hostname.includes('127.0.0.1')
+  ));
+
+// Función para rastrear eventos custom en Firebase GA4 y en nuestra BD MySQL local
+export const trackEvent = async (eventName: string, eventParams?: Record<string, any>) => {
+  const payload = {
+    ...eventParams,
+    ...(isDebugMode ? { debug_mode: true } : {})
+  };
+
+  // 1. Firebase Analytics (GA4)
+  try {
+    const instance = analyticsInstance || await analyticsPromise;
+    if (instance) {
+      logEvent(instance, eventName, payload);
+      console.log(`%c[GA4 Event] ${eventName}`, 'color: #10b981; font-weight: bold;', payload);
+    } else {
+      console.warn(`[GA4 Event Skip] No se pudo enviar ${eventName} (Analytics no inicializado o bloqueado)`);
+    }
   } catch (e) {
-    console.error("Error al registrar en Firebase:", e);
+    console.error(`[Firebase] Error al registrar evento '${eventName}':`, e);
   }
 
   // 2. Base de Datos MySQL (Custom Logs_Traking)
@@ -33,7 +68,7 @@ export const trackEvent = (eventName: string, eventParams?: Record<string, any>)
     const token = eventParams?.token || "";
     if (token) {
       const detalles = { ...eventParams };
-      delete detalles.token; // No repetir el token que irá en su propia columna
+      delete detalles.token;
 
       fetch(`${import.meta.env.VITE_API_URL}/api/log`, {
         method: 'POST',
@@ -50,5 +85,5 @@ export const trackEvent = (eventName: string, eventParams?: Record<string, any>)
   }
 };
 
-export { analytics };
+export { analyticsInstance as analytics, analyticsPromise };
 export default app;

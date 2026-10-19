@@ -48,6 +48,17 @@ gcloud builds submit --tag gcr.io/${PROJECT_ID}/${IMAGE_NAME}:latest -f ${DOCKER
 # Paso 2: Desplegar a Cloud Run
 echo -e "${YELLOW}2️⃣  Desplegando a Cloud Run...${NC}"
 
+# Validar variables de entorno requeridas
+if [ -z "$DB_PASSWORD" ]; then
+    echo -e "${RED}Error: La variable de entorno DB_PASSWORD es obligatoria para el despliegue.${NC}"
+    exit 1
+fi
+
+DB_USER="${DB_USER:-Quantum}"
+DB_NAME="${DB_NAME:-BBDD}"
+DB_PORT="${DB_PORT:-3306}"
+SECRET_API_KEY="${SECRET_API_KEY:-LLAVE_SECRETA_DEL_TERCERO_123}"
+
 # Comando base
 DEPLOY_CMD="gcloud run deploy ${SERVICE_NAME} \
   --image gcr.io/${PROJECT_ID}/${IMAGE_NAME}:latest \
@@ -55,7 +66,7 @@ DEPLOY_CMD="gcloud run deploy ${SERVICE_NAME} \
   --region ${REGION} \
   --port ${PORT} \
   --memory 512Mi \
-  --set-env-vars DB_USER=Quantum,DB_PASSWORD=Tonoso.33,DB_NAME=BBDD,DB_PORT=3306,PORT=${PORT},SECRET_API_KEY=LLAVE_SECRETA_DEL_TERCERO_123 \
+  --set-env-vars DB_USER=${DB_USER},DB_PASSWORD=${DB_PASSWORD},DB_NAME=${DB_NAME},DB_PORT=${DB_PORT},PORT=${PORT},SECRET_API_KEY=${SECRET_API_KEY} \
   --no-allow-unauthenticated \
   --service-account=${SERVICE_ACCOUNT}"
 
