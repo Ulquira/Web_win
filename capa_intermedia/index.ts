@@ -509,7 +509,8 @@ app.get('/api/v1/terceros/cliente/visitas/:dni', verificarTercero, async (req, r
 // Endpoint FollowMiWIN: Consulta por documento para integraciones de otras áreas
 app.get(['/api/followmiwin/:documento', '/api/v1/followmiwin/:documento', '/api/followmiwin'], async (req, res) => {
   const paramDoc = req.params.documento || (req.query.documento as string);
-  const cleanDoc = String(paramDoc || '').trim();
+  const rawDoc = String(paramDoc || '').trim();
+  const cleanDoc = rawDoc.replace(/[^0-9a-zA-Z]/g, '');
 
   if (!cleanDoc || cleanDoc.length < 5) {
     return res.status(400).json({
@@ -519,40 +520,58 @@ app.get(['/api/followmiwin/:documento', '/api/v1/followmiwin/:documento', '/api/
   }
 
   try {
-    const querySQL = `
+    const unpaddedDoc = cleanDoc.replace(/^0+/, '');
+    const padded8Doc = cleanDoc.padStart(8, '0');
+
+    const allQuerySQL = `
       SELECT 
         w.OrdenId AS idoperacion,
-        w.Estado AS estado,
+        TRIM(w.Estado) AS estado,
+        w.\`Estado OT\` AS sub_estado,
         w.CodiSegui AS codisegui,
-        w.CodiSeguiClien AS codiseguiclien
+        w.CodiSeguiClien AS codiseguiclien,
+        DATE(w.\`F.Soli\`) AS fecha_programacion
       FROM VW_WinORdeTraba w
-      WHERE (REPLACE(w.\`Número Documento\`, '*', '') = ? OR w.\`Número Documento\` = ?)
-        AND UPPER(TRIM(w.Estado)) IN ('INICIADA', 'EN CAMINO', 'PENDIENTE', 'AGENDADA')
+      WHERE (
+        TRIM(REPLACE(w.\`Número Documento\`, '*', '')) IN (?, ?, ?) 
+        OR TRIM(w.\`Número Documento\`) IN (?, ?, ?)
+        OR TRIM(w.CodiClien) = ?
+      )
+      ORDER BY w.\`F.Soli\` DESC, w.OrdenId DESC
     `;
 
-    let [rows] = await pool.query(querySQL, [cleanDoc, cleanDoc]);
-    let list = rows as any[];
+    const searchParams = [cleanDoc, unpaddedDoc, padded8Doc, cleanDoc, unpaddedDoc, padded8Doc, cleanDoc];
+    let [allRows] = await pool.query(allQuerySQL, searchParams);
+    let listAll = allRows as any[];
 
-    if (list.length === 0) {
+    if (listAll.length === 0) {
       const [testRows] = await pool.query(
-        querySQL.replace('VW_WinORdeTraba', 'Testmantra'),
-        [cleanDoc, cleanDoc]
+        allQuerySQL.replace('VW_WinORdeTraba', 'Testmantra'),
+        searchParams
       );
-      list = testRows as any[];
+      listAll = testRows as any[];
     }
 
-    // Desduplicar por caso/ticket para reflejar las órdenes reales activas
+    const ESTADOS_ABIERTOS = ['INICIADA', 'EN CAMINO', 'PENDIENTE', 'AGENDADA'];
+    const abiertas = listAll.filter((item: any) => 
+      ESTADOS_ABIERTOS.includes((item.estado || '').toUpperCase().trim())
+    );
+
     const casesSet = new Set<string>();
-    for (const item of list) {
+    for (const item of abiertas) {
       const caseKey = item.codisegui || item.codiseguiclien || `ord_${item.idoperacion}`;
       casesSet.add(caseKey);
     }
+
+    const ultimoRegistro = listAll[0] || null;
 
     return res.json({
       success: true,
       documento: cleanDoc,
       link: `https://lively-moss-05a36f910.7.azurestaticapps.net/miwin/${cleanDoc}`,
-      ordenes_abiertas: casesSet.size
+      ordenes_abiertas: casesSet.size,
+      ultimo_estado: ultimoRegistro ? ultimoRegistro.estado : null,
+      total_registros_encontrados: listAll.length
     });
   } catch (error) {
     console.error('Error DB en /api/followmiwin:', error);
