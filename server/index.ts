@@ -806,43 +806,36 @@ app.get(['/api/followmiwin/:documento', '/api/followmiwin'], async (req, res) =>
       SELECT 
         w.OrdenId AS idoperacion,
         w.Estado AS estado,
-        w.\`Estado OT\` AS sub_estado,
-        w.token,
-        w.Pin_token AS pin
+        w.CodiSegui AS codisegui,
+        w.CodiSeguiClien AS codiseguiclien
       FROM VW_WinORdeTraba w
       WHERE (REPLACE(w.\`Número Documento\`, '*', '') = ? OR w.\`Número Documento\` = ?)
-      ORDER BY w.\`F.Soli\` DESC, w.OrdenId DESC
-      LIMIT 1
+        AND UPPER(TRIM(w.Estado)) IN ('INICIADA', 'EN CAMINO', 'PENDIENTE', 'AGENDADA')
     `;
 
     let [rows]: any = await pool.query(querySQL, [cleanDoc, cleanDoc]);
+    let list = rows as any[];
 
-    if (rows.length === 0) {
+    if (list.length === 0) {
       const [testRows]: any = await pool.query(
         querySQL.replace('VW_WinORdeTraba', 'Testmantra'),
         [cleanDoc, cleanDoc]
       );
-      rows = testRows;
+      list = testRows as any[];
     }
 
-    if (rows.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: 'No se encontraron registros para el documento especificado'
-      });
+    // Desduplicar por caso/ticket para reflejar las órdenes reales activas
+    const casesSet = new Set<string>();
+    for (const item of list) {
+      const caseKey = item.codisegui || item.codiseguiclien || `ord_${item.idoperacion}`;
+      casesSet.add(caseKey);
     }
-
-    const item = rows[0];
 
     return res.json({
       success: true,
       documento: cleanDoc,
       link: `https://lively-moss-05a36f910.7.azurestaticapps.net/miwin/${cleanDoc}`,
-      token: item.token,
-      pin: item.pin || null,
-      estado: item.estado,
-      sub_estado: item.sub_estado || null,
-      idoperacion: item.idoperacion
+      ordenes_abiertas: casesSet.size
     });
   } catch (error) {
     console.error('Error en /api/followmiwin:', error);
