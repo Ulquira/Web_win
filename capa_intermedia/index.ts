@@ -506,6 +506,71 @@ app.get('/api/v1/terceros/cliente/visitas/:dni', verificarTercero, async (req, r
   }
 });
 
+// Endpoint FollowMiWIN: Consulta por documento para integraciones de otras áreas
+app.get(['/api/followmiwin/:documento', '/api/v1/followmiwin/:documento', '/api/followmiwin'], async (req, res) => {
+  const paramDoc = req.params.documento || (req.query.documento as string);
+  const cleanDoc = String(paramDoc || '').trim();
+
+  if (!cleanDoc || cleanDoc.length < 5) {
+    return res.status(400).json({
+      success: false,
+      message: 'Documento inválido. Debe proporcionar un número de documento válido.'
+    });
+  }
+
+  try {
+    const querySQL = `
+      SELECT 
+        w.OrdenId AS idoperacion,
+        w.Estado AS estado,
+        w.\`Estado OT\` AS sub_estado,
+        w.token,
+        w.Pin_token AS pin
+      FROM VW_WinORdeTraba w
+      WHERE (REPLACE(w.\`Número Documento\`, '*', '') = ? OR w.\`Número Documento\` = ?)
+      ORDER BY w.\`F.Soli\` DESC, w.OrdenId DESC
+      LIMIT 1
+    `;
+
+    let [rows] = await pool.query(querySQL, [cleanDoc, cleanDoc]);
+    let list = rows as any[];
+
+    if (list.length === 0) {
+      const [testRows] = await pool.query(
+        querySQL.replace('VW_WinORdeTraba', 'Testmantra'),
+        [cleanDoc, cleanDoc]
+      );
+      list = testRows as any[];
+    }
+
+    if (list.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'No se encontraron registros para el documento especificado'
+      });
+    }
+
+    const item = list[0];
+
+    return res.json({
+      success: true,
+      documento: cleanDoc,
+      link: `https://lively-moss-05a36f910.7.azurestaticapps.net/miwin/${cleanDoc}`,
+      token: item.token,
+      pin: item.pin || null,
+      estado: item.estado,
+      sub_estado: item.sub_estado || null,
+      idoperacion: item.idoperacion
+    });
+  } catch (error) {
+    console.error('Error DB en /api/followmiwin:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Error interno consultando followmiwin'
+    });
+  }
+});
+
 // Endpoint para guardar Encuestas (Oculto al mundo exterior directo sin llave)
 app.post('/api/encuesta', verificarTercero, async (req, res) => {
   const { 
