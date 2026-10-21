@@ -67,7 +67,7 @@ const SvaServiceIcon = ({ name }: { name: string }) => {
   }
 
   // 4. Telefonía (Fono Win, Softphone, Hardphone)
-  if (lower.includes('fono') || lower.includes('phone') || lower.includes('teléfono') || lower.includes('telefono')) {
+  if (lower.includes('fono') || lower.includes('phone') || lower.includes('tel')) {
     return <PiPhone className="w-3.5 h-3.5 text-[#FF5A0A]" />;
   }
 
@@ -1073,6 +1073,7 @@ return (
       'instalacion': 'Instalación',
       'cableada': 'Cableada',
       'cableado': 'Cableado',
+      'utp': 'UTP',
       'entrega': 'Entrega'
    };
 
@@ -1110,7 +1111,7 @@ return (
 
    if (hasMesh && hasCableado) {
      const match = clean.match(/(\d+)\s*mesh/i);
-     const count = match ? match[1] : '';
+     const count = match ? parseInt(match[1], 10) : '';
      const meshLabel = count ? `${count} Mesh + Instalación Cableada` : 'Mesh + Instalación Cableada';
 
      const others = clean
