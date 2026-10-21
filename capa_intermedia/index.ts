@@ -1,4 +1,5 @@
 import express from 'express';
+import rateLimit from 'express-rate-limit';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import pool from '../server/db.ts'; // Solo esta capa accede a la DB real
@@ -506,8 +507,88 @@ app.get('/api/v1/terceros/cliente/visitas/:dni', verificarTercero, async (req, r
   }
 });
 
+// Control de Seguridad para FollowMiWIN
+const followmiwinLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: parseInt(process.env.RATE_LIMIT_FOLLOWMIWIN || '100', 10),
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    success: false,
+    message: 'Demasiadas solicitudes a la API de FollowMiWIN. Intente más tarde.'
+  }
+});
+
+const WIN_ALLOWED_IPS = (process.env.WIN_ALLOWED_IPS || '')
+  .split(',')
+  .map(ip => ip.trim())
+  .filter(Boolean);
+
+const ipWhitelistMiddleware = (req: express.Request, res: express.Response, next: express.NextFunction) => {
+  if (WIN_ALLOWED_IPS.length === 0) {
+    return next();
+  }
+
+  const forwarded = req.headers['x-forwarded-for'];
+  const rawIp = typeof forwarded === 'string' 
+    ? forwarded.split(',')[0].trim() 
+    : (req.socket.remoteAddress || req.ip || '');
+  const clientIp = rawIp.replace(/^::ffff:/, '');
+
+  const isAllowed = WIN_ALLOWED_IPS.includes(clientIp) || clientIp === '127.0.0.1' || clientIp === '::1';
+
+  if (!isAllowed) {
+    console.warn(`[Security] Acceso denegado a /api/followmiwin desde IP no autorizada: ${clientIp}`);
+    return res.status(403).json({
+      success: false,
+      message: 'Acceso denegado: IP de origen no autorizada en ambientes productivos Win.'
+    });
+  }
+
+  next();
+};
+
+const FOLLOWMIWIN_API_KEY = process.env.FOLLOWMIWIN_API_KEY || process.env.SECRET_API_KEY || 'LLAVE_SECRETA_DEL_TERCERO_123';
+
+const authFollowMiwin = (req: express.Request, res: express.Response, next: express.NextFunction) => {
+  const apiKeyHeader = req.headers['x-api-key'] as string;
+  const authHeader = req.headers['authorization'];
+
+  let token = apiKeyHeader;
+  if (!token && authHeader) {
+    if (authHeader.startsWith('Bearer ')) {
+      token = authHeader.substring(7).trim();
+    } else {
+      token = authHeader.trim();
+    }
+  }
+
+  if (!token) {
+    return res.status(401).json({
+      success: false,
+      message: 'No autorizado: Se requiere cabecera x-api-key o Authorization: Bearer <token>'
+    });
+  }
+
+  if (token === FOLLOWMIWIN_API_KEY) {
+    return next();
+  }
+
+  return res.status(403).json({
+    success: false,
+    message: 'Token o API Key inválido para consultar FollowMiWIN.'
+  });
+};
+
+const PUBLIC_APP_URL = (process.env.PUBLIC_APP_URL || 'https://go.win.pe').replace(/\/+$/, '');
+
 // Endpoint FollowMiWIN: Consulta por documento para integraciones de otras áreas
-app.get(['/api/followmiwin/:documento', '/api/v1/followmiwin/:documento', '/api/followmiwin'], async (req, res) => {
+app.get(
+  ['/api/followmiwin/:documento', '/api/v1/followmiwin/:documento', '/api/followmiwin'],
+  followmiwinLimiter,
+  ipWhitelistMiddleware,
+  authFollowMiwin,
+  async (req, res) => {
   const paramDoc = req.params.documento || (req.query.documento as string);
   const rawDoc = String(paramDoc || '').trim();
   const cleanDoc = rawDoc.replace(/[^0-9a-zA-Z]/g, '');
@@ -568,7 +649,7 @@ app.get(['/api/followmiwin/:documento', '/api/v1/followmiwin/:documento', '/api/
     return res.json({
       success: true,
       documento: cleanDoc,
-      link: `https://lively-moss-05a36f910.7.azurestaticapps.net/miwin/${cleanDoc}`,
+      link: `${PUBLIC_APP_URL}/miwin/${cleanDoc}`,
       ordenes_abiertas: casesSet.size,
       ultimo_estado: ultimoRegistro ? ultimoRegistro.estado : null,
       total_registros_encontrados: listAll.length
