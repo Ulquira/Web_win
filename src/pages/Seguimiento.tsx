@@ -1035,8 +1035,22 @@ return (
    return text.toLowerCase().replace(/(?:^|\s)\S/g, (a) => a.toUpperCase());
  };
 
+ const cleanCommercialTags = (text?: string): string => {
+   if (!text) return '';
+   return text
+     .replace(/\(?\s*(?:en\s+)?(comodato|alquiler|venta)\s*\)?/gi, '')
+     .replace(/\(?\s*(?:al\s+)?(contado|credito|crédito)\s*\)?/gi, '')
+     .replace(/\(?\s*(?:en\s+)?(cuotas|financiado)\s*\)?/gi, '')
+     .replace(/\(?\s*(promo|promoción|promocion)\s*\)?/gi, '')
+     .replace(/\(\s*\)/g, '')
+     .replace(/\s{2,}/g, ' ')
+     .trim();
+ };
+
  const formatSvaName = (text?: string) => {
    if (!text) return '';
+   const cleanText = cleanCommercialTags(text);
+   if (!cleanText) return '';
    const specialWords: Record<string, string> = {
      'win': 'Win',
      'fono': 'Fono',
@@ -1061,7 +1075,7 @@ return (
       'cableado': 'Cableado'
    };
 
-   return text
+   return cleanText
      .trim()
      .split(' ')
      .map((word, idx) => {
@@ -1080,7 +1094,8 @@ return (
 
  const formatPostventaServices = (rawText?: string): string[] => {
    if (!rawText) return ['Atención Postventa'];
-   const clean = rawText.trim();
+   const clean = cleanCommercialTags(rawText);
+   if (!clean) return ['Atención Postventa'];
 
    // 1. Caso Mesh con Cableado (ej: "Cableado Mesh + 1 Mesh", "CABLEADO DE MESH + 1 MESH", "1 MESH + CABLEADO DE MESH")
    const hasMesh = /mesh/i.test(clean);
