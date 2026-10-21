@@ -13,7 +13,7 @@ import { MainLogo } from "@/components/MainLogo";
 import { trackEvent } from "@/lib/firebaseConfig";
 import { CierreMascotsIllustration } from "@/components/CierreMascotsIllustration";
 
-// Componente de Icono SVG Homologado exactamente de Figma para Servicios Adicionales (SVAs)
+// Componente de Icono SVG Homologado exactamente de Figma para Servicios adicionales (SVAs)
 const SvaServiceIcon = ({ name }: { name: string }) => {
   const lower = name.toLowerCase();
 
@@ -995,7 +995,7 @@ return (
          meshAgregado = true;
          let meshText = cantidadMesh > 0 ? `${cantidadMesh} Mesh` : 'Mesh';
          if (instalacionMesh) {
-           meshText += ' + Instalación cableada';
+           meshText += ' + Instalación Cableada';
          }
          finalSvas.push(meshText);
        }
@@ -1006,7 +1006,7 @@ return (
 
    if (cantidadMesh > 0 && !meshAgregado) {
      let meshText = `${cantidadMesh} Mesh`;
-     if (instalacionMesh) meshText += ' + Instalación cableada';
+     if (instalacionMesh) meshText += ' + Instalación Cableada';
      finalSvas.push(meshText);
    }
 
@@ -1054,7 +1054,11 @@ return (
      'plus': 'Plus',
      'full': 'Full',
      'de': 'de',
-     'en': 'en'
+     'en': 'en',
+      'instalación': 'Instalación',
+      'instalacion': 'Instalación',
+      'cableada': 'Cableada',
+      'cableado': 'Cableado'
    };
 
    return text
@@ -1072,6 +1076,40 @@ return (
        return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
      })
      .join(' ');
+ };
+
+ const formatPostventaServices = (rawText?: string): string[] => {
+   if (!rawText) return ['Atención Postventa'];
+   const clean = rawText.trim();
+
+   // 1. Caso Mesh con Cableado (ej: "Cableado Mesh + 1 Mesh", "CABLEADO DE MESH + 1 MESH", "1 MESH + CABLEADO DE MESH")
+   const hasMesh = /mesh/i.test(clean);
+   const hasCableado = /cablead|instalaci[oó]n\s*cableada/i.test(clean);
+
+   if (hasMesh && hasCableado) {
+     const match = clean.match(/(\d+)\s*mesh/i);
+     const count = match ? match[1] : '';
+     const meshLabel = count ? `${count} Mesh + Instalación Cableada` : 'Mesh + Instalación Cableada';
+
+     const others = clean
+       .split('+')
+       .map(p => p.trim())
+       .filter(p => p.length > 0 && !/mesh/i.test(p) && !/cablead/i.test(p));
+
+     return [meshLabel, ...others.map(formatSvaName)];
+   }
+
+   // 2. Múltiples servicios unidos por '+' o '/'
+   if (clean.includes('+') || clean.includes('/')) {
+     return clean
+       .split(/[+/]/)
+       .map(p => p.trim())
+       .filter(p => p.length > 0)
+       .map(formatSvaName);
+   }
+
+   // 3. Servicio individual
+   return [formatSvaName(clean)];
  };
  
  const formatMaskedDni = (dni?: string) => {
@@ -1328,16 +1366,17 @@ return (
    ) : isPostventa ? (() => {
      const motivoPostventa = data.motivo_postventa || data.tipo_trabajo || 'Atención Postventa';
      const parsedPlan = parsePlanData(data.campana);
+     const postventaServicios = formatPostventaServices(motivoPostventa);
      const serviciosAMostrar = [
-       motivoPostventa,
-       ...parsedPlan.svas.filter(s => s.toLowerCase() !== motivoPostventa.toLowerCase())
+       ...postventaServicios,
+       ...parsedPlan.svas.filter(s => !postventaServicios.some(ps => ps.toLowerCase().includes(s.toLowerCase())))
      ].filter(Boolean);
 
      return (
        <div className="flex flex-col w-full mt-1 pt-2">
          {/* Arriba: donde está el plan, sale el Ticket */}
          <div className="mb-3 text-left">
-           <p className="text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-1">
+           <p className="text-[11px] font-bold text-gray-400 mb-1">
              Ticket
            </p>
            <p className="text-[17px] font-bold text-gray-900 tracking-tight">
@@ -1347,8 +1386,8 @@ return (
 
          {/* Abajo: contenedor para el motivo de la postventa */}
          <div className="bg-[#F8F9FA] rounded-[18px] p-4 border border-gray-100/90">
-           <p className="text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-3">
-             Servicio Solicitado
+           <p className="text-[11px] font-bold text-gray-400 mb-3">
+             Servicio solicitado
            </p>
            <div className="flex flex-col gap-3">
              {serviciosAMostrar.map((sva, idx) => (
@@ -1372,7 +1411,7 @@ return (
          {/* Paquete de Internet */}
          {parsedPlan.paquete && (
            <div className="mb-3 text-left">
-             <p className="text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-1">
+             <p className="text-[11px] font-bold text-gray-400 mb-1">
                Paquete de internet
              </p>
              <p className="text-[17px] font-bold text-gray-900 tracking-tight">
@@ -1393,11 +1432,11 @@ return (
            </div>
          )}
          
-         {/* Servicios Adicionales (Lista fija no desplegable) */}
+         {/* Servicios adicionales (Lista fija no desplegable) */}
          {parsedPlan.svas.length > 0 && (
            <div className="bg-[#F8F9FA] rounded-[18px] p-4 border border-gray-100/90">
-             <p className="text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-3">
-               Servicios Adicionales
+             <p className="text-[11px] font-bold text-gray-400 mb-3">
+               Servicios adicionales
              </p>
              <div className="flex flex-col gap-3">
                {parsedPlan.svas.map((sva, idx) => (
