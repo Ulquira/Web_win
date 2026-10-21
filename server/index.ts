@@ -832,7 +832,7 @@ const ipWhitelistMiddleware = (req: express.Request, res: express.Response, next
 };
 
 // Middleware de Autorización por API Key / OAuth Bearer Token
-const FOLLOWMIWIN_API_KEY = process.env.FOLLOWMIWIN_API_KEY || process.env.SECRET_API_KEY || 'LLAVE_SECRETA_DEL_TERCERO_123';
+const FOLLOWMIWIN_API_KEY = process.env.FOLLOWMIWIN_API_KEY || 'M1w1n4pp_7273dba14ceba0d31b716cc5b7a04ec4';
 
 const authFollowMiwin = (req: express.Request, res: express.Response, next: express.NextFunction) => {
   const apiKeyHeader = req.headers['x-api-key'] as string;
@@ -864,7 +864,7 @@ const authFollowMiwin = (req: express.Request, res: express.Response, next: expr
   });
 };
 
-const PUBLIC_APP_URL = (process.env.PUBLIC_APP_URL || 'https://go.win.pe').replace(/\/+$/, '');
+const PUBLIC_APP_URL = (process.env.PUBLIC_APP_URL || 'https://enruta.win.pe').replace(/\/+$/, '');
 
 // Endpoint FollowMiWIN: Consulta por documento para integraciones de otras áreas
 app.get(
