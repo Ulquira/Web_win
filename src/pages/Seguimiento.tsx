@@ -1072,7 +1072,8 @@ return (
       'instalación': 'Instalación',
       'instalacion': 'Instalación',
       'cableada': 'Cableada',
-      'cableado': 'Cableado'
+      'cableado': 'Cableado',
+      'entrega': 'Entrega'
    };
 
    return cleanText
@@ -1094,8 +1095,14 @@ return (
 
  const formatPostventaServices = (rawText?: string): string[] => {
    if (!rawText) return ['Atención Postventa'];
-   const clean = cleanCommercialTags(rawText);
+   let clean = cleanCommercialTags(rawText);
    if (!clean) return ['Atención Postventa'];
+
+   // Remover prefijos operacionales (ej: "Pendiente de")
+   clean = clean.replace(/\bpendiente\s+de\s+/gi, '');
+
+   // Homologar "Entrega Mesh" -> "Entrega de Mesh"
+   clean = clean.replace(/\bentrega\s+mesh\b/gi, 'Entrega de Mesh');
 
    // 1. Caso Mesh con Cableado (ej: "Cableado Mesh + 1 Mesh", "CABLEADO DE MESH + 1 MESH", "1 MESH + CABLEADO DE MESH")
    const hasMesh = /mesh/i.test(clean);
