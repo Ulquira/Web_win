@@ -911,6 +911,9 @@ export default function AdminDashboard() {
                     <th onClick={() => handleSort('cliente_nombre')} className="py-3 px-4 cursor-pointer hover:text-white select-none">
                       Cliente {renderSortIndicator('cliente_nombre')}
                     </th>
+                    <th onClick={() => handleSort('asesor_asignado')} className="py-3 px-4 cursor-pointer hover:text-white select-none whitespace-nowrap">
+                      Usuario {renderSortIndicator('asesor_asignado')}
+                    </th>
                     <th onClick={() => handleSort('grupo_servicio')} className="py-3 px-4 cursor-pointer hover:text-white select-none whitespace-nowrap">
                       Grupo Serv. {renderSortIndicator('grupo_servicio')}
                     </th>
@@ -937,7 +940,7 @@ export default function AdminDashboard() {
                 <tbody className="divide-y divide-slate-800/60">
                   {displayData.length === 0 && !loading ? (
                     <tr>
-                      <td colSpan={13} className="py-12 text-center text-slate-500">
+                      <td colSpan={14} className="py-12 text-center text-slate-500">
                         No hay chats de Mantra registrados con los filtros seleccionados
                       </td>
                     </tr>
@@ -962,6 +965,15 @@ export default function AdminDashboard() {
                         <td className="py-2.5 px-4 font-mono text-slate-300">{row.phone || '-'}</td>
                         <td className="py-2.5 px-4 font-medium text-slate-100 max-w-[180px] truncate" title={row.cliente_nombre}>
                           {row.cliente_nombre || '-'}
+                        </td>
+                        <td className="py-2.5 px-4 max-w-[160px] truncate text-[11px] font-mono text-slate-300" title={row.asesor_asignado || 'Sin asignar'}>
+                          {row.asesor_asignado ? (
+                            <span className="px-2 py-0.5 rounded bg-slate-800/90 border border-slate-700/80 text-slate-200 truncate block">
+                              {row.asesor_asignado}
+                            </span>
+                          ) : (
+                            <span className="text-slate-600 italic text-[10px]">Sin asignar</span>
+                          )}
                         </td>
                         <td className="py-2.5 px-4">
                           <div className="flex flex-col gap-0.5">
