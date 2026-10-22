@@ -132,6 +132,48 @@ export default function AdminDashboard() {
   // Endpoint estrictamente local
   const apiUrl = 'http://localhost:3001';
 
+  // Atajos de teclado interactivos: ESC (cerrar), ArrowLeft/ArrowRight (navegar registros), V (alternar vista)
+  useEffect(() => {
+    if (!selectedRow) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Omitir si se está escribiendo en campos de formulario
+      const tag = (e.target as HTMLElement)?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        setSelectedRow(null);
+      } else if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        const currentIdx = data.findIndex(r => 
+          (r.id !== undefined && selectedRow.id !== undefined && r.id === selectedRow.id) ||
+          (r.OrdenId !== undefined && selectedRow.OrdenId !== undefined && r.OrdenId === selectedRow.OrdenId)
+        );
+        if (currentIdx > 0) {
+          setSelectedRow(data[currentIdx - 1]);
+        }
+      } else if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        const currentIdx = data.findIndex(r => 
+          (r.id !== undefined && selectedRow.id !== undefined && r.id === selectedRow.id) ||
+          (r.OrdenId !== undefined && selectedRow.OrdenId !== undefined && r.OrdenId === selectedRow.OrdenId)
+        );
+        if (currentIdx >= 0 && currentIdx < data.length - 1) {
+          setSelectedRow(data[currentIdx + 1]);
+        }
+      } else if (e.key === 'v' || e.key === 'V') {
+        if (activeTab === 'chats_mantra') {
+          e.preventDefault();
+          setChatViewMode(prev => prev === 'bubbles' ? 'raw' : 'bubbles');
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [selectedRow, data, activeTab]);
+
   // Cargar hasta 15 mensajes en vivo directamente desde la API de Mantra al abrir un chat
   useEffect(() => {
     if (!selectedRow || activeTab !== 'chats_mantra' || !selectedRow.phone) {
@@ -884,14 +926,16 @@ export default function AdminDashboard() {
                           {row.distrito || row.provincia || '-'}
                         </td>
                         <td className="py-2.5 px-4">
-                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                          <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold inline-flex items-center gap-1 ${
                             row.quien_tiene_la_palabra === 'CLIENTE'
                               ? 'bg-blue-500/15 text-blue-300 border border-blue-500/30'
-                              : row.quien_tiene_la_palabra === 'ASESOR'
-                              ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30'
-                              : 'bg-purple-500/15 text-purple-300 border border-purple-500/30'
+                              : row.quien_tiene_la_palabra === 'PLANTILLA' || row.quien_tiene_la_palabra === 'BOT'
+                              ? 'bg-purple-500/15 text-purple-300 border border-purple-500/30'
+                              : 'bg-orange-500/15 text-orange-300 border border-orange-500/30'
                           }`}>
-                            {row.quien_tiene_la_palabra || '-'}
+                            {row.quien_tiene_la_palabra === 'CLIENTE' ? 'CLIENTE' :
+                             (row.quien_tiene_la_palabra === 'PLANTILLA' || row.quien_tiene_la_palabra === 'BOT') ? 'PLANTILLA' :
+                             'ASESOR'}
                           </span>
                         </td>
                         <td className="py-2.5 px-4">
@@ -1080,11 +1124,53 @@ export default function AdminDashboard() {
                   </p>
                 </div>
               </div>
+              {/* Controles de Navegación entre Filas y Atajos */}
               <div className="flex items-center gap-2 flex-shrink-0">
+                {(() => {
+                  const currentIdx = data.findIndex(r => 
+                    (r.id !== undefined && selectedRow.id !== undefined && r.id === selectedRow.id) ||
+                    (r.OrdenId !== undefined && selectedRow.OrdenId !== undefined && r.OrdenId === selectedRow.OrdenId)
+                  );
+                  const hasPrev = currentIdx > 0;
+                  const hasNext = currentIdx >= 0 && currentIdx < data.length - 1;
+
+                  return (
+                    <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-slate-950/70 border border-slate-800 text-[11px] text-slate-400">
+                      <span className="text-slate-500 font-mono text-[10px]">
+                        {currentIdx >= 0 ? `${currentIdx + 1} de ${data.length}` : ''}
+                      </span>
+                      <div className="flex items-center gap-0.5 ml-1">
+                        <button
+                          type="button"
+                          onClick={() => hasPrev && setSelectedRow(data[currentIdx - 1])}
+                          disabled={!hasPrev}
+                          className="p-1 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-white disabled:opacity-25 disabled:cursor-not-allowed transition-all"
+                          title="Fila anterior (Tecla ←)"
+                        >
+                          <ChevronLeft className="w-4 h-4" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => hasNext && setSelectedRow(data[currentIdx + 1])}
+                          disabled={!hasNext}
+                          className="p-1 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-white disabled:opacity-25 disabled:cursor-not-allowed transition-all"
+                          title="Fila siguiente (Tecla →)"
+                        >
+                          <ChevronRight className="w-4 h-4" />
+                        </button>
+                      </div>
+                      <div className="h-3 w-px bg-slate-800 mx-1"></div>
+                      <span className="flex items-center gap-1 text-[10px]">
+                        <kbd className="px-1.5 py-0.5 bg-slate-800 text-slate-300 rounded border border-slate-700 font-mono text-[9px]">ESC</kbd>
+                      </span>
+                    </div>
+                  );
+                })()}
+
                 <button
                   onClick={() => setSelectedRow(null)}
                   className="p-2 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-400 hover:text-white transition-all active:scale-95"
-                  title="Cerrar ventana"
+                  title="Cerrar ventana (ESC)"
                 >
                   <X className="w-5 h-5" />
                 </button>
@@ -1380,13 +1466,32 @@ export default function AdminDashboard() {
               )}
             </div>
 
-            {/* Footer del Modal */}
-            <div className="border-t border-slate-800 px-5 py-2.5 bg-slate-900 flex justify-end flex-shrink-0">
+            {/* Footer del Modal con Barra de Atajos de Teclado */}
+            <div className="border-t border-slate-800 px-5 py-2.5 bg-slate-900 flex items-center justify-between flex-shrink-0">
+              <div className="hidden sm:flex items-center gap-3 text-[11px] text-slate-500">
+                <span className="flex items-center gap-1.5">
+                  <kbd className="px-1.5 py-0.5 bg-slate-800 text-slate-300 rounded border border-slate-700 font-mono text-[10px]">ESC</kbd> Cerrar
+                </span>
+                <span>•</span>
+                <span className="flex items-center gap-1">
+                  <kbd className="px-1.5 py-0.5 bg-slate-800 text-slate-300 rounded border border-slate-700 font-mono text-[10px]">←</kbd>
+                  <kbd className="px-1.5 py-0.5 bg-slate-800 text-slate-300 rounded border border-slate-700 font-mono text-[10px]">→</kbd> Navegar registros
+                </span>
+                {activeTab === 'chats_mantra' && (
+                  <>
+                    <span>•</span>
+                    <span className="flex items-center gap-1.5">
+                      <kbd className="px-1.5 py-0.5 bg-slate-800 text-slate-300 rounded border border-slate-700 font-mono text-[10px]">V</kbd> Alternar Vista Chat / JSON
+                    </span>
+                  </>
+                )}
+              </div>
               <button
                 onClick={() => setSelectedRow(null)}
-                className="px-5 py-1.5 bg-slate-800 hover:bg-slate-700 text-white text-xs font-semibold rounded-xl transition-all active:scale-95"
+                className="px-5 py-1.5 bg-slate-800 hover:bg-slate-700 text-white text-xs font-semibold rounded-xl transition-all active:scale-95 flex items-center gap-1.5 ml-auto"
               >
-                Cerrar
+                <span>Cerrar</span>
+                <kbd className="px-1.5 py-0.5 bg-slate-900 text-slate-400 rounded border border-slate-700 font-mono text-[10px]">ESC</kbd>
               </button>
             </div>
           </div>

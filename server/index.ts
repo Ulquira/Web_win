@@ -1248,7 +1248,19 @@ app.get('/api/admin/data', async (req, res) => {
       countQuery = `SELECT COUNT(*) as total FROM historial_chats_mantra h WHERE ${whereSql}`;
       selectQuery = `
         SELECT 
-          h.*
+          h.*,
+          CASE 
+            WHEN h.quien_tiene_la_palabra = 'CLIENTE' THEN 'CLIENTE'
+            WHEN h.quien_tiene_la_palabra = 'BOT' 
+              OR h.ultimo_mensaje_texto LIKE '%Trak_%' 
+              OR h.ultimo_mensaje_texto LIKE '%Adelanto%' 
+              OR h.ultimo_mensaje_texto LIKE '%Blindaje%' 
+              OR h.ultimo_mensaje_texto LIKE '%Confirmación%'
+              OR h.ultimo_mensaje_texto LIKE '%enruta.win.pe%'
+              OR h.ultimo_mensaje_texto LIKE '%| [%'
+              THEN 'PLANTILLA'
+            ELSE 'ASESOR'
+          END AS quien_tiene_la_palabra
         FROM historial_chats_mantra h
         WHERE ${whereSql}
         ORDER BY ${orderCol} ${sortOrder}, h.id DESC
@@ -1544,7 +1556,19 @@ app.get('/api/admin/export', async (req, res) => {
 
       selectQuery = `
         SELECT 
-          h.*
+          h.*,
+          CASE 
+            WHEN h.quien_tiene_la_palabra = 'CLIENTE' THEN 'CLIENTE'
+            WHEN h.quien_tiene_la_palabra = 'BOT' 
+              OR h.ultimo_mensaje_texto LIKE '%Trak_%' 
+              OR h.ultimo_mensaje_texto LIKE '%Adelanto%' 
+              OR h.ultimo_mensaje_texto LIKE '%Blindaje%' 
+              OR h.ultimo_mensaje_texto LIKE '%Confirmación%'
+              OR h.ultimo_mensaje_texto LIKE '%enruta.win.pe%'
+              OR h.ultimo_mensaje_texto LIKE '%| [%'
+              THEN 'PLANTILLA'
+            ELSE 'ASESOR'
+          END AS quien_tiene_la_palabra
         FROM historial_chats_mantra h
         WHERE ${whereClauses.join(' AND ')}
         ORDER BY ${orderCol} ${sortOrder}, h.id DESC
