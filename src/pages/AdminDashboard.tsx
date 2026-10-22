@@ -419,19 +419,13 @@ export default function AdminDashboard() {
             <h1 className="text-xl font-bold tracking-tight text-white flex items-center gap-2">
               Panel de Base de Datos <span className="text-xs px-2 py-0.5 rounded-full bg-orange-500/10 text-orange-400 border border-orange-500/30">Admin Local</span>
             </h1>
-            <p className="text-xs text-slate-400">
-              Visualización, filtros dinámicos, ordenamiento y exportación de órdenes, encuestas, reprogramaciones y chats Mantra
-            </p>
+            
           </div>
         </div>
 
         {/* Acciones de exportación */}
         <div className="flex flex-wrap items-center gap-2">
-          {/* Indicador de entorno estrictamente local */}
-          <div className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-950/80 border border-slate-800 rounded-xl text-xs">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-            <span className="text-slate-400 font-mono text-[11px]">Backend Local: <strong className="text-white">http://localhost:3001</strong></span>
-          </div>
+          
 
           <button
             onClick={() => handleDownload('csv')}
@@ -667,11 +661,7 @@ export default function AdminDashboard() {
             <div>
               Mostrando <span className="font-semibold text-white">{displayData.length}</span> de <span className="font-semibold text-orange-400">{total.toLocaleString()}</span> registros encontrados
             </div>
-            {sortField && (
-              <span className="text-[11px] px-2.5 py-0.5 rounded-full bg-slate-900 border border-slate-800 text-slate-400">
-                Ordenado por: <strong className="text-orange-400">{sortField}</strong> ({sortOrder === 'asc' ? 'Ascendente A-Z / 0-9' : 'Descendente Z-A / 9-0'})
-              </span>
-            )}
+            
           </div>
 
           <div className="flex items-center gap-3">
@@ -931,11 +921,7 @@ export default function AdminDashboard() {
                             }`}>
                               {row.tipo_trabajo || row.grupo_servicio || '-'}
                             </span>
-                            {row.grupo_servicio && (
-                              <span className="text-[9px] text-slate-500 font-mono">
-                                Canal: {row.grupo_servicio}
-                              </span>
-                            )}
+                            
                           </div>
                         </td>
                         <td className="py-2.5 px-4 max-w-[150px] truncate" title={`${row.distrito || ''} ${row.provincia ? `(${row.provincia})` : ''}`}>
