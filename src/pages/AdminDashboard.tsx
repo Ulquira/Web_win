@@ -958,145 +958,62 @@ export default function AdminDashboard() {
         </div>
       </main>
 
-      {/* Modal para ver registro completo + Visor Amigable de Chat */}
+      {/* Modal para ver registro completo + Visor Amigable de Chat (Campos a la izquierda, Chat más grande a la derecha) */}
       {selectedRow && (
-        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-5xl w-full p-6 shadow-2xl relative max-h-[90vh] flex flex-col">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3 mb-4">
+        <div className="fixed inset-0 bg-slate-950/85 backdrop-blur-md z-50 flex items-center justify-center p-3 sm:p-5">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl w-[96vw] max-w-[1600px] h-[92vh] shadow-2xl relative flex flex-col overflow-hidden">
+            
+            {/* Header del Modal */}
+            <div className="flex items-center justify-between border-b border-slate-800/90 px-6 py-4 bg-slate-900/90 backdrop-blur">
               <div className="flex items-center gap-3">
-                <div className="p-2 bg-orange-500/10 border border-orange-500/20 text-orange-400 rounded-xl">
+                <div className="p-2.5 bg-orange-500/10 border border-orange-500/20 text-orange-400 rounded-2xl shadow-inner">
                   {activeTab === 'chats_mantra' ? <MessageCircle className="w-5 h-5" /> : <Database className="w-5 h-5" />}
                 </div>
                 <div>
                   <h3 className="text-base font-bold text-white flex items-center gap-2">
-                    {activeTab === 'chats_mantra' ? 'Conversación & Ficha Técnica Mantra' : `Detalle Completo del Registro (${activeTab})`}
+                    {activeTab === 'chats_mantra' ? 'Ficha Técnica & Conversación Mantra' : `Detalle Completo del Registro (${activeTab})`}
+                    <span className="text-xs px-2.5 py-0.5 rounded-full bg-slate-800 text-orange-400 border border-slate-700 font-mono">
+                      #{selectedRow.id || selectedRow.OrdenId}
+                    </span>
                   </h3>
                   <p className="text-xs text-slate-400 mt-0.5">
-                    ID Registro: <strong className="text-white">#{selectedRow.id || selectedRow.OrdenId}</strong> · {Object.keys(selectedRow).length} campos disponibles en BD
+                    {selectedRow.cliente_nombre ? <strong className="text-slate-200">{selectedRow.cliente_nombre}</strong> : 'Registro'} 
+                    {selectedRow.ticket ? ` · Ticket: ${selectedRow.ticket}` : ''} 
+                    {selectedRow.phone ? ` · Teléfono: ${selectedRow.phone}` : ''}
                   </p>
                 </div>
               </div>
               <button
                 onClick={() => setSelectedRow(null)}
-                className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition-colors"
+                className="p-2 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-400 hover:text-white transition-all active:scale-95"
+                title="Cerrar ventana"
               >
-                <X className="w-4 h-4" />
+                <X className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="flex-1 overflow-y-auto space-y-4 pr-2 scrollbar-thin scrollbar-thumb-slate-700">
-              {/* SECCIÓN 1: VISOR AMIGABLE TIPO CHAT (WHATSAPP MANTRA) */}
-              {parsedChatMessages.length > 0 && (
-                <div className="bg-slate-950/90 border border-slate-800 rounded-2xl p-4 shadow-xl flex flex-col gap-3">
-                  <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800/80 pb-3">
-                    <div className="flex items-center gap-2.5">
-                      <div className="p-2 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-xl">
-                        <MessageCircle className="w-5 h-5" />
-                      </div>
-                      <div>
-                        <h4 className="text-sm font-bold text-white flex items-center gap-2">
-                          Hilo de Conversación Mantra
-                          <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-800 text-emerald-400 border border-emerald-500/20 font-mono font-semibold">
-                            {parsedChatMessages.length} mensajes intercambiados
-                          </span>
-                        </h4>
-                        <p className="text-[11px] text-slate-400 mt-0.5">
-                          Teléfono: <span className="font-mono text-white font-medium">{selectedRow.phone}</span> · Cliente: <span className="text-white font-medium">{selectedRow.cliente_nombre || 'No registrado'}</span>
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-1.5 bg-slate-900 border border-slate-800 rounded-xl p-1 text-[11px]">
-                      <button
-                        type="button"
-                        onClick={() => setChatViewMode('bubbles')}
-                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-medium transition-all ${
-                          chatViewMode === 'bubbles'
-                            ? 'bg-orange-500 text-white shadow-sm'
-                            : 'text-slate-400 hover:text-slate-200'
-                        }`}
-                      >
-                        <MessageSquare className="w-3.5 h-3.5" />
-                        <span>Vista Chat Amigable</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setChatViewMode('raw')}
-                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-medium transition-all ${
-                          chatViewMode === 'raw'
-                            ? 'bg-orange-500 text-white shadow-sm'
-                            : 'text-slate-400 hover:text-slate-200'
-                        }`}
-                      >
-                        <Code className="w-3.5 h-3.5" />
-                        <span>JSON Crudo</span>
-                      </button>
-                    </div>
+            {/* Cuerpo del Modal: 2 Columnas (Izquierda: Campos | Derecha: Chat Grande) */}
+            <div className="flex-1 p-5 overflow-hidden grid grid-cols-1 lg:grid-cols-12 gap-5 min-h-0 bg-slate-950/40">
+              
+              {/* COLUMNA IZQUIERDA: Campos y Metadatos de BD (Scrollable) */}
+              <div className="lg:col-span-5 flex flex-col min-h-0 bg-slate-900/60 border border-slate-800/90 rounded-2xl p-4 shadow-sm">
+                <div className="flex items-center justify-between border-b border-slate-800 pb-3 mb-3">
+                  <div className="flex items-center gap-2">
+                    <Database className="w-4 h-4 text-orange-400" />
+                    <h4 className="text-xs font-bold text-white uppercase tracking-wider">
+                      Campos y Metadatos ({Object.keys(selectedRow).length})
+                    </h4>
                   </div>
-
-                  {chatViewMode === 'bubbles' ? (
-                    <div className="max-h-[380px] overflow-y-auto space-y-3.5 p-4 bg-slate-900/50 rounded-xl border border-slate-800/80 scrollbar-thin scrollbar-thumb-slate-700">
-                      {parsedChatMessages.map((msg: any, mIdx: number) => {
-                        const isCliente = msg.emisor === 'CLIENTE';
-                        return (
-                          <div
-                            key={mIdx}
-                            className={`flex flex-col ${isCliente ? 'items-start' : 'items-end'}`}
-                          >
-                            <div className="flex items-center gap-1.5 mb-1 px-1">
-                              {isCliente ? (
-                                <>
-                                  <div className="w-4 h-4 rounded-full bg-blue-500/20 text-blue-400 flex items-center justify-center">
-                                    <User className="w-2.5 h-2.5" />
-                                  </div>
-                                  <span className="text-[10px] font-semibold text-blue-300">
-                                    Cliente {selectedRow.cliente_nombre ? `(${selectedRow.cliente_nombre})` : ''}
-                                  </span>
-                                </>
-                              ) : (
-                                <>
-                                  <span className="text-[10px] font-semibold text-orange-300">
-                                    {msg.agente || (msg.emisor === 'BOT' ? 'Bot Automatizado WIN' : 'Asesor / WIN')}
-                                  </span>
-                                  <div className="w-4 h-4 rounded-full bg-orange-500/20 text-orange-400 flex items-center justify-center">
-                                    <Bot className="w-2.5 h-2.5" />
-                                  </div>
-                                </>
-                              )}
-                              <span className="text-[10px] text-slate-500 font-mono">
-                                {formatDate(msg.fecha_utc)}
-                              </span>
-                            </div>
-
-                            <div
-                              className={`p-3.5 rounded-2xl max-w-[85%] text-xs shadow-md whitespace-pre-wrap leading-relaxed ${
-                                isCliente
-                                  ? 'bg-slate-800/90 text-slate-100 border border-slate-700 rounded-tl-sm'
-                                  : 'bg-gradient-to-br from-orange-950/70 to-slate-900 text-orange-50 border border-orange-500/40 rounded-tr-sm'
-                              }`}
-                            >
-                              {msg.texto}
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  ) : (
-                    <pre className="text-[11px] bg-slate-950 p-3 rounded-xl text-emerald-400 overflow-x-auto max-h-[380px] border border-slate-800 font-mono">
-                      {JSON.stringify(selectedRow.ultimos_mensajes_json, null, 2)}
-                    </pre>
+                  {selectedRow.estado_chat && (
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-slate-700 font-medium">
+                      {selectedRow.estado_chat}
+                    </span>
                   )}
                 </div>
-              )}
 
-              {/* SECCIÓN 2: METADATOS Y COLUMNAS DE LA FILA */}
-              <div>
-                <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">
-                  Campos y Metadatos de Base de Datos
-                </h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                <div className="flex-1 overflow-y-auto space-y-2 pr-1.5 scrollbar-thin scrollbar-thumb-slate-700">
                   {Object.entries(selectedRow).map(([key, value]: [string, any]) => {
-                    // Si ya mostramos el chat amigable arriba, ocultar el JSON gigante de la lista de campos
+                    // Si hay chat formateado a la derecha, ocultar el JSON gigante de la lista izquierda para mantenerla limpia
                     if (key === 'ultimos_mensajes_json' && parsedChatMessages.length > 0) {
                       return null;
                     }
@@ -1107,12 +1024,21 @@ export default function AdminDashboard() {
                           {key === 'TipoServicioCalculado' && (
                             <span className="text-[9px] px-1.5 py-0.5 rounded bg-orange-500/20 text-orange-300 font-bold">CRUZADO</span>
                           )}
+                          {key === 'semaforo_sla' && (
+                            <span className={`text-[9px] px-2 py-0.5 rounded-full font-bold ${
+                              value === 'VERDE' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' :
+                              value === 'AMARILLO' ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' :
+                              'bg-rose-500/20 text-rose-400 border border-rose-500/30'
+                            }`}>
+                              {value}
+                            </span>
+                          )}
                         </div>
                         <span className="text-xs text-slate-100 font-mono break-all select-all">
                           {value === null || value === undefined || value === '' ? (
                             <span className="text-slate-600 italic">null</span>
                           ) : typeof value === 'object' ? (
-                            <pre className="text-[10px] bg-slate-900 p-2 rounded-lg text-emerald-400 overflow-x-auto max-h-48 border border-slate-800 font-mono">
+                            <pre className="text-[10px] bg-slate-900 p-2 rounded-lg text-emerald-400 overflow-x-auto max-h-40 border border-slate-800 font-mono">
                               {JSON.stringify(value, null, 2)}
                             </pre>
                           ) : key.toLowerCase().includes('fecha') || key === 'F.Visita' || key === 'F.Soli' ? (
@@ -1126,12 +1052,127 @@ export default function AdminDashboard() {
                   })}
                 </div>
               </div>
+
+              {/* COLUMNA DERECHA: Ventana de Chat Más Grande (WhatsApp Mantra) */}
+              <div className="lg:col-span-7 flex flex-col min-h-0 bg-slate-950/80 border border-slate-800/90 rounded-2xl p-4 shadow-xl">
+                {parsedChatMessages.length > 0 ? (
+                  <>
+                    {/* Header del Chat */}
+                    <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 pb-3 mb-3">
+                      <div className="flex items-center gap-2.5">
+                        <div className="p-2 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-xl">
+                          <MessageCircle className="w-5 h-5" />
+                        </div>
+                        <div>
+                          <h4 className="text-sm font-bold text-white flex items-center gap-2">
+                            Hilo de Conversación Mantra
+                            <span className="text-[11px] px-2.5 py-0.5 rounded-full bg-slate-800 text-emerald-400 border border-emerald-500/20 font-mono font-bold">
+                              {parsedChatMessages.length} mensajes
+                            </span>
+                          </h4>
+                          <p className="text-[11px] text-slate-400 mt-0.5">
+                            Interacción WhatsApp · Último emisor: <strong className="text-orange-400">{selectedRow.ultimo_mensaje_emisor || '-'}</strong>
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Selector de Vista: Burbujas vs JSON */}
+                      <div className="flex items-center gap-1.5 bg-slate-900 border border-slate-800 rounded-xl p-1 text-[11px]">
+                        <button
+                          type="button"
+                          onClick={() => setChatViewMode('bubbles')}
+                          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-semibold transition-all ${
+                            chatViewMode === 'bubbles'
+                              ? 'bg-orange-500 text-white shadow-md'
+                              : 'text-slate-400 hover:text-slate-200'
+                          }`}
+                        >
+                          <MessageSquare className="w-3.5 h-3.5" />
+                          <span>Vista Chat</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setChatViewMode('raw')}
+                          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-semibold transition-all ${
+                            chatViewMode === 'raw'
+                              ? 'bg-orange-500 text-white shadow-md'
+                              : 'text-slate-400 hover:text-slate-200'
+                          }`}
+                        >
+                          <Code className="w-3.5 h-3.5" />
+                          <span>JSON Crudo</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Contenedor Grande de Mensajes */}
+                    {chatViewMode === 'bubbles' ? (
+                      <div className="flex-1 overflow-y-auto space-y-4 p-4 bg-slate-900/40 rounded-2xl border border-slate-800/80 scrollbar-thin scrollbar-thumb-slate-700 min-h-0">
+                        {parsedChatMessages.map((msg: any, mIdx: number) => {
+                          const isCliente = msg.emisor === 'CLIENTE';
+                          return (
+                            <div
+                              key={mIdx}
+                              className={`flex flex-col ${isCliente ? 'items-start' : 'items-end'}`}
+                            >
+                              <div className="flex items-center gap-1.5 mb-1 px-1">
+                                {isCliente ? (
+                                  <>
+                                    <div className="w-4 h-4 rounded-full bg-blue-500/20 text-blue-400 flex items-center justify-center">
+                                      <User className="w-2.5 h-2.5" />
+                                    </div>
+                                    <span className="text-[11px] font-semibold text-blue-300">
+                                      {selectedRow.cliente_nombre || 'Cliente'}
+                                    </span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <span className="text-[11px] font-semibold text-orange-300">
+                                      {msg.agente || (msg.emisor === 'BOT' ? 'Bot Automatizado WIN' : 'Asesor / WIN')}
+                                    </span>
+                                    <div className="w-4 h-4 rounded-full bg-orange-500/20 text-orange-400 flex items-center justify-center">
+                                      <Bot className="w-2.5 h-2.5" />
+                                    </div>
+                                  </>
+                                )}
+                                <span className="text-[10px] text-slate-500 font-mono">
+                                  {formatDate(msg.fecha_utc)}
+                                </span>
+                              </div>
+
+                              <div
+                                className={`p-4 rounded-2xl max-w-[85%] text-xs shadow-md whitespace-pre-wrap leading-relaxed ${
+                                  isCliente
+                                    ? 'bg-slate-800/95 text-slate-100 border border-slate-700/80 rounded-tl-sm'
+                                    : 'bg-gradient-to-br from-orange-950/70 to-slate-900 text-orange-50 border border-orange-500/40 rounded-tr-sm'
+                                }`}
+                              >
+                                {msg.texto}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <pre className="flex-1 text-[11px] bg-slate-950 p-4 rounded-2xl text-emerald-400 overflow-auto border border-slate-800 font-mono min-h-0">
+                        {JSON.stringify(selectedRow.ultimos_mensajes_json, null, 2)}
+                      </pre>
+                    )}
+                  </>
+                ) : (
+                  <div className="flex-1 flex flex-col items-center justify-center text-slate-500 gap-2 p-6 text-center">
+                    <MessageSquare className="w-10 h-10 text-slate-700" />
+                    <p className="text-xs">No hay historial de chat JSON registrado para esta fila.</p>
+                  </div>
+                )}
+              </div>
             </div>
 
-            <div className="mt-4 pt-3 border-t border-slate-800 flex justify-end">
+            {/* Footer del Modal */}
+            <div className="border-t border-slate-800 px-6 py-3 bg-slate-900 flex justify-end">
               <button
                 onClick={() => setSelectedRow(null)}
-                className="px-5 py-2 bg-slate-800 hover:bg-slate-700 text-white text-xs font-semibold rounded-xl transition-colors"
+                className="px-6 py-2 bg-slate-800 hover:bg-slate-700 text-white text-xs font-semibold rounded-xl transition-all active:scale-95"
               >
                 Cerrar
               </button>
