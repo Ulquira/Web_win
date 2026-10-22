@@ -1323,6 +1323,83 @@ app.get('/api/admin/data', async (req, res) => {
   }
 });
 
+// 2.5 Consultar historial en vivo de Mantra (hasta 15 mensajes en tiempo real con detección de plantillas HSM)
+app.get('/api/admin/mantra-chat', async (req, res) => {
+  try {
+    const rawPhone = String(req.query.phone || '').trim().replace(/\D/g, '');
+    const phone = rawPhone.length > 9 ? rawPhone.slice(-9) : rawPhone;
+    const grupoServicio = String(req.query.grupoServicio || '').trim();
+    const limit = Math.min(Math.max(parseInt(String(req.query.limit || '15'), 10), 1), 50);
+
+    if (!phone) {
+      return res.status(400).json({ success: false, message: 'Parámetro phone requerido' });
+    }
+
+    // Configuración según grupo de servicio
+    const isAverias = grupoServicio.toLowerCase().includes('averia');
+    const config = isAverias
+      ? { GROUP_ID: '68508b455ba42fd0a6660300', API_KEY: '618684ea-0e61-478f-9b22-bc0fd8b8a934' }
+      : { GROUP_ID: '685dc70e53dd0ac2492c69ca', API_KEY: '3d0d59f1-f3ea-47be-b5b0-d7ffca33817d' };
+
+    const mantraRes = await fetch('https://wbpback2pro2.mantra.chat/contacts/chats/historial', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${config.API_KEY}`,
+        'GroupId': config.GROUP_ID,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        countryCode: '51',
+        phone: phone,
+        page: 1,
+        limit: limit
+      }),
+      signal: AbortSignal.timeout(6500)
+    });
+
+    if (!mantraRes.ok) {
+      const errText = await mantraRes.text();
+      return res.status(mantraRes.status).json({ success: false, message: `Mantra API HTTP ${mantraRes.status}`, error: errText });
+    }
+
+    const mantraData = await mantraRes.json();
+    const rawMessages: any[] = mantraData.data || [];
+
+    const messages = rawMessages.map((m: any, idx: number) => {
+      const text = m.content?.text || (m.content?.type ? `[${m.content.type}]` : '');
+      const type = m.content?.type || 'text';
+      const isTemplate = type === 'template' || 
+                         text.includes('Adelanto de Programación') || 
+                         text.includes('Blindajeproactivov2') ||
+                         text.includes('mcwa') ||
+                         Boolean(m.templateId);
+
+      return {
+        orden: idx + 1,
+        emisor: m.sender === 'contact' ? 'CLIENTE' : 'ASESOR/EMPRESA',
+        texto: text,
+        fecha_utc: m.createdAt,
+        agente: m.agent?.name || m.sentByUser?.name || null,
+        tipo: type,
+        es_plantilla: isTemplate,
+        plantilla_nombre: isTemplate ? (type === 'template' ? text : 'Plantilla HSM WhatsApp') : null
+      };
+    });
+
+    res.json({
+      success: true,
+      phone,
+      total: mantraData.total || messages.length,
+      limit,
+      source: 'mantra_live',
+      messages
+    });
+  } catch (err: any) {
+    console.error('Error en /api/admin/mantra-chat:', err);
+    res.status(500).json({ success: false, message: err.message || 'Error consultando Mantra API' });
+  }
+});
+
 // 3. Exportar datos filtrados en CSV / JSON completo
 app.get('/api/admin/export', async (req, res) => {
   try {

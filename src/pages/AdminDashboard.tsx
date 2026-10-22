@@ -21,7 +21,9 @@ import {
   ArrowUp,
   ArrowDown,
   X,
-  ExternalLink
+  ExternalLink,
+  Sparkles,
+  Loader2
 } from 'lucide-react';
 
 type TabType = 'principal' | 'encuestas' | 'reprogramaciones' | 'chats_mantra';
@@ -122,9 +124,47 @@ export default function AdminDashboard() {
   // Modal para ver registro completo
   const [selectedRow, setSelectedRow] = useState<any | null>(null);
   const [chatViewMode, setChatViewMode] = useState<'bubbles' | 'raw'>('bubbles');
+  const [liveChatMessages, setLiveChatMessages] = useState<any[] | null>(null);
+  const [liveChatTotal, setLiveChatTotal] = useState<number | null>(null);
+  const [loadingChat, setLoadingChat] = useState<boolean>(false);
+  const [chatLimit, setChatLimit] = useState<number>(15);
 
   // Endpoint estrictamente local
   const apiUrl = 'http://localhost:3001';
+
+  // Cargar hasta 15 mensajes en vivo directamente desde la API de Mantra al abrir un chat
+  useEffect(() => {
+    if (!selectedRow || activeTab !== 'chats_mantra' || !selectedRow.phone) {
+      setLiveChatMessages(null);
+      setLiveChatTotal(null);
+      return;
+    }
+
+    let isMounted = true;
+    setLoadingChat(true);
+
+    fetch(`${apiUrl}/api/admin/mantra-chat?phone=${encodeURIComponent(selectedRow.phone)}&grupoServicio=${encodeURIComponent(selectedRow.grupo_servicio || '')}&limit=${chatLimit}`)
+      .then(async res => {
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return res.json();
+      })
+      .then(res => {
+        if (isMounted && res.success && Array.isArray(res.messages)) {
+          setLiveChatMessages(res.messages);
+          if (res.total !== undefined) setLiveChatTotal(res.total);
+        }
+      })
+      .catch(err => {
+        console.warn('Fallback a historial en BD (Mantra API en vivo no disponible):', err);
+      })
+      .finally(() => {
+        if (isMounted) setLoadingChat(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [selectedRow, activeTab, apiUrl, chatLimit]);
 
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
@@ -1120,18 +1160,24 @@ export default function AdminDashboard() {
                       {/* Header del Chat */}
                       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 pb-3 mb-3 flex-shrink-0">
                         <div className="flex items-center gap-2.5">
-                          <div className="p-2 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-xl">
+                          <div className="p-2 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-xl relative">
                             <MessageCircle className="w-5 h-5" />
+                            {loadingChat && (
+                              <span className="absolute -top-1 -right-1 flex h-3 w-3">
+                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                                <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
+                              </span>
+                            )}
                           </div>
                           <div>
                             <h4 className="text-sm font-bold text-white flex items-center gap-2">
                               Hilo de Conversación WhatsApp Mantra
-                              <span className="text-[11px] px-2.5 py-0.5 rounded-full bg-slate-800 text-emerald-400 border border-emerald-500/20 font-mono font-bold">
-                                {parsedChatMessages.length} mensajes en BD
+                              <span className="text-[11px] px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-mono font-bold">
+                                {parsedChatMessages.length} {liveChatMessages ? 'mensajes en vivo' : 'mensajes en BD'}
                               </span>
-                              {selectedRow.total_mensajes && selectedRow.total_mensajes > parsedChatMessages.length && (
-                                <span className="text-[10px] px-2 py-0.5 rounded-full bg-orange-500/10 text-orange-400 border border-orange-500/20 font-medium">
-                                  {selectedRow.total_mensajes} total en hilo
+                              {(liveChatTotal || selectedRow.total_mensajes) && (
+                                <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-slate-700 font-medium">
+                                  {liveChatTotal || selectedRow.total_mensajes} total en hilo
                                 </span>
                               )}
                             </h4>
@@ -1141,52 +1187,86 @@ export default function AdminDashboard() {
                           </div>
                         </div>
 
-                        {/* Selector de Vista: Burbujas vs JSON */}
-                        <div className="flex items-center gap-1.5 bg-slate-900 border border-slate-800 rounded-xl p-1 text-[11px]">
-                          <button
-                            type="button"
-                            onClick={() => setChatViewMode('bubbles')}
-                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-semibold transition-all ${
-                              chatViewMode === 'bubbles'
-                                ? 'bg-orange-500 text-white shadow-md'
-                                : 'text-slate-400 hover:text-slate-200'
-                            }`}
-                          >
-                            <MessageSquare className="w-3.5 h-3.5" />
-                            <span>Vista Chat</span>
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setChatViewMode('raw')}
-                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-semibold transition-all ${
-                              chatViewMode === 'raw'
-                                ? 'bg-orange-500 text-white shadow-md'
-                                : 'text-slate-400 hover:text-slate-200'
-                            }`}
-                          >
-                            <Code className="w-3.5 h-3.5" />
-                            <span>JSON Crudo</span>
-                          </button>
+                        {/* Controles de Límite y Selector de Vista */}
+                        <div className="flex items-center gap-2">
+                          {/* Selector de límite de mensajes (15 o 30) */}
+                          <div className="flex items-center bg-slate-900 border border-slate-800 rounded-xl p-1 text-[11px]">
+                            <button
+                              type="button"
+                              onClick={() => setChatLimit(15)}
+                              className={`px-2.5 py-1 rounded-lg font-semibold transition-all ${
+                                chatLimit === 15 ? 'bg-slate-700 text-white shadow-sm' : 'text-slate-400 hover:text-slate-200'
+                              }`}
+                            >
+                              15 msgs
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setChatLimit(30)}
+                              className={`px-2.5 py-1 rounded-lg font-semibold transition-all ${
+                                chatLimit === 30 ? 'bg-slate-700 text-white shadow-sm' : 'text-slate-400 hover:text-slate-200'
+                              }`}
+                            >
+                              30 msgs
+                            </button>
+                          </div>
+
+                          {/* Selector de Vista: Burbujas vs JSON */}
+                          <div className="flex items-center gap-1.5 bg-slate-900 border border-slate-800 rounded-xl p-1 text-[11px]">
+                            <button
+                              type="button"
+                              onClick={() => setChatViewMode('bubbles')}
+                              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-semibold transition-all ${
+                                chatViewMode === 'bubbles'
+                                  ? 'bg-orange-500 text-white shadow-md'
+                                  : 'text-slate-400 hover:text-slate-200'
+                              }`}
+                            >
+                              <MessageSquare className="w-3.5 h-3.5" />
+                              <span>Vista Chat</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setChatViewMode('raw')}
+                              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-semibold transition-all ${
+                                chatViewMode === 'raw'
+                                  ? 'bg-orange-500 text-white shadow-md'
+                                  : 'text-slate-400 hover:text-slate-200'
+                              }`}
+                            >
+                              <Code className="w-3.5 h-3.5" />
+                              <span>JSON Crudo</span>
+                            </button>
+                          </div>
                         </div>
                       </div>
 
                       {/* Notificación Informativa si el hilo histórico contiene más mensajes */}
-                      {selectedRow.total_mensajes && selectedRow.total_mensajes > parsedChatMessages.length && (
-                        <div className="flex items-center justify-between px-3.5 py-2 rounded-xl bg-slate-900/90 border border-slate-800 text-[11px] text-slate-400 mb-3 flex-shrink-0">
-                          <span className="flex items-center gap-1.5">
-                            <span className="text-orange-400 font-bold">ℹ️ Historial:</span> Mostrando los {parsedChatMessages.length} mensajes más recientes sincronizados en la tabla de BD.
+                      <div className="flex items-center justify-between px-3.5 py-2 rounded-xl bg-slate-900/90 border border-slate-800 text-[11px] text-slate-400 mb-3 flex-shrink-0">
+                        <span className="flex items-center gap-1.5">
+                          <span className="text-orange-400 font-bold">ℹ️ Contexto Ampliado:</span> 
+                          Mostrando hasta {chatLimit} mensajes {liveChatMessages ? 'directamente de la API de Mantra en tiempo real' : 'guardados en BD'}.
+                        </span>
+                        {loadingChat && (
+                          <span className="flex items-center gap-1 text-emerald-400 font-medium">
+                            <Loader2 className="w-3 h-3 animate-spin" />
+                            Sincronizando Mantra...
                           </span>
-                          <span className="font-mono text-slate-500">
-                            Total acumulado en Mantra: {selectedRow.total_mensajes} mensajes
-                          </span>
-                        </div>
-                      )}
+                        )}
+                      </div>
 
                       {/* Contenedor Grande de Mensajes (Ocupa toda la altura y ancho) */}
                       {chatViewMode === 'bubbles' ? (
                         <div className="flex-1 overflow-y-auto space-y-4 p-4 bg-slate-900/40 rounded-2xl border border-slate-800/80 scrollbar-thin scrollbar-thumb-slate-700 min-h-0">
                           {parsedChatMessages.map((msg: any, mIdx: number) => {
                             const isCliente = msg.emisor === 'CLIENTE';
+                            const text = String(msg.texto || '');
+                            const isTemplate = msg.es_plantilla || 
+                                               msg.tipo === 'template' || 
+                                               text.includes('Adelanto de Programación') || 
+                                               text.includes('Blindajeproactivov2') ||
+                                               text.startsWith('mcwa');
+
                             return (
                               <div
                                 key={mIdx}
@@ -1204,11 +1284,22 @@ export default function AdminDashboard() {
                                     </>
                                   ) : (
                                     <>
+                                      {/* Etiqueta distintiva si es Plantilla HSM */}
+                                      {isTemplate && (
+                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-purple-500/20 text-purple-300 border border-purple-500/30 text-[10px] font-bold">
+                                          <Sparkles className="w-2.5 h-2.5 text-purple-400" />
+                                          Plantilla HSM WhatsApp
+                                        </span>
+                                      )}
                                       <span className="text-[11px] font-semibold text-orange-300">
-                                        {msg.agente || (msg.emisor === 'BOT' ? 'Bot Automatizado WIN' : 'Asesor / WIN')}
+                                        {msg.agente || (isTemplate ? 'Disparo de Plantilla Oficial' : (msg.emisor === 'BOT' ? 'Bot Automatizado WIN' : 'Asesor / WIN'))}
                                       </span>
-                                      <div className="w-4 h-4 rounded-full bg-orange-500/20 text-orange-400 flex items-center justify-center">
-                                        <Bot className="w-2.5 h-2.5" />
+                                      <div className={`w-4 h-4 rounded-full flex items-center justify-center ${
+                                        isTemplate 
+                                          ? 'bg-purple-500/20 text-purple-400' 
+                                          : 'bg-orange-500/20 text-orange-400'
+                                      }`}>
+                                        {isTemplate ? <Sparkles className="w-2.5 h-2.5" /> : <Bot className="w-2.5 h-2.5" />}
                                       </div>
                                     </>
                                   )}
@@ -1221,10 +1312,27 @@ export default function AdminDashboard() {
                                   className={`p-4 rounded-2xl max-w-[85%] text-xs shadow-md leading-relaxed ${
                                     isCliente
                                       ? 'bg-slate-800/95 text-slate-100 border border-slate-700/80 rounded-tl-sm'
+                                      : isTemplate
+                                      ? 'bg-gradient-to-br from-purple-950/60 via-slate-900 to-slate-950 text-purple-100 border border-purple-500/40 rounded-tr-sm shadow-purple-950/20'
                                       : 'bg-gradient-to-br from-orange-950/70 to-slate-900 text-orange-50 border border-orange-500/40 rounded-tr-sm'
                                   }`}
                                 >
-                                  {renderFormattedChatMessage(msg.texto)}
+                                  {isTemplate ? (
+                                    <div className="space-y-1.5">
+                                      <div className="flex items-center justify-between pb-1 border-b border-purple-500/20 text-[10px] font-bold text-purple-300 uppercase tracking-wide">
+                                        <span>Plantilla Oficial WhatsApp</span>
+                                        <span className="text-purple-400 font-mono">HSM</span>
+                                      </div>
+                                      <div className="text-sm font-semibold text-white tracking-wide pt-0.5">
+                                        {text}
+                                      </div>
+                                      <p className="text-[10px] text-purple-300/80 pt-1 italic">
+                                        Notificación preaprobada por Meta enviada automáticamente al cliente.
+                                      </p>
+                                    </div>
+                                  ) : (
+                                    renderFormattedChatMessage(msg.texto)
+                                  )}
                                 </div>
                               </div>
                             );
@@ -1232,14 +1340,14 @@ export default function AdminDashboard() {
                         </div>
                       ) : (
                         <pre className="flex-1 text-[11px] bg-slate-950 p-4 rounded-2xl text-emerald-400 overflow-auto border border-slate-800 font-mono min-h-0">
-                          {JSON.stringify(selectedRow.ultimos_mensajes_json, null, 2)}
+                          {JSON.stringify(liveChatMessages || selectedRow.ultimos_mensajes_json, null, 2)}
                         </pre>
                       )}
                     </>
                   ) : (
                     <div className="flex-1 flex flex-col items-center justify-center text-slate-500 gap-2 p-6 text-center">
                       <MessageSquare className="w-10 h-10 text-slate-700" />
-                      <p className="text-xs">No hay historial de chat JSON registrado para esta fila.</p>
+                      <p className="text-xs">No hay historial de chat registrado para esta fila.</p>
                     </div>
                   )}
                 </div>
