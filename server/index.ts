@@ -1083,7 +1083,10 @@ app.get('/api/admin/filtros', async (_req, res) => {
     const [tiposClasificados]: any = await pool.query(
       'SELECT DISTINCT Tipo FROM tiposervicio WHERE Tipo IS NOT NULL AND Tipo != "" AND Tipo != "NO" ORDER BY Tipo ASC'
     );
-    const [gruposMantra]: any = await pool.query(
+    const [tiposTrabajoMantra]: any = await pool.query(
+      'SELECT DISTINCT tipo_trabajo FROM historial_chats_mantra WHERE tipo_trabajo IS NOT NULL AND tipo_trabajo != "" ORDER BY tipo_trabajo ASC'
+    );
+    const [canalesMantra]: any = await pool.query(
       'SELECT DISTINCT grupo_servicio FROM historial_chats_mantra WHERE grupo_servicio IS NOT NULL AND grupo_servicio != "" ORDER BY grupo_servicio ASC'
     );
 
@@ -1093,7 +1096,10 @@ app.get('/api/admin/filtros', async (_req, res) => {
       productos: productos.map((r: any) => r.Producto),
       tiposServicio,
       tiposClasificados: tiposClasificados.map((r: any) => r.Tipo),
-      gruposServicioMantra: gruposMantra.map((r: any) => r.grupo_servicio)
+      gruposServicioMantra: [
+        ...tiposTrabajoMantra.map((r: any) => r.tipo_trabajo),
+        ...canalesMantra.map((r: any) => r.grupo_servicio)
+      ]
     });
   } catch (error: any) {
     console.error('Error obteniendo filtros admin:', error);
@@ -1214,9 +1220,15 @@ app.get('/api/admin/data', async (req, res) => {
         countParams.push(fechaFin, `${fechaFin} 23:59:59`);
       }
       if (grupoServicio) {
-        whereClauses.push('h.grupo_servicio = ?');
-        params.push(grupoServicio);
-        countParams.push(grupoServicio);
+        if (grupoServicio === 'Instalacion' || grupoServicio === 'Averias') {
+          whereClauses.push('h.grupo_servicio = ?');
+          params.push(grupoServicio);
+          countParams.push(grupoServicio);
+        } else {
+          whereClauses.push('h.tipo_trabajo = ?');
+          params.push(grupoServicio);
+          countParams.push(grupoServicio);
+        }
       }
       if (search) {
         whereClauses.push('(h.orden_id LIKE ? OR h.ticket LIKE ? OR h.phone LIKE ? OR h.cliente_nombre LIKE ? OR h.ultimo_mensaje_texto LIKE ? OR h.asesor_asignado LIKE ?)');
@@ -1532,8 +1544,13 @@ app.get('/api/admin/export', async (req, res) => {
         params.push(fechaFin, `${fechaFin} 23:59:59`);
       }
       if (grupoServicio) {
-        whereClauses.push('h.grupo_servicio = ?');
-        params.push(grupoServicio);
+        if (grupoServicio === 'Instalacion' || grupoServicio === 'Averias') {
+          whereClauses.push('h.grupo_servicio = ?');
+          params.push(grupoServicio);
+        } else {
+          whereClauses.push('h.tipo_trabajo = ?');
+          params.push(grupoServicio);
+        }
       }
       if (search) {
         whereClauses.push('(h.orden_id LIKE ? OR h.ticket LIKE ? OR h.phone LIKE ? OR h.cliente_nombre LIKE ? OR h.ultimo_mensaje_texto LIKE ? OR h.asesor_asignado LIKE ?)');

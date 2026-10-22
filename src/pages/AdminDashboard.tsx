@@ -224,7 +224,7 @@ export default function AdminDashboard() {
             productos: res.productos || [],
             tiposServicio: res.tiposServicio || [],
             tiposClasificados: res.tiposClasificados || [],
-            gruposServicioMantra: res.gruposServicioMantra || ['Averias', 'Instalacion']
+            gruposServicioMantra: res.gruposServicioMantra || ['INSTALACION', 'AVERIAS', 'PROVINCIA', 'POSTVENTA', 'AVERIAS PRV', 'Instalacion', 'Averias']
           });
         }
       })
@@ -616,12 +616,18 @@ export default function AdminDashboard() {
                   }}
                   className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-orange-500 transition-colors"
                 >
-                  <option value="">Todos los grupos</option>
-                  {(filtrosOpciones.gruposServicioMantra && filtrosOpciones.gruposServicioMantra.length > 0 
-                    ? filtrosOpciones.gruposServicioMantra 
-                    : ['Averias', 'Instalacion']).map(g => (
-                    <option key={g} value={g}>{g}</option>
-                  ))}
+                  <option value="">Todos los grupos de servicio</option>
+                  <optgroup label="Tipos de Servicio (Operación)">
+                    <option value="INSTALACION">INSTALACION (Lima)</option>
+                    <option value="AVERIAS">AVERIAS (Lima)</option>
+                    <option value="PROVINCIA">PROVINCIA (Instalación)</option>
+                    <option value="POSTVENTA">POSTVENTA</option>
+                    <option value="AVERIAS PRV">AVERIAS PRV (Provincia)</option>
+                  </optgroup>
+                  <optgroup label="Canales de WhatsApp Mantra">
+                    <option value="Instalacion">Canal Instalacion (Todo)</option>
+                    <option value="Averias">Canal Averias (Todo)</option>
+                  </optgroup>
                 </select>
               </div>
             )}
@@ -914,13 +920,23 @@ export default function AdminDashboard() {
                           {row.cliente_nombre || '-'}
                         </td>
                         <td className="py-2.5 px-4">
-                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold border ${
-                            row.grupo_servicio === 'Instalacion'
-                              ? 'bg-emerald-500/10 text-emerald-300 border-emerald-500/25'
-                              : 'bg-rose-500/10 text-rose-300 border-rose-500/25'
-                          }`}>
-                            {row.grupo_servicio || '-'}
-                          </span>
+                          <div className="flex flex-col gap-0.5">
+                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border inline-block w-fit ${
+                              row.tipo_trabajo === 'INSTALACION' ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30' :
+                              row.tipo_trabajo === 'AVERIAS' ? 'bg-rose-500/15 text-rose-300 border-rose-500/30' :
+                              row.tipo_trabajo === 'PROVINCIA' ? 'bg-cyan-500/15 text-cyan-300 border-cyan-500/30' :
+                              row.tipo_trabajo === 'POSTVENTA' ? 'bg-indigo-500/15 text-indigo-300 border-indigo-500/30' :
+                              row.tipo_trabajo === 'AVERIAS PRV' ? 'bg-amber-500/15 text-amber-300 border-amber-500/30' :
+                              'bg-slate-700/30 text-slate-300 border-slate-600/30'
+                            }`}>
+                              {row.tipo_trabajo || row.grupo_servicio || '-'}
+                            </span>
+                            {row.grupo_servicio && (
+                              <span className="text-[9px] text-slate-500 font-mono">
+                                Canal: {row.grupo_servicio}
+                              </span>
+                            )}
+                          </div>
                         </td>
                         <td className="py-2.5 px-4 max-w-[150px] truncate" title={`${row.distrito || ''} ${row.provincia ? `(${row.provincia})` : ''}`}>
                           {row.distrito || row.provincia || '-'}
