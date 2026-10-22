@@ -129,8 +129,8 @@ export default function AdminDashboard() {
   const [loadingChat, setLoadingChat] = useState<boolean>(false);
   const [chatLimit, setChatLimit] = useState<number>(15);
 
-  // Endpoint estrictamente local
-  const apiUrl = 'http://localhost:3001';
+  // Endpoint en línea (Azure App Service con soporte para variable de entorno)
+  const apiUrl = (import.meta as any).env?.VITE_API_URL || 'https://webwin-api-service.azurewebsites.net';
 
   // Atajos de teclado interactivos: ESC (cerrar), ArrowLeft/ArrowRight (navegar registros), V (alternar vista)
   useEffect(() => {
