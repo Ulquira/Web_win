@@ -1323,7 +1323,7 @@ app.get('/api/admin/data', async (req, res) => {
   }
 });
 
-// 2.5 Consultar historial en vivo de Mantra (hasta 15 mensajes en tiempo real con detección de plantillas HSM)
+// 2.5 Consultar historial en vivo de Mantra (hasta 15/30 mensajes con clasificación rigurosa Asesor Humano vs Bot vs Plantilla HSM)
 app.get('/api/admin/mantra-chat', async (req, res) => {
   try {
     const rawPhone = String(req.query.phone || '').trim().replace(/\D/g, '');
@@ -1368,21 +1368,48 @@ app.get('/api/admin/mantra-chat', async (req, res) => {
     const messages = rawMessages.map((m: any, idx: number) => {
       const text = m.content?.text || (m.content?.type ? `[${m.content.type}]` : '');
       const type = m.content?.type || 'text';
-      const isTemplate = type === 'template' || 
-                         text.includes('Adelanto de Programación') || 
-                         text.includes('Blindajeproactivov2') ||
-                         text.includes('mcwa') ||
-                         Boolean(m.templateId);
+      const isClient = m.sender === 'contact';
+      const humanAgent = m.agent?.name || m.sentByUser?.name || null;
+
+      // Criterios de clasificación técnica inequívocos:
+      // 1. Plantilla WhatsApp HSM: Type 'template', nombre de plantilla técnica o enlaces interactivos WIN EN RUTA
+      const isTemplate = !isClient && (
+        type === 'template' || 
+        text.includes('Adelanto de Programación') || 
+        text.includes('Blindajeproactivov2') ||
+        text.includes('enruta.win.pe/seguimiento') ||
+        text.includes('Código de seguimiento') ||
+        text.includes('*¡La instalación de tu servicio WIN es hoy!*') ||
+        text.includes('*¡Estás a un paso de vivir la mejor experiencia') ||
+        text.includes('Tu atención técnica de tu servicio WIN es hoy') ||
+        text.startsWith('mcwa') ||
+        Boolean(m.templateId)
+      );
+
+      // 2. Rol operativo exacto
+      let emisorRol: 'CLIENTE' | 'ASESOR' | 'BOT_PLANTILLA' | 'BOT';
+      if (isClient) {
+        emisorRol = 'CLIENTE';
+      } else if (humanAgent) {
+        emisorRol = 'ASESOR';
+      } else if (isTemplate) {
+        emisorRol = 'BOT_PLANTILLA';
+      } else {
+        emisorRol = 'BOT';
+      }
 
       return {
         orden: idx + 1,
-        emisor: m.sender === 'contact' ? 'CLIENTE' : 'ASESOR/EMPRESA',
+        emisor: isClient ? 'CLIENTE' : (humanAgent ? 'ASESOR' : 'BOT'),
+        emisor_rol: emisorRol,
         texto: text,
         fecha_utc: m.createdAt,
-        agente: m.agent?.name || m.sentByUser?.name || null,
+        agente: humanAgent,
         tipo: type,
         es_plantilla: isTemplate,
-        plantilla_nombre: isTemplate ? (type === 'template' ? text : 'Plantilla HSM WhatsApp') : null
+        plantilla_nombre: isTemplate 
+          ? (type === 'template' ? text : text.includes('Adelanto') ? 'Adelanto de Programación' : text.includes('instalación') ? 'Aviso de Instalación' : 'Notificación de Servicio') 
+          : null
       };
     });
 
@@ -1400,7 +1427,6 @@ app.get('/api/admin/mantra-chat', async (req, res) => {
   }
 });
 
-// 3. Exportar datos filtrados en CSV / JSON completo
 app.get('/api/admin/export', async (req, res) => {
   try {
     const tabla = String(req.query.tabla || 'principal').toLowerCase();
