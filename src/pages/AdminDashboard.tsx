@@ -1367,7 +1367,14 @@ export default function AdminDashboard() {
                               text.includes('*¡Perfecto!*') ||
                               text.includes('¡Perfecto!') ||
                               text.startsWith('mcwa') ||
-                              (text.includes('| [') && text.includes(']'))
+                              (text.includes('| [') && text.includes(']')) ||
+                              text.includes('Ad. Inc.') ||
+                              text.includes('Velocidad') ||
+                              text.includes('TRAKING') ||
+                              text.includes('Seguimiento de VT') ||
+                              text.includes('programación') ||
+                              text.includes('programacion') ||
+                              (!msg.agente && text.length < 40 && !text.includes('?') && (text.includes('-') || text.includes('_') || text.includes('.')))
                             );
 
 

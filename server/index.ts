@@ -1258,6 +1258,11 @@ app.get('/api/admin/data', async (req, res) => {
               OR h.ultimo_mensaje_texto LIKE '%Confirmación%'
               OR h.ultimo_mensaje_texto LIKE '%enruta.win.pe%'
               OR h.ultimo_mensaje_texto LIKE '%| [%'
+              OR h.ultimo_mensaje_texto LIKE '%Ad. Inc.%'
+              OR h.ultimo_mensaje_texto LIKE '%Velocidad%'
+              OR h.ultimo_mensaje_texto LIKE '%TRAKING%'
+              OR h.ultimo_mensaje_texto LIKE '%Seguimiento de VT%'
+              OR h.ultimo_mensaje_texto LIKE '%programaci%'
               THEN 'PLANTILLA'
             ELSE 'ASESOR'
           END AS quien_tiene_la_palabra
@@ -1566,6 +1571,11 @@ app.get('/api/admin/export', async (req, res) => {
               OR h.ultimo_mensaje_texto LIKE '%Confirmación%'
               OR h.ultimo_mensaje_texto LIKE '%enruta.win.pe%'
               OR h.ultimo_mensaje_texto LIKE '%| [%'
+              OR h.ultimo_mensaje_texto LIKE '%Ad. Inc.%'
+              OR h.ultimo_mensaje_texto LIKE '%Velocidad%'
+              OR h.ultimo_mensaje_texto LIKE '%TRAKING%'
+              OR h.ultimo_mensaje_texto LIKE '%Seguimiento de VT%'
+              OR h.ultimo_mensaje_texto LIKE '%programaci%'
               THEN 'PLANTILLA'
             ELSE 'ASESOR'
           END AS quien_tiene_la_palabra
