@@ -15,8 +15,7 @@ import {
   MessageSquare,
   MessageCircle,
   User,
-  UserCheck,
-  Bot,
+  Headset,
   Code,
   ArrowUpDown,
   ArrowUp,
@@ -1262,19 +1261,25 @@ export default function AdminDashboard() {
                           {parsedChatMessages.map((msg: any, mIdx: number) => {
                             const isCliente = msg.emisor === 'CLIENTE' || msg.emisor_rol === 'CLIENTE';
                             const text = String(msg.texto || '');
-                            const hasHumanAgent = Boolean(msg.agente);
 
-                            // Detección exhaustiva de Plantilla HSM (Meta WhatsApp)
+                            // Detección precisa de PLANTILLA (Meta WhatsApp HSM / difusión / tracking / confirmación)
                             const isTemplate = !isCliente && Boolean(
                               msg.es_plantilla || 
                               msg.tipo === 'template' || 
-                              text.includes('Adelanto de Programación') || 
-                              text.includes('Blindajeproactivov2') ||
-                              text.includes('enruta.win.pe/seguimiento') ||
+                              msg.emisor === 'PLANTILLA' || 
+                              msg.emisor_rol === 'PLANTILLA' ||
+                              text.includes('Adelanto') || 
+                              text.includes('Blindaje') || 
+                              text.includes('Trak_') ||
+                              text.includes('Confirmación de Visita') ||
+                              text.includes('enruta.win.pe') ||
+                              text.includes('go.win.pe') ||
                               text.includes('Código de seguimiento') ||
                               text.includes('La instalación de tu servicio WIN es hoy') ||
                               text.includes('Estás a un paso de vivir la mejor experiencia') ||
                               text.includes('Tu atención técnica de tu servicio WIN es hoy') ||
+                              text.includes('*¡Perfecto!*') ||
+                              text.includes('¡Perfecto!') ||
                               text.startsWith('mcwa') ||
                               (text.includes('| [') && text.includes(']'))
                             );
@@ -1291,31 +1296,21 @@ export default function AdminDashboard() {
                                       <div className="w-4 h-4 rounded-full bg-blue-500/20 text-blue-400 flex items-center justify-center">
                                         <User className="w-2.5 h-2.5" />
                                       </div>
+                                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-blue-500/20 text-blue-300 border border-blue-500/30 text-[10px] font-bold">
+                                        Cliente
+                                      </span>
                                       <span className="text-[11px] font-semibold text-blue-300">
                                         {selectedRow.cliente_nombre || 'Cliente'}
                                       </span>
-                                    </>
-                                  ) : hasHumanAgent ? (
-                                    <>
-                                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-500/20 text-amber-300 border border-amber-500/30 text-[10px] font-bold">
-                                        <UserCheck className="w-2.5 h-2.5 text-amber-400" />
-                                        Asesor Humano
-                                      </span>
-                                      <span className="text-[11px] font-semibold text-amber-300">
-                                        {msg.agente}
-                                      </span>
-                                      <div className="w-4 h-4 rounded-full bg-amber-500/20 text-amber-400 flex items-center justify-center">
-                                        <UserCheck className="w-2.5 h-2.5" />
-                                      </div>
                                     </>
                                   ) : isTemplate ? (
                                     <>
                                       <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-purple-500/20 text-purple-300 border border-purple-500/30 text-[10px] font-bold">
                                         <Sparkles className="w-2.5 h-2.5 text-purple-400" />
-                                        Plantilla HSM
+                                        Plantilla WhatsApp
                                       </span>
                                       <span className="text-[11px] font-semibold text-purple-300">
-                                        Automatización WIN (Plantilla Meta)
+                                        Disparo Automático (Meta HSM)
                                       </span>
                                       <div className="w-4 h-4 rounded-full bg-purple-500/20 text-purple-400 flex items-center justify-center">
                                         <Sparkles className="w-2.5 h-2.5" />
@@ -1323,15 +1318,15 @@ export default function AdminDashboard() {
                                     </>
                                   ) : (
                                     <>
-                                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[10px] font-bold">
-                                        <Bot className="w-2.5 h-2.5 text-emerald-400" />
-                                        Bot Interactivo
+                                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-orange-500/20 text-orange-300 border border-orange-500/30 text-[10px] font-bold">
+                                        <Headset className="w-2.5 h-2.5 text-orange-400" />
+                                        Asesor WIN
                                       </span>
-                                      <span className="text-[11px] font-semibold text-emerald-300">
-                                        Bot Automatizado WIN
+                                      <span className="text-[11px] font-semibold text-orange-300">
+                                        {msg.agente || 'Asesor de Atención'}
                                       </span>
-                                      <div className="w-4 h-4 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center">
-                                        <Bot className="w-2.5 h-2.5" />
+                                      <div className="w-4 h-4 rounded-full bg-orange-500/20 text-orange-400 flex items-center justify-center">
+                                        <Headset className="w-2.5 h-2.5" />
                                       </div>
                                     </>
                                   )}
@@ -1344,17 +1339,15 @@ export default function AdminDashboard() {
                                   className={`p-4 rounded-2xl max-w-[85%] text-xs shadow-md leading-relaxed ${
                                     isCliente
                                       ? 'bg-slate-800/95 text-slate-100 border border-slate-700/80 rounded-tl-sm'
-                                      : hasHumanAgent
-                                      ? 'bg-gradient-to-br from-amber-950/70 to-slate-900 text-amber-50 border border-amber-500/40 rounded-tr-sm'
                                       : isTemplate
                                       ? 'bg-gradient-to-br from-purple-950/60 via-slate-900 to-slate-950 text-purple-100 border border-purple-500/40 rounded-tr-sm shadow-purple-950/20'
-                                      : 'bg-gradient-to-br from-slate-900 to-slate-950 text-emerald-50 border border-emerald-500/30 rounded-tr-sm'
+                                      : 'bg-gradient-to-br from-orange-950/70 to-slate-900 text-orange-50 border border-orange-500/40 rounded-tr-sm'
                                   }`}
                                 >
                                   {isTemplate && (msg.tipo === 'template' || text.length < 50) ? (
                                     <div className="space-y-1.5">
                                       <div className="flex items-center justify-between pb-1 border-b border-purple-500/20 text-[10px] font-bold text-purple-300 uppercase tracking-wide">
-                                        <span>Disparo de Plantilla Oficial</span>
+                                        <span>Plantilla Oficial WhatsApp</span>
                                         <span className="text-purple-400 font-mono">HSM</span>
                                       </div>
                                       <div className="text-sm font-semibold text-white tracking-wide pt-0.5">
@@ -1370,8 +1363,7 @@ export default function AdminDashboard() {
                                 </div>
                               </div>
                             );
-                          })}
-                        </div>
+                          })}                        </div>
                       ) : (
                         <pre className="flex-1 text-[11px] bg-slate-950 p-4 rounded-2xl text-emerald-400 overflow-auto border border-slate-800 font-mono min-h-0">
                           {JSON.stringify(liveChatMessages || selectedRow.ultimos_mensajes_json, null, 2)}

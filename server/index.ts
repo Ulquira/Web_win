@@ -1323,7 +1323,7 @@ app.get('/api/admin/data', async (req, res) => {
   }
 });
 
-// 2.5 Consultar historial en vivo de Mantra (hasta 15/30 mensajes con clasificación rigurosa Asesor Humano vs Bot vs Plantilla HSM)
+// 2.5 Consultar historial en vivo de Mantra con división estricta en 3 segmentos: CLIENTE / ASESOR / PLANTILLA
 app.get('/api/admin/mantra-chat', async (req, res) => {
   try {
     const rawPhone = String(req.query.phone || '').trim().replace(/\D/g, '');
@@ -1371,44 +1371,42 @@ app.get('/api/admin/mantra-chat', async (req, res) => {
       const isClient = m.sender === 'contact';
       const humanAgent = m.agent?.name || m.sentByUser?.name || null;
 
-      // Criterios de clasificación técnica inequívocos:
-      // 1. Plantilla WhatsApp HSM: Type 'template', nombre de plantilla técnica o enlaces interactivos WIN EN RUTA
-      const isTemplate = !isClient && (
+      // Detección exhaustiva de PLANTILLA (Meta WhatsApp HSM / automatización)
+      const isTemplate = !isClient && Boolean(
         type === 'template' || 
-        text.includes('Adelanto de Programación') || 
-        text.includes('Blindajeproactivov2') ||
-        text.includes('enruta.win.pe/seguimiento') ||
+        text.includes('Adelanto') || 
+        text.includes('Blindaje') || 
+        text.includes('Trak_') ||
+        text.includes('Confirmación de Visita') ||
+        text.includes('enruta.win.pe') ||
+        text.includes('go.win.pe') ||
         text.includes('Código de seguimiento') ||
-        text.includes('*¡La instalación de tu servicio WIN es hoy!*') ||
-        text.includes('*¡Estás a un paso de vivir la mejor experiencia') ||
+        text.includes('La instalación de tu servicio WIN es hoy') ||
+        text.includes('Estás a un paso de vivir la mejor experiencia') ||
         text.includes('Tu atención técnica de tu servicio WIN es hoy') ||
+        text.includes('*¡Perfecto!*') ||
+        text.includes('¡Perfecto!') ||
         text.startsWith('mcwa') ||
+        (text.includes('| [') && text.includes(']')) ||
         Boolean(m.templateId)
       );
 
-      // 2. Rol operativo exacto
-      let emisorRol: 'CLIENTE' | 'ASESOR' | 'BOT_PLANTILLA' | 'BOT';
-      if (isClient) {
-        emisorRol = 'CLIENTE';
-      } else if (humanAgent) {
-        emisorRol = 'ASESOR';
-      } else if (isTemplate) {
-        emisorRol = 'BOT_PLANTILLA';
-      } else {
-        emisorRol = 'BOT';
-      }
+      // Estricta segmentación en 3 categorías solicitadas: CLIENTE / PLANTILLA / ASESOR
+      const rol: 'CLIENTE' | 'PLANTILLA' | 'ASESOR' = isClient 
+        ? 'CLIENTE' 
+        : (isTemplate ? 'PLANTILLA' : 'ASESOR');
 
       return {
         orden: idx + 1,
-        emisor: isClient ? 'CLIENTE' : (humanAgent ? 'ASESOR' : 'BOT'),
-        emisor_rol: emisorRol,
+        emisor: isClient ? 'CLIENTE' : (isTemplate ? 'PLANTILLA' : 'ASESOR'),
+        emisor_rol: rol,
         texto: text,
         fecha_utc: m.createdAt,
         agente: humanAgent,
         tipo: type,
         es_plantilla: isTemplate,
         plantilla_nombre: isTemplate 
-          ? (type === 'template' ? text : text.includes('Adelanto') ? 'Adelanto de Programación' : text.includes('instalación') ? 'Aviso de Instalación' : 'Notificación de Servicio') 
+          ? (type === 'template' ? text : text.includes('Trak_') ? text : text.includes('Adelanto') ? 'Adelanto de Programación' : 'Plantilla Notificación WhatsApp') 
           : null
       };
     });
