@@ -1083,13 +1083,17 @@ app.get('/api/admin/filtros', async (_req, res) => {
     const [tiposClasificados]: any = await pool.query(
       'SELECT DISTINCT Tipo FROM tiposervicio WHERE Tipo IS NOT NULL AND Tipo != "" AND Tipo != "NO" ORDER BY Tipo ASC'
     );
+    const [gruposMantra]: any = await pool.query(
+      'SELECT DISTINCT grupo_servicio FROM historial_chats_mantra WHERE grupo_servicio IS NOT NULL AND grupo_servicio != "" ORDER BY grupo_servicio ASC'
+    );
 
     res.json({
       success: true,
       tiposTraba: tiposTraba.map((r: any) => r.TipoTraba),
       productos: productos.map((r: any) => r.Producto),
       tiposServicio,
-      tiposClasificados: tiposClasificados.map((r: any) => r.Tipo)
+      tiposClasificados: tiposClasificados.map((r: any) => r.Tipo),
+      gruposServicioMantra: gruposMantra.map((r: any) => r.grupo_servicio)
     });
   } catch (error: any) {
     console.error('Error obteniendo filtros admin:', error);
@@ -1105,6 +1109,9 @@ app.get('/api/admin/data', async (req, res) => {
     const fechaInicio = String(req.query.fechaInicio || '').trim();
     const fechaFin = String(req.query.fechaFin || '').trim();
     const tipoServicio = String(req.query.tipoServicio || '').trim();
+    const grupoServicio = String(req.query.grupoServicio || '').trim();
+    const sortBy = String(req.query.sortBy || '').trim();
+    const sortOrder = String(req.query.sortOrder || 'DESC').toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
     const page = Math.max(1, parseInt(String(req.query.page || '1'), 10));
     const limit = Math.min(200, Math.max(10, parseInt(String(req.query.limit || '50'), 10)));
     const offset = (page - 1) * limit;
@@ -1206,12 +1213,36 @@ app.get('/api/admin/data', async (req, res) => {
         params.push(fechaFin, `${fechaFin} 23:59:59`);
         countParams.push(fechaFin, `${fechaFin} 23:59:59`);
       }
+      if (grupoServicio) {
+        whereClauses.push('h.grupo_servicio = ?');
+        params.push(grupoServicio);
+        countParams.push(grupoServicio);
+      }
       if (search) {
         whereClauses.push('(h.orden_id LIKE ? OR h.ticket LIKE ? OR h.phone LIKE ? OR h.cliente_nombre LIKE ? OR h.ultimo_mensaje_texto LIKE ? OR h.asesor_asignado LIKE ?)');
         const s = `%${search}%`;
         params.push(s, s, s, s, s, s);
         countParams.push(s, s, s, s, s, s);
       }
+
+      const allowedSortCols: Record<string, string> = {
+        id: 'h.id',
+        orden_id: 'h.orden_id',
+        ticket: 'h.ticket',
+        phone: 'h.phone',
+        cliente_nombre: 'h.cliente_nombre',
+        grupo_servicio: 'h.grupo_servicio',
+        distrito: 'h.distrito',
+        provincia: 'h.provincia',
+        quien_tiene_la_palabra: 'h.quien_tiene_la_palabra',
+        estado_chat: 'h.estado_chat',
+        semaforo_sla: 'h.semaforo_sla',
+        ultimo_mensaje_texto: 'h.ultimo_mensaje_texto',
+        ultimo_mensaje_fecha: 'h.ultimo_mensaje_fecha',
+        fecha_gestion_dia: 'h.fecha_gestion_dia',
+        total_mensajes: 'h.total_mensajes'
+      };
+      const orderCol = allowedSortCols[sortBy] || 'h.ultimo_mensaje_fecha';
 
       const whereSql = whereClauses.join(' AND ');
       countQuery = `SELECT COUNT(*) as total FROM historial_chats_mantra h WHERE ${whereSql}`;
@@ -1220,7 +1251,7 @@ app.get('/api/admin/data', async (req, res) => {
           h.*
         FROM historial_chats_mantra h
         WHERE ${whereSql}
-        ORDER BY h.ultimo_mensaje_fecha DESC, h.id DESC
+        ORDER BY ${orderCol} ${sortOrder}, h.id DESC
         LIMIT ? OFFSET ?
       `;
       params.push(limit, offset);
@@ -1301,6 +1332,9 @@ app.get('/api/admin/export', async (req, res) => {
     const fechaInicio = String(req.query.fechaInicio || '').trim();
     const fechaFin = String(req.query.fechaFin || '').trim();
     const tipoServicio = String(req.query.tipoServicio || '').trim();
+    const grupoServicio = String(req.query.grupoServicio || '').trim();
+    const sortBy = String(req.query.sortBy || '').trim();
+    const sortOrder = String(req.query.sortOrder || 'DESC').toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
 
     const maxExportRows = 5000;
     const params: any[] = [];
@@ -1379,17 +1413,40 @@ app.get('/api/admin/export', async (req, res) => {
         whereClauses.push('(h.fecha_gestion_dia <= ? OR h.ultimo_mensaje_fecha <= ?)');
         params.push(fechaFin, `${fechaFin} 23:59:59`);
       }
+      if (grupoServicio) {
+        whereClauses.push('h.grupo_servicio = ?');
+        params.push(grupoServicio);
+      }
       if (search) {
         whereClauses.push('(h.orden_id LIKE ? OR h.ticket LIKE ? OR h.phone LIKE ? OR h.cliente_nombre LIKE ? OR h.ultimo_mensaje_texto LIKE ? OR h.asesor_asignado LIKE ?)');
         const s = `%${search}%`;
         params.push(s, s, s, s, s, s);
       }
+      const allowedSortCols: Record<string, string> = {
+        id: 'h.id',
+        orden_id: 'h.orden_id',
+        ticket: 'h.ticket',
+        phone: 'h.phone',
+        cliente_nombre: 'h.cliente_nombre',
+        grupo_servicio: 'h.grupo_servicio',
+        distrito: 'h.distrito',
+        provincia: 'h.provincia',
+        quien_tiene_la_palabra: 'h.quien_tiene_la_palabra',
+        estado_chat: 'h.estado_chat',
+        semaforo_sla: 'h.semaforo_sla',
+        ultimo_mensaje_texto: 'h.ultimo_mensaje_texto',
+        ultimo_mensaje_fecha: 'h.ultimo_mensaje_fecha',
+        fecha_gestion_dia: 'h.fecha_gestion_dia',
+        total_mensajes: 'h.total_mensajes'
+      };
+      const orderCol = allowedSortCols[sortBy] || 'h.ultimo_mensaje_fecha';
+
       selectQuery = `
         SELECT 
           h.*
         FROM historial_chats_mantra h
         WHERE ${whereClauses.join(' AND ')}
-        ORDER BY h.ultimo_mensaje_fecha DESC, h.id DESC
+        ORDER BY ${orderCol} ${sortOrder}, h.id DESC
         LIMIT ${maxExportRows}
       `;
     } else {

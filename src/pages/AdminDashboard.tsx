@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
   Database, 
   Search, 
@@ -13,6 +13,13 @@ import {
   CalendarClock, 
   Layers,
   MessageSquare,
+  MessageCircle,
+  User,
+  Bot,
+  Code,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
   X,
   ExternalLink
 } from 'lucide-react';
@@ -24,6 +31,7 @@ interface FiltroOpciones {
   productos: string[];
   tiposServicio: Array<{ IDservicio: number; Servicio: string; Tipo: string }>;
   tiposClasificados: string[];
+  gruposServicioMantra?: string[];
 }
 
 export default function AdminDashboard() {
@@ -40,17 +48,24 @@ export default function AdminDashboard() {
   const [fechaInicio, setFechaInicio] = useState('');
   const [fechaFin, setFechaFin] = useState('');
   const [tipoServicio, setTipoServicio] = useState('');
+  const [grupoServicio, setGrupoServicio] = useState('');
+
+  // Ordenamiento de columnas (ascendente / descendente)
+  const [sortField, setSortField] = useState<string>('id');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
 
   // Opciones de selects
   const [filtrosOpciones, setFiltrosOpciones] = useState<FiltroOpciones>({
     tiposTraba: [],
     productos: [],
     tiposServicio: [],
-    tiposClasificados: []
+    tiposClasificados: [],
+    gruposServicioMantra: []
   });
 
   // Modal para ver registro completo
   const [selectedRow, setSelectedRow] = useState<any | null>(null);
+  const [chatViewMode, setChatViewMode] = useState<'bubbles' | 'raw'>('bubbles');
 
   // Endpoint estrictamente local
   const apiUrl = 'http://localhost:3001';
@@ -70,7 +85,8 @@ export default function AdminDashboard() {
             tiposTraba: res.tiposTraba || [],
             productos: res.productos || [],
             tiposServicio: res.tiposServicio || [],
-            tiposClasificados: res.tiposClasificados || []
+            tiposClasificados: res.tiposClasificados || [],
+            gruposServicioMantra: res.gruposServicioMantra || ['Averias', 'Instalacion']
           });
         }
       })
@@ -79,7 +95,7 @@ export default function AdminDashboard() {
       });
   }, [apiUrl]);
 
-  // Cargar datos al cambiar tab, paginación o aplicar filtros
+  // Cargar datos al cambiar tab, paginación, ordenamiento o filtros
   const fetchData = async (targetPage = page) => {
     setLoading(true);
     setErrorMsg(null);
@@ -87,13 +103,16 @@ export default function AdminDashboard() {
       const params = new URLSearchParams({
         tabla: activeTab,
         page: String(targetPage),
-        limit: String(limit)
+        limit: String(limit),
+        sortBy: sortField,
+        sortOrder: sortOrder
       });
 
       if (search) params.append('search', search);
       if (fechaInicio) params.append('fechaInicio', fechaInicio);
       if (fechaFin) params.append('fechaFin', fechaFin);
       if (tipoServicio && activeTab === 'principal') params.append('tipoServicio', tipoServicio);
+      if (grupoServicio && activeTab === 'chats_mantra') params.append('grupoServicio', grupoServicio);
 
       const res = await fetch(`${apiUrl}/api/admin/data?${params.toString()}`);
       if (!res.ok) {
@@ -122,7 +141,7 @@ export default function AdminDashboard() {
   useEffect(() => {
     setPage(1);
     fetchData(1);
-  }, [activeTab, limit, apiUrl]);
+  }, [activeTab, limit, grupoServicio, sortField, sortOrder, apiUrl]);
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -135,21 +154,88 @@ export default function AdminDashboard() {
     setFechaInicio('');
     setFechaFin('');
     setTipoServicio('');
+    setGrupoServicio('');
+    setSortField('id');
+    setSortOrder('desc');
     setPage(1);
     fetchData(1);
   };
+
+  // Función para alternar ordenamiento de columna
+  const handleSort = (field: string) => {
+    if (sortField === field) {
+      setSortOrder(prev => (prev === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortField(field);
+      setSortOrder('asc');
+    }
+  };
+
+  // Ordenamiento local instantáneo sobre las filas visibles
+  const displayData = useMemo(() => {
+    if (!sortField || data.length === 0) return data;
+    return [...data].sort((a, b) => {
+      let valA = a[sortField];
+      let valB = b[sortField];
+      if (valA === null || valA === undefined) return 1;
+      if (valB === null || valB === undefined) return -1;
+
+      // Si es número
+      const numA = Number(valA);
+      const numB = Number(valB);
+      if (!isNaN(numA) && !isNaN(numB) && typeof valA !== 'string') {
+        return sortOrder === 'asc' ? numA - numB : numB - numA;
+      }
+
+      // Si es fecha
+      const dateA = new Date(valA).getTime();
+      const dateB = new Date(valB).getTime();
+      if (!isNaN(dateA) && !isNaN(dateB) && (String(sortField).includes('fecha') || sortField.startsWith('F.'))) {
+        return sortOrder === 'asc' ? dateA - dateB : dateB - dateA;
+      }
+
+      // Comparación alfabética
+      const strA = String(valA).toLowerCase();
+      const strB = String(valB).toLowerCase();
+      return sortOrder === 'asc' ? strA.localeCompare(strB) : strB.localeCompare(strA);
+    });
+  }, [data, sortField, sortOrder]);
+
+  // Mensajes parseados para la vista amigable de chat
+  const parsedChatMessages = useMemo(() => {
+    if (!selectedRow?.ultimos_mensajes_json) return [];
+    try {
+      const raw = typeof selectedRow.ultimos_mensajes_json === 'string'
+        ? JSON.parse(selectedRow.ultimos_mensajes_json)
+        : selectedRow.ultimos_mensajes_json;
+      if (!Array.isArray(raw)) return [];
+
+      // Orden cronológico natural: de más antiguo a más reciente (arriba -> abajo)
+      return [...raw].sort((a, b) => {
+        const timeA = new Date(a.fecha_utc || 0).getTime();
+        const timeB = new Date(b.fecha_utc || 0).getTime();
+        if (timeA && timeB) return timeA - timeB;
+        return (b.orden || 0) - (a.orden || 0);
+      });
+    } catch {
+      return [];
+    }
+  }, [selectedRow]);
 
   // Descargar archivo (CSV o JSON)
   const handleDownload = (format: 'csv' | 'json') => {
     const params = new URLSearchParams({
       tabla: activeTab,
-      format
+      format,
+      sortBy: sortField,
+      sortOrder: sortOrder
     });
 
     if (search) params.append('search', search);
     if (fechaInicio) params.append('fechaInicio', fechaInicio);
     if (fechaFin) params.append('fechaFin', fechaFin);
     if (tipoServicio && activeTab === 'principal') params.append('tipoServicio', tipoServicio);
+    if (grupoServicio && activeTab === 'chats_mantra') params.append('grupoServicio', grupoServicio);
 
     window.open(`${apiUrl}/api/admin/export?${params.toString()}`, '_blank');
   };
@@ -171,6 +257,18 @@ export default function AdminDashboard() {
     }
   };
 
+  // Renderizar indicador de ordenamiento en cabeceras de tabla
+  const renderSortIndicator = (field: string) => {
+    if (sortField !== field) {
+      return <ArrowUpDown className="w-3 h-3 text-slate-600 hover:text-slate-300 transition-colors inline ml-1" />;
+    }
+    return sortOrder === 'asc' ? (
+      <ArrowUp className="w-3 h-3 text-orange-400 font-bold inline ml-1 animate-in fade-in duration-200" />
+    ) : (
+      <ArrowDown className="w-3 h-3 text-orange-400 font-bold inline ml-1 animate-in fade-in duration-200" />
+    );
+  };
+
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans">
       {/* Header Superior */}
@@ -184,7 +282,7 @@ export default function AdminDashboard() {
               Panel de Base de Datos <span className="text-xs px-2 py-0.5 rounded-full bg-orange-500/10 text-orange-400 border border-orange-500/30">Admin Local</span>
             </h1>
             <p className="text-xs text-slate-400">
-              Visualización, filtrado avanzado y exportación de órdenes, encuestas y reprogramaciones
+              Visualización, filtros dinámicos, ordenamiento y exportación de órdenes, encuestas, reprogramaciones y chats Mantra
             </p>
           </div>
         </div>
@@ -217,7 +315,7 @@ export default function AdminDashboard() {
       </header>
 
       {/* Contenedor Principal */}
-      <main className="flex-1 p-6 max-w-[1700px] w-full mx-auto flex flex-col gap-5">
+      <main className="flex-1 p-6 max-w-[1750px] w-full mx-auto flex flex-col gap-5">
         {/* Banner de Error si falla la conexión */}
         {errorMsg && (
           <div className="bg-rose-500/10 border border-rose-500/30 text-rose-300 px-4 py-3 rounded-2xl flex items-center justify-between gap-3 text-xs">
@@ -368,8 +466,30 @@ export default function AdminDashboard() {
               </div>
             )}
 
+            {/* Filtro Grupo de Servicio (Solo visible en Historial Chats Mantra) */}
+            {activeTab === 'chats_mantra' && (
+              <div>
+                <label className="text-[11px] font-medium text-slate-400 block mb-1">Grupo de Servicio</label>
+                <select
+                  value={grupoServicio}
+                  onChange={e => {
+                    setGrupoServicio(e.target.value);
+                    setPage(1);
+                  }}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-orange-500 transition-colors"
+                >
+                  <option value="">Todos los grupos</option>
+                  {(filtrosOpciones.gruposServicioMantra && filtrosOpciones.gruposServicioMantra.length > 0 
+                    ? filtrosOpciones.gruposServicioMantra 
+                    : ['Averias', 'Instalacion']).map(g => (
+                    <option key={g} value={g}>{g}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+
             {/* Botones de acción */}
-            <div className={`flex items-end gap-2 ${activeTab !== 'principal' ? 'lg:col-span-2' : ''}`}>
+            <div className={`flex items-end gap-2 ${(activeTab !== 'principal' && activeTab !== 'chats_mantra') ? 'lg:col-span-2' : ''}`}>
               <button
                 type="submit"
                 className="flex-1 flex items-center justify-center gap-1.5 px-4 py-2 bg-orange-600 hover:bg-orange-500 text-white font-medium text-xs rounded-xl transition-all shadow-md shadow-orange-950 active:scale-95"
@@ -399,8 +519,15 @@ export default function AdminDashboard() {
 
         {/* Resumen y paginación superior */}
         <div className="flex flex-wrap items-center justify-between gap-4 text-xs text-slate-400 px-1">
-          <div>
-            Mostrando <span className="font-semibold text-white">{data.length}</span> de <span className="font-semibold text-orange-400">{total.toLocaleString()}</span> registros encontrados
+          <div className="flex items-center gap-3">
+            <div>
+              Mostrando <span className="font-semibold text-white">{displayData.length}</span> de <span className="font-semibold text-orange-400">{total.toLocaleString()}</span> registros encontrados
+            </div>
+            {sortField && (
+              <span className="text-[11px] px-2.5 py-0.5 rounded-full bg-slate-900 border border-slate-800 text-slate-400">
+                Ordenado por: <strong className="text-orange-400">{sortField}</strong> ({sortOrder === 'asc' ? 'Ascendente A-Z / 0-9' : 'Descendente Z-A / 9-0'})
+              </span>
+            )}
           </div>
 
           <div className="flex items-center gap-3">
@@ -456,34 +583,55 @@ export default function AdminDashboard() {
           )}
 
           <div className="overflow-x-auto max-h-[650px] scrollbar-thin scrollbar-thumb-slate-700">
+            {/* 1. Tabla Principal */}
             {activeTab === 'principal' && (
               <table className="w-full text-left text-xs text-slate-300 border-collapse">
                 <thead className="bg-slate-950/80 sticky top-0 z-10 border-b border-slate-800 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
                   <tr>
                     <th className="py-3 px-4">Acción</th>
-                    <th className="py-3 px-4">Orden ID</th>
-                    <th className="py-3 px-4">Tipo Servicio (Cruzado)</th>
-                    <th className="py-3 px-4">Cliente</th>
-                    <th className="py-3 px-4">Documento</th>
-                    <th className="py-3 px-4">Fecha Visita</th>
-                    <th className="py-3 px-4">Tipo Trabajo</th>
-                    <th className="py-3 px-4">Producto</th>
-                    <th className="py-3 px-4">Estado</th>
-                    <th className="py-3 px-4">Localidad / Zona</th>
-                    <th className="py-3 px-4">Cuadrilla</th>
+                    <th onClick={() => handleSort('OrdenId')} className="py-3 px-4 cursor-pointer hover:text-white select-none">
+                      Orden ID {renderSortIndicator('OrdenId')}
+                    </th>
+                    <th onClick={() => handleSort('TipoServicioCalculado')} className="py-3 px-4 cursor-pointer hover:text-white select-none">
+                      Tipo Servicio {renderSortIndicator('TipoServicioCalculado')}
+                    </th>
+                    <th onClick={() => handleSort('Cliente')} className="py-3 px-4 cursor-pointer hover:text-white select-none">
+                      Cliente {renderSortIndicator('Cliente')}
+                    </th>
+                    <th onClick={() => handleSort('NumeroDocumento')} className="py-3 px-4 cursor-pointer hover:text-white select-none">
+                      Documento {renderSortIndicator('NumeroDocumento')}
+                    </th>
+                    <th onClick={() => handleSort('FechaVisita')} className="py-3 px-4 cursor-pointer hover:text-white select-none">
+                      Fecha Visita {renderSortIndicator('FechaVisita')}
+                    </th>
+                    <th onClick={() => handleSort('TipoTraba')} className="py-3 px-4 cursor-pointer hover:text-white select-none">
+                      Tipo Trabajo {renderSortIndicator('TipoTraba')}
+                    </th>
+                    <th onClick={() => handleSort('Producto')} className="py-3 px-4 cursor-pointer hover:text-white select-none">
+                      Producto {renderSortIndicator('Producto')}
+                    </th>
+                    <th onClick={() => handleSort('Estado')} className="py-3 px-4 cursor-pointer hover:text-white select-none">
+                      Estado {renderSortIndicator('Estado')}
+                    </th>
+                    <th onClick={() => handleSort('Localidad')} className="py-3 px-4 cursor-pointer hover:text-white select-none">
+                      Localidad / Zona {renderSortIndicator('Localidad')}
+                    </th>
+                    <th onClick={() => handleSort('Cuadrilla_nombre')} className="py-3 px-4 cursor-pointer hover:text-white select-none">
+                      Cuadrilla {renderSortIndicator('Cuadrilla_nombre')}
+                    </th>
                     <th className="py-3 px-4">PIN</th>
                     <th className="py-3 px-4">Token</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-800/60">
-                  {data.length === 0 && !loading ? (
+                  {displayData.length === 0 && !loading ? (
                     <tr>
                       <td colSpan={13} className="py-12 text-center text-slate-500">
                         No se encontraron registros con los filtros seleccionados
                       </td>
                     </tr>
                   ) : (
-                    data.map((row, idx) => (
+                    displayData.map((row, idx) => (
                       <tr key={idx} className="hover:bg-slate-800/40 transition-colors">
                         <td className="py-2.5 px-4">
                           <button
@@ -554,103 +702,68 @@ export default function AdminDashboard() {
               </table>
             )}
 
-            {activeTab === 'encuestas' && (
-              <table className="w-full text-left text-xs text-slate-300 border-collapse">
-                <thead className="bg-slate-950/80 sticky top-0 z-10 border-b border-slate-800 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
-                  <tr>
-                    <th className="py-3 px-4">Acción</th>
-                    <th className="py-3 px-4">ID</th>
-                    <th className="py-3 px-4">Fecha Registro</th>
-                    <th className="py-3 px-4">Concretada</th>
-                    <th className="py-3 px-4">Satisfacción</th>
-                    <th className="py-3 px-4">Trato</th>
-                    <th className="py-3 px-4">Puntualidad</th>
-                    <th className="py-3 px-4">Claridad</th>
-                    <th className="py-3 px-4">Comentarios</th>
-                    <th className="py-3 px-4">Token</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-800/60">
-                  {data.length === 0 && !loading ? (
-                    <tr>
-                      <td colSpan={10} className="py-12 text-center text-slate-500">
-                        No hay encuestas registradas con los filtros seleccionados
-                      </td>
-                    </tr>
-                  ) : (
-                    data.map((row, idx) => (
-                      <tr key={idx} className="hover:bg-slate-800/40 transition-colors">
-                        <td className="py-2.5 px-4">
-                          <button
-                            onClick={() => setSelectedRow(row)}
-                            className="p-1.5 bg-slate-800 hover:bg-orange-500/20 hover:text-orange-400 text-slate-400 rounded-lg transition-colors"
-                            title="Ver detalle completo"
-                          >
-                            <Eye className="w-3.5 h-3.5" />
-                          </button>
-                        </td>
-                        <td className="py-2.5 px-4 font-mono font-medium text-white">#{row.id}</td>
-                        <td className="py-2.5 px-4 whitespace-nowrap text-amber-300/90">{formatDate(row.fecha_registro)}</td>
-                        <td className="py-2.5 px-4">
-                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${
-                            String(row.instalacion_concretada).toLowerCase() === 'si'
-                              ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
-                              : 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
-                          }`}>
-                            {row.instalacion_concretada || '-'}
-                          </span>
-                        </td>
-                        <td className="py-2.5 px-4 font-bold text-orange-400 text-sm">
-                          {row.satisfaccion_general ?? '-'}
-                        </td>
-                        <td className="py-2.5 px-4">{row.tecnico_trato ?? '-'}</td>
-                        <td className="py-2.5 px-4">{row.tecnico_puntualidad ?? '-'}</td>
-                        <td className="py-2.5 px-4">{row.tecnico_claridad ?? '-'}</td>
-                        <td className="py-2.5 px-4 max-w-[280px] truncate" title={row.satisfaccion_comentario || row.facilidad_motivo}>
-                          {row.satisfaccion_comentario || row.facilidad_motivo || '-'}
-                        </td>
-                        <td className="py-2.5 px-4 font-mono text-[11px] text-slate-400">{row.token || '-'}</td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            )}
-
+            {/* 2. Historial Chats Mantra */}
             {activeTab === 'chats_mantra' && (
               <table className="w-full text-left text-xs text-slate-300 border-collapse">
                 <thead className="bg-slate-950/80 sticky top-0 z-10 border-b border-slate-800 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
                   <tr>
                     <th className="py-3 px-4">Acción</th>
-                    <th className="py-3 px-4">ID</th>
-                    <th className="py-3 px-4">Orden ID</th>
-                    <th className="py-3 px-4">Ticket</th>
-                    <th className="py-3 px-4">Teléfono</th>
-                    <th className="py-3 px-4">Cliente</th>
-                    <th className="py-3 px-4">Grupo Serv.</th>
-                    <th className="py-3 px-4">Distrito / Prov.</th>
-                    <th className="py-3 px-4">Palabra</th>
-                    <th className="py-3 px-4">Estado Chat</th>
-                    <th className="py-3 px-4">SLA</th>
-                    <th className="py-3 px-4">Último Mensaje</th>
-                    <th className="py-3 px-4">Fecha Último Msg</th>
+                    <th onClick={() => handleSort('id')} className="py-3 px-4 cursor-pointer hover:text-white select-none whitespace-nowrap">
+                      ID {renderSortIndicator('id')}
+                    </th>
+                    <th onClick={() => handleSort('orden_id')} className="py-3 px-4 cursor-pointer hover:text-white select-none whitespace-nowrap">
+                      Orden ID {renderSortIndicator('orden_id')}
+                    </th>
+                    <th onClick={() => handleSort('ticket')} className="py-3 px-4 cursor-pointer hover:text-white select-none whitespace-nowrap">
+                      Ticket {renderSortIndicator('ticket')}
+                    </th>
+                    <th onClick={() => handleSort('phone')} className="py-3 px-4 cursor-pointer hover:text-white select-none whitespace-nowrap">
+                      Teléfono {renderSortIndicator('phone')}
+                    </th>
+                    <th onClick={() => handleSort('cliente_nombre')} className="py-3 px-4 cursor-pointer hover:text-white select-none">
+                      Cliente {renderSortIndicator('cliente_nombre')}
+                    </th>
+                    <th onClick={() => handleSort('grupo_servicio')} className="py-3 px-4 cursor-pointer hover:text-white select-none whitespace-nowrap">
+                      Grupo Serv. {renderSortIndicator('grupo_servicio')}
+                    </th>
+                    <th onClick={() => handleSort('distrito')} className="py-3 px-4 cursor-pointer hover:text-white select-none">
+                      Distrito / Prov. {renderSortIndicator('distrito')}
+                    </th>
+                    <th onClick={() => handleSort('quien_tiene_la_palabra')} className="py-3 px-4 cursor-pointer hover:text-white select-none whitespace-nowrap">
+                      Palabra {renderSortIndicator('quien_tiene_la_palabra')}
+                    </th>
+                    <th onClick={() => handleSort('estado_chat')} className="py-3 px-4 cursor-pointer hover:text-white select-none whitespace-nowrap">
+                      Estado Chat {renderSortIndicator('estado_chat')}
+                    </th>
+                    <th onClick={() => handleSort('semaforo_sla')} className="py-3 px-4 cursor-pointer hover:text-white select-none whitespace-nowrap">
+                      SLA {renderSortIndicator('semaforo_sla')}
+                    </th>
+                    <th onClick={() => handleSort('ultimo_mensaje_texto')} className="py-3 px-4 cursor-pointer hover:text-white select-none">
+                      Último Mensaje {renderSortIndicator('ultimo_mensaje_texto')}
+                    </th>
+                    <th onClick={() => handleSort('ultimo_mensaje_fecha')} className="py-3 px-4 cursor-pointer hover:text-white select-none whitespace-nowrap">
+                      Fecha Último Msg {renderSortIndicator('ultimo_mensaje_fecha')}
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-800/60">
-                  {data.length === 0 && !loading ? (
+                  {displayData.length === 0 && !loading ? (
                     <tr>
                       <td colSpan={13} className="py-12 text-center text-slate-500">
                         No hay chats de Mantra registrados con los filtros seleccionados
                       </td>
                     </tr>
                   ) : (
-                    data.map((row, idx) => (
+                    displayData.map((row, idx) => (
                       <tr key={idx} className="hover:bg-slate-800/40 transition-colors">
                         <td className="py-2.5 px-4">
                           <button
-                            onClick={() => setSelectedRow(row)}
-                            className="p-1.5 bg-slate-800 hover:bg-orange-500/20 hover:text-orange-400 text-slate-400 rounded-lg transition-colors"
-                            title="Ver detalle completo"
+                            onClick={() => {
+                              setSelectedRow(row);
+                              setChatViewMode('bubbles');
+                            }}
+                            className="p-1.5 bg-slate-800 hover:bg-orange-500/20 hover:text-orange-400 text-slate-400 rounded-lg transition-colors flex items-center gap-1"
+                            title="Ver conversación de chat y detalle completo"
                           >
                             <Eye className="w-3.5 h-3.5" />
                           </button>
@@ -663,7 +776,11 @@ export default function AdminDashboard() {
                           {row.cliente_nombre || '-'}
                         </td>
                         <td className="py-2.5 px-4">
-                          <span className="px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-slate-700 text-[10px]">
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold border ${
+                            row.grupo_servicio === 'Instalacion'
+                              ? 'bg-emerald-500/10 text-emerald-300 border-emerald-500/25'
+                              : 'bg-rose-500/10 text-rose-300 border-rose-500/25'
+                          }`}>
                             {row.grupo_servicio || '-'}
                           </span>
                         </td>
@@ -710,28 +827,107 @@ export default function AdminDashboard() {
               </table>
             )}
 
+            {/* 3. Encuestas */}
+            {activeTab === 'encuestas' && (
+              <table className="w-full text-left text-xs text-slate-300 border-collapse">
+                <thead className="bg-slate-950/80 sticky top-0 z-10 border-b border-slate-800 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
+                  <tr>
+                    <th className="py-3 px-4">Acción</th>
+                    <th onClick={() => handleSort('id')} className="py-3 px-4 cursor-pointer hover:text-white select-none">
+                      ID {renderSortIndicator('id')}
+                    </th>
+                    <th onClick={() => handleSort('fecha_registro')} className="py-3 px-4 cursor-pointer hover:text-white select-none">
+                      Fecha Registro {renderSortIndicator('fecha_registro')}
+                    </th>
+                    <th className="py-3 px-4">Concretada</th>
+                    <th onClick={() => handleSort('satisfaccion_general')} className="py-3 px-4 cursor-pointer hover:text-white select-none">
+                      Satisfacción {renderSortIndicator('satisfaccion_general')}
+                    </th>
+                    <th className="py-3 px-4">Trato</th>
+                    <th className="py-3 px-4">Puntualidad</th>
+                    <th className="py-3 px-4">Claridad</th>
+                    <th className="py-3 px-4">Comentarios</th>
+                    <th className="py-3 px-4">Token</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-800/60">
+                  {displayData.length === 0 && !loading ? (
+                    <tr>
+                      <td colSpan={10} className="py-12 text-center text-slate-500">
+                        No hay encuestas registradas con los filtros seleccionados
+                      </td>
+                    </tr>
+                  ) : (
+                    displayData.map((row, idx) => (
+                      <tr key={idx} className="hover:bg-slate-800/40 transition-colors">
+                        <td className="py-2.5 px-4">
+                          <button
+                            onClick={() => setSelectedRow(row)}
+                            className="p-1.5 bg-slate-800 hover:bg-orange-500/20 hover:text-orange-400 text-slate-400 rounded-lg transition-colors"
+                            title="Ver detalle completo"
+                          >
+                            <Eye className="w-3.5 h-3.5" />
+                          </button>
+                        </td>
+                        <td className="py-2.5 px-4 font-mono font-medium text-white">#{row.id}</td>
+                        <td className="py-2.5 px-4 whitespace-nowrap text-amber-300/90">{formatDate(row.fecha_registro)}</td>
+                        <td className="py-2.5 px-4">
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${
+                            String(row.instalacion_concretada).toLowerCase() === 'si'
+                              ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                              : 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
+                          }`}>
+                            {row.instalacion_concretada || '-'}
+                          </span>
+                        </td>
+                        <td className="py-2.5 px-4 font-bold text-orange-400 text-sm">
+                          {row.satisfaccion_general ?? '-'}
+                        </td>
+                        <td className="py-2.5 px-4">{row.tecnico_trato ?? '-'}</td>
+                        <td className="py-2.5 px-4">{row.tecnico_puntualidad ?? '-'}</td>
+                        <td className="py-2.5 px-4">{row.tecnico_claridad ?? '-'}</td>
+                        <td className="py-2.5 px-4 max-w-[280px] truncate" title={row.satisfaccion_comentario || row.facilidad_motivo}>
+                          {row.satisfaccion_comentario || row.facilidad_motivo || '-'}
+                        </td>
+                        <td className="py-2.5 px-4 font-mono text-[11px] text-slate-400">{row.token || '-'}</td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            )}
+
+            {/* 4. Reprogramaciones */}
             {activeTab === 'reprogramaciones' && (
               <table className="w-full text-left text-xs text-slate-300 border-collapse">
                 <thead className="bg-slate-950/80 sticky top-0 z-10 border-b border-slate-800 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
                   <tr>
                     <th className="py-3 px-4">Acción</th>
-                    <th className="py-3 px-4">ID</th>
-                    <th className="py-3 px-4">Fecha Solicitud</th>
-                    <th className="py-3 px-4">Fecha Solicitada</th>
-                    <th className="py-3 px-4">Turno</th>
+                    <th onClick={() => handleSort('id')} className="py-3 px-4 cursor-pointer hover:text-white select-none">
+                      ID {renderSortIndicator('id')}
+                    </th>
+                    <th onClick={() => handleSort('fecha_registro')} className="py-3 px-4 cursor-pointer hover:text-white select-none">
+                      Fecha Solicitud {renderSortIndicator('fecha_registro')}
+                    </th>
+                    <th onClick={() => handleSort('fecha_solicitada')} className="py-3 px-4 cursor-pointer hover:text-white select-none">
+                      Fecha Solicitada {renderSortIndicator('fecha_solicitada')}
+                    </th>
+                    <th onClick={() => handleSort('turno')} className="py-3 px-4 cursor-pointer hover:text-white select-none">
+                      Turno {renderSortIndicator('turno')}
+                    </th>
                     <th className="py-3 px-4">Motivo</th>
                     <th className="py-3 px-4">Token</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-800/60">
-                  {data.length === 0 && !loading ? (
+                  {displayData.length === 0 && !loading ? (
                     <tr>
                       <td colSpan={7} className="py-12 text-center text-slate-500">
                         No hay reprogramaciones registradas con los filtros seleccionados
                       </td>
                     </tr>
                   ) : (
-                    data.map((row, idx) => (
+                    displayData.map((row, idx) => (
                       <tr key={idx} className="hover:bg-slate-800/40 transition-colors">
                         <td className="py-2.5 px-4">
                           <button
@@ -762,19 +958,23 @@ export default function AdminDashboard() {
         </div>
       </main>
 
-      {/* Modal para ver registro completo */}
+      {/* Modal para ver registro completo + Visor Amigable de Chat */}
       {selectedRow && (
         <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-4xl w-full p-6 shadow-2xl relative max-h-[88vh] flex flex-col">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-5xl w-full p-6 shadow-2xl relative max-h-[90vh] flex flex-col">
             <div className="flex items-center justify-between border-b border-slate-800 pb-3 mb-4">
-              <div>
-                <h3 className="text-base font-bold text-white flex items-center gap-2">
-                  <Database className="w-5 h-5 text-orange-500" />
-                  Detalle Completo del Registro ({activeTab})
-                </h3>
-                <p className="text-xs text-slate-400 mt-0.5">
-                  Mostrando todas las {Object.keys(selectedRow).length} columnas disponibles en la base de datos
-                </p>
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-orange-500/10 border border-orange-500/20 text-orange-400 rounded-xl">
+                  {activeTab === 'chats_mantra' ? <MessageCircle className="w-5 h-5" /> : <Database className="w-5 h-5" />}
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-white flex items-center gap-2">
+                    {activeTab === 'chats_mantra' ? 'Conversación & Ficha Técnica Mantra' : `Detalle Completo del Registro (${activeTab})`}
+                  </h3>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    ID Registro: <strong className="text-white">#{selectedRow.id || selectedRow.OrdenId}</strong> · {Object.keys(selectedRow).length} campos disponibles en BD
+                  </p>
+                </div>
               </div>
               <button
                 onClick={() => setSelectedRow(null)}
@@ -784,30 +984,148 @@ export default function AdminDashboard() {
               </button>
             </div>
 
-            <div className="flex-1 overflow-y-auto space-y-2 pr-2 scrollbar-thin scrollbar-thumb-slate-700 grid grid-cols-1 md:grid-cols-2 gap-2">
-              {Object.entries(selectedRow).map(([key, value]: [string, any]) => (
-                <div key={key} className="flex flex-col p-2.5 bg-slate-950/70 rounded-xl border border-slate-800/80 gap-1 hover:border-slate-700 transition-colors">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[11px] font-semibold text-orange-400/90 font-mono tracking-wide">{key}</span>
-                    {key === 'TipoServicioCalculado' && (
-                      <span className="text-[9px] px-1.5 py-0.5 rounded bg-orange-500/20 text-orange-300 font-bold">CRUZADO</span>
-                    )}
+            <div className="flex-1 overflow-y-auto space-y-4 pr-2 scrollbar-thin scrollbar-thumb-slate-700">
+              {/* SECCIÓN 1: VISOR AMIGABLE TIPO CHAT (WHATSAPP MANTRA) */}
+              {parsedChatMessages.length > 0 && (
+                <div className="bg-slate-950/90 border border-slate-800 rounded-2xl p-4 shadow-xl flex flex-col gap-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800/80 pb-3">
+                    <div className="flex items-center gap-2.5">
+                      <div className="p-2 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-xl">
+                        <MessageCircle className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <h4 className="text-sm font-bold text-white flex items-center gap-2">
+                          Hilo de Conversación Mantra
+                          <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-800 text-emerald-400 border border-emerald-500/20 font-mono font-semibold">
+                            {parsedChatMessages.length} mensajes intercambiados
+                          </span>
+                        </h4>
+                        <p className="text-[11px] text-slate-400 mt-0.5">
+                          Teléfono: <span className="font-mono text-white font-medium">{selectedRow.phone}</span> · Cliente: <span className="text-white font-medium">{selectedRow.cliente_nombre || 'No registrado'}</span>
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-1.5 bg-slate-900 border border-slate-800 rounded-xl p-1 text-[11px]">
+                      <button
+                        type="button"
+                        onClick={() => setChatViewMode('bubbles')}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-medium transition-all ${
+                          chatViewMode === 'bubbles'
+                            ? 'bg-orange-500 text-white shadow-sm'
+                            : 'text-slate-400 hover:text-slate-200'
+                        }`}
+                      >
+                        <MessageSquare className="w-3.5 h-3.5" />
+                        <span>Vista Chat Amigable</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setChatViewMode('raw')}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-medium transition-all ${
+                          chatViewMode === 'raw'
+                            ? 'bg-orange-500 text-white shadow-sm'
+                            : 'text-slate-400 hover:text-slate-200'
+                        }`}
+                      >
+                        <Code className="w-3.5 h-3.5" />
+                        <span>JSON Crudo</span>
+                      </button>
+                    </div>
                   </div>
-                  <span className="text-xs text-slate-100 font-mono break-all select-all">
-                    {value === null || value === undefined || value === '' ? (
-                      <span className="text-slate-600 italic">null</span>
-                    ) : typeof value === 'object' ? (
-                      <pre className="text-[10px] bg-slate-900 p-2 rounded-lg text-emerald-400 overflow-x-auto max-h-48 border border-slate-800 font-mono">
-                        {JSON.stringify(value, null, 2)}
-                      </pre>
-                    ) : key.toLowerCase().includes('fecha') || key === 'F.Visita' || key === 'F.Soli' ? (
-                      formatDate(value)
-                    ) : (
-                      String(value)
-                    )}
-                  </span>
+
+                  {chatViewMode === 'bubbles' ? (
+                    <div className="max-h-[380px] overflow-y-auto space-y-3.5 p-4 bg-slate-900/50 rounded-xl border border-slate-800/80 scrollbar-thin scrollbar-thumb-slate-700">
+                      {parsedChatMessages.map((msg: any, mIdx: number) => {
+                        const isCliente = msg.emisor === 'CLIENTE';
+                        return (
+                          <div
+                            key={mIdx}
+                            className={`flex flex-col ${isCliente ? 'items-start' : 'items-end'}`}
+                          >
+                            <div className="flex items-center gap-1.5 mb-1 px-1">
+                              {isCliente ? (
+                                <>
+                                  <div className="w-4 h-4 rounded-full bg-blue-500/20 text-blue-400 flex items-center justify-center">
+                                    <User className="w-2.5 h-2.5" />
+                                  </div>
+                                  <span className="text-[10px] font-semibold text-blue-300">
+                                    Cliente {selectedRow.cliente_nombre ? `(${selectedRow.cliente_nombre})` : ''}
+                                  </span>
+                                </>
+                              ) : (
+                                <>
+                                  <span className="text-[10px] font-semibold text-orange-300">
+                                    {msg.agente || (msg.emisor === 'BOT' ? 'Bot Automatizado WIN' : 'Asesor / WIN')}
+                                  </span>
+                                  <div className="w-4 h-4 rounded-full bg-orange-500/20 text-orange-400 flex items-center justify-center">
+                                    <Bot className="w-2.5 h-2.5" />
+                                  </div>
+                                </>
+                              )}
+                              <span className="text-[10px] text-slate-500 font-mono">
+                                {formatDate(msg.fecha_utc)}
+                              </span>
+                            </div>
+
+                            <div
+                              className={`p-3.5 rounded-2xl max-w-[85%] text-xs shadow-md whitespace-pre-wrap leading-relaxed ${
+                                isCliente
+                                  ? 'bg-slate-800/90 text-slate-100 border border-slate-700 rounded-tl-sm'
+                                  : 'bg-gradient-to-br from-orange-950/70 to-slate-900 text-orange-50 border border-orange-500/40 rounded-tr-sm'
+                              }`}
+                            >
+                              {msg.texto}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <pre className="text-[11px] bg-slate-950 p-3 rounded-xl text-emerald-400 overflow-x-auto max-h-[380px] border border-slate-800 font-mono">
+                      {JSON.stringify(selectedRow.ultimos_mensajes_json, null, 2)}
+                    </pre>
+                  )}
                 </div>
-              ))}
+              )}
+
+              {/* SECCIÓN 2: METADATOS Y COLUMNAS DE LA FILA */}
+              <div>
+                <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">
+                  Campos y Metadatos de Base de Datos
+                </h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                  {Object.entries(selectedRow).map(([key, value]: [string, any]) => {
+                    // Si ya mostramos el chat amigable arriba, ocultar el JSON gigante de la lista de campos
+                    if (key === 'ultimos_mensajes_json' && parsedChatMessages.length > 0) {
+                      return null;
+                    }
+                    return (
+                      <div key={key} className="flex flex-col p-2.5 bg-slate-950/70 rounded-xl border border-slate-800/80 gap-1 hover:border-slate-700 transition-colors">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[11px] font-semibold text-orange-400/90 font-mono tracking-wide">{key}</span>
+                          {key === 'TipoServicioCalculado' && (
+                            <span className="text-[9px] px-1.5 py-0.5 rounded bg-orange-500/20 text-orange-300 font-bold">CRUZADO</span>
+                          )}
+                        </div>
+                        <span className="text-xs text-slate-100 font-mono break-all select-all">
+                          {value === null || value === undefined || value === '' ? (
+                            <span className="text-slate-600 italic">null</span>
+                          ) : typeof value === 'object' ? (
+                            <pre className="text-[10px] bg-slate-900 p-2 rounded-lg text-emerald-400 overflow-x-auto max-h-48 border border-slate-800 font-mono">
+                              {JSON.stringify(value, null, 2)}
+                            </pre>
+                          ) : key.toLowerCase().includes('fecha') || key === 'F.Visita' || key === 'F.Soli' ? (
+                            formatDate(value)
+                          ) : (
+                            String(value)
+                          )}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
             </div>
 
             <div className="mt-4 pt-3 border-t border-slate-800 flex justify-end">
