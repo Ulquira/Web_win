@@ -1108,6 +1108,24 @@ app.get('/api/admin/filtros', async (_req, res) => {
 });
 
 // 2. Consulta de tablas con filtros dinámicos, paginación y ordenamiento
+// 1.1 Actualizar estado del chat Mantra (Cerrar / Reabrir)
+app.post('/api/admin/chat-estado', async (req, res) => {
+  try {
+    const { id, estado } = req.body;
+    if (!id || !estado) {
+      return res.status(400).json({ success: false, error: 'id y estado son obligatorios' });
+    }
+
+    const nuevoEstado = estado === 'Cerrado' ? 'Cerrado' : null;
+    await pool.query('UPDATE historial_chats_mantra SET estado_chat = ? WHERE id = ?', [nuevoEstado, id]);
+
+    res.json({ success: true, id, estado: estado === 'Cerrado' ? 'Cerrado' : 'Abierto' });
+  } catch (error: any) {
+    console.error('Error al actualizar estado del chat:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 app.get('/api/admin/data', async (req, res) => {
   try {
     const tabla = String(req.query.tabla || 'principal').toLowerCase();
@@ -1116,6 +1134,7 @@ app.get('/api/admin/data', async (req, res) => {
     const fechaFin = String(req.query.fechaFin || '').trim();
     const tipoServicio = String(req.query.tipoServicio || '').trim();
     const grupoServicio = String(req.query.grupoServicio || '').trim();
+    const estadoChat = String(req.query.estadoChat || '').trim();
     const sortBy = String(req.query.sortBy || '').trim();
     const sortOrder = String(req.query.sortOrder || 'DESC').toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
     const page = Math.max(1, parseInt(String(req.query.page || '1'), 10));
@@ -1237,6 +1256,33 @@ app.get('/api/admin/data', async (req, res) => {
         countParams.push(s, s, s, s, s, s);
       }
 
+      const plantillaCond = `(
+        h.quien_tiene_la_palabra = 'BOT' 
+        OR h.ultimo_mensaje_texto LIKE '%Trak_%' 
+        OR h.ultimo_mensaje_texto LIKE '%Adelanto%' 
+        OR h.ultimo_mensaje_texto LIKE '%Blindaje%' 
+        OR h.ultimo_mensaje_texto LIKE '%Confirmación%'
+        OR h.ultimo_mensaje_texto LIKE '%enruta.win.pe%'
+        OR h.ultimo_mensaje_texto LIKE '%| [%'
+        OR h.ultimo_mensaje_texto LIKE '%Ad. Inc.%'
+        OR h.ultimo_mensaje_texto LIKE '%Velocidad%'
+        OR h.ultimo_mensaje_texto LIKE '%TRAKING%'
+        OR h.ultimo_mensaje_texto LIKE '%Seguimiento de VT%'
+        OR h.ultimo_mensaje_texto LIKE '%programaci%'
+      )`;
+
+      if (estadoChat) {
+        if (estadoChat === 'Cerrado') {
+          whereClauses.push("h.estado_chat = 'Cerrado'");
+        } else if (estadoChat === 'Abierto') {
+          whereClauses.push("(h.estado_chat != 'Cerrado' OR h.estado_chat IS NULL) AND h.quien_tiene_la_palabra = 'CLIENTE'");
+        } else if (estadoChat === 'Pendiente') {
+          whereClauses.push(`(h.estado_chat != 'Cerrado' OR h.estado_chat IS NULL) AND ${plantillaCond}`);
+        } else if (estadoChat === 'Sin Respuesta') {
+          whereClauses.push(`(h.estado_chat != 'Cerrado' OR h.estado_chat IS NULL) AND h.quien_tiene_la_palabra != 'CLIENTE' AND NOT ${plantillaCond}`);
+        }
+      }
+
       const allowedSortCols: Record<string, string> = {
         id: 'h.id',
         orden_id: 'h.orden_id',
@@ -1277,7 +1323,25 @@ app.get('/api/admin/data', async (req, res) => {
               OR h.ultimo_mensaje_texto LIKE '%programaci%'
               THEN 'PLANTILLA'
             ELSE 'ASESOR'
-          END AS quien_tiene_la_palabra
+          END AS quien_tiene_la_palabra,
+          CASE
+            WHEN h.estado_chat = 'Cerrado' THEN 'Cerrado'
+            WHEN h.quien_tiene_la_palabra = 'CLIENTE' THEN 'Abierto'
+            WHEN h.quien_tiene_la_palabra = 'BOT' 
+              OR h.ultimo_mensaje_texto LIKE '%Trak_%' 
+              OR h.ultimo_mensaje_texto LIKE '%Adelanto%' 
+              OR h.ultimo_mensaje_texto LIKE '%Blindaje%' 
+              OR h.ultimo_mensaje_texto LIKE '%Confirmación%'
+              OR h.ultimo_mensaje_texto LIKE '%enruta.win.pe%'
+              OR h.ultimo_mensaje_texto LIKE '%| [%'
+              OR h.ultimo_mensaje_texto LIKE '%Ad. Inc.%'
+              OR h.ultimo_mensaje_texto LIKE '%Velocidad%'
+              OR h.ultimo_mensaje_texto LIKE '%TRAKING%'
+              OR h.ultimo_mensaje_texto LIKE '%Seguimiento de VT%'
+              OR h.ultimo_mensaje_texto LIKE '%programaci%'
+              THEN 'Pendiente'
+            ELSE 'Sin Respuesta'
+          END AS estado_chat
         FROM historial_chats_mantra h
         WHERE ${whereSql}
         ORDER BY ${orderCol} ${sortOrder}, h.id DESC
@@ -1463,6 +1527,7 @@ app.get('/api/admin/export', async (req, res) => {
     const fechaFin = String(req.query.fechaFin || '').trim();
     const tipoServicio = String(req.query.tipoServicio || '').trim();
     const grupoServicio = String(req.query.grupoServicio || '').trim();
+    const estadoChat = String(req.query.estadoChat || '').trim();
     const sortBy = String(req.query.sortBy || '').trim();
     const sortOrder = String(req.query.sortOrder || 'DESC').toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
 
@@ -1557,6 +1622,33 @@ app.get('/api/admin/export', async (req, res) => {
         const s = `%${search}%`;
         params.push(s, s, s, s, s, s);
       }
+
+      const plantillaCond = `(
+        h.quien_tiene_la_palabra = 'BOT' 
+        OR h.ultimo_mensaje_texto LIKE '%Trak_%' 
+        OR h.ultimo_mensaje_texto LIKE '%Adelanto%' 
+        OR h.ultimo_mensaje_texto LIKE '%Blindaje%' 
+        OR h.ultimo_mensaje_texto LIKE '%Confirmación%'
+        OR h.ultimo_mensaje_texto LIKE '%enruta.win.pe%'
+        OR h.ultimo_mensaje_texto LIKE '%| [%'
+        OR h.ultimo_mensaje_texto LIKE '%Ad. Inc.%'
+        OR h.ultimo_mensaje_texto LIKE '%Velocidad%'
+        OR h.ultimo_mensaje_texto LIKE '%TRAKING%'
+        OR h.ultimo_mensaje_texto LIKE '%Seguimiento de VT%'
+        OR h.ultimo_mensaje_texto LIKE '%programaci%'
+      )`;
+
+      if (estadoChat) {
+        if (estadoChat === 'Cerrado') {
+          whereClauses.push("h.estado_chat = 'Cerrado'");
+        } else if (estadoChat === 'Abierto') {
+          whereClauses.push("(h.estado_chat != 'Cerrado' OR h.estado_chat IS NULL) AND h.quien_tiene_la_palabra = 'CLIENTE'");
+        } else if (estadoChat === 'Pendiente') {
+          whereClauses.push(`(h.estado_chat != 'Cerrado' OR h.estado_chat IS NULL) AND ${plantillaCond}`);
+        } else if (estadoChat === 'Sin Respuesta') {
+          whereClauses.push(`(h.estado_chat != 'Cerrado' OR h.estado_chat IS NULL) AND h.quien_tiene_la_palabra != 'CLIENTE' AND NOT ${plantillaCond}`);
+        }
+      }
       const allowedSortCols: Record<string, string> = {
         id: 'h.id',
         orden_id: 'h.orden_id',
@@ -1595,7 +1687,25 @@ app.get('/api/admin/export', async (req, res) => {
               OR h.ultimo_mensaje_texto LIKE '%programaci%'
               THEN 'PLANTILLA'
             ELSE 'ASESOR'
-          END AS quien_tiene_la_palabra
+          END AS quien_tiene_la_palabra,
+          CASE
+            WHEN h.estado_chat = 'Cerrado' THEN 'Cerrado'
+            WHEN h.quien_tiene_la_palabra = 'CLIENTE' THEN 'Abierto'
+            WHEN h.quien_tiene_la_palabra = 'BOT' 
+              OR h.ultimo_mensaje_texto LIKE '%Trak_%' 
+              OR h.ultimo_mensaje_texto LIKE '%Adelanto%' 
+              OR h.ultimo_mensaje_texto LIKE '%Blindaje%' 
+              OR h.ultimo_mensaje_texto LIKE '%Confirmación%'
+              OR h.ultimo_mensaje_texto LIKE '%enruta.win.pe%'
+              OR h.ultimo_mensaje_texto LIKE '%| [%'
+              OR h.ultimo_mensaje_texto LIKE '%Ad. Inc.%'
+              OR h.ultimo_mensaje_texto LIKE '%Velocidad%'
+              OR h.ultimo_mensaje_texto LIKE '%TRAKING%'
+              OR h.ultimo_mensaje_texto LIKE '%Seguimiento de VT%'
+              OR h.ultimo_mensaje_texto LIKE '%programaci%'
+              THEN 'Pendiente'
+            ELSE 'Sin Respuesta'
+          END AS estado_chat
         FROM historial_chats_mantra h
         WHERE ${whereClauses.join(' AND ')}
         ORDER BY ${orderCol} ${sortOrder}, h.id DESC
