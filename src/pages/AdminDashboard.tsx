@@ -12,11 +12,12 @@ import {
   CheckCircle2, 
   CalendarClock, 
   Layers,
+  MessageSquare,
   X,
   ExternalLink
 } from 'lucide-react';
 
-type TabType = 'principal' | 'encuestas' | 'reprogramaciones';
+type TabType = 'principal' | 'encuestas' | 'reprogramaciones' | 'chats_mantra';
 
 interface FiltroOpciones {
   tiposTraba: string[];
@@ -270,6 +271,18 @@ export default function AdminDashboard() {
             <CalendarClock className="w-4 h-4" />
             <span>Reprogramaciones</span>
           </button>
+
+          <button
+            onClick={() => setActiveTab('chats_mantra')}
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-medium text-sm transition-all ${
+              activeTab === 'chats_mantra'
+                ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/20'
+                : 'bg-slate-900 text-slate-400 hover:text-slate-200 hover:bg-slate-800 border border-slate-800'
+            }`}
+          >
+            <MessageSquare className="w-4 h-4" />
+            <span>Historial Chats Mantra</span>
+          </button>
         </div>
 
         {/* Barra de Filtros */}
@@ -287,6 +300,8 @@ export default function AdminDashboard() {
                   placeholder={
                     activeTab === 'principal' 
                       ? 'Cliente, DNI, Token, OT, Dirección...' 
+                      : activeTab === 'chats_mantra'
+                      ? 'Ticket, Teléfono, Cliente, Orden ID, Asesor...'
                       : 'Token, comentario, motivo...'
                   }
                   className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-9 pr-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-orange-500 transition-colors"
@@ -297,7 +312,7 @@ export default function AdminDashboard() {
             {/* Fecha Inicio */}
             <div>
               <label className="text-[11px] font-medium text-slate-400 block mb-1">
-                {activeTab === 'principal' ? 'Fecha Visita Desde' : 'Fecha Desde'}
+                {activeTab === 'principal' ? 'Fecha Visita Desde' : activeTab === 'chats_mantra' ? 'Fecha Gestión/Msg Desde' : 'Fecha Desde'}
               </label>
               <div className="relative">
                 <input
@@ -312,7 +327,7 @@ export default function AdminDashboard() {
             {/* Fecha Fin */}
             <div>
               <label className="text-[11px] font-medium text-slate-400 block mb-1">
-                {activeTab === 'principal' ? 'Fecha Visita Hasta' : 'Fecha Hasta'}
+                {activeTab === 'principal' ? 'Fecha Visita Hasta' : activeTab === 'chats_mantra' ? 'Fecha Gestión/Msg Hasta' : 'Fecha Hasta'}
               </label>
               <div className="relative">
                 <input
@@ -602,6 +617,99 @@ export default function AdminDashboard() {
               </table>
             )}
 
+            {activeTab === 'chats_mantra' && (
+              <table className="w-full text-left text-xs text-slate-300 border-collapse">
+                <thead className="bg-slate-950/80 sticky top-0 z-10 border-b border-slate-800 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
+                  <tr>
+                    <th className="py-3 px-4">Acción</th>
+                    <th className="py-3 px-4">ID</th>
+                    <th className="py-3 px-4">Orden ID</th>
+                    <th className="py-3 px-4">Ticket</th>
+                    <th className="py-3 px-4">Teléfono</th>
+                    <th className="py-3 px-4">Cliente</th>
+                    <th className="py-3 px-4">Grupo Serv.</th>
+                    <th className="py-3 px-4">Distrito / Prov.</th>
+                    <th className="py-3 px-4">Palabra</th>
+                    <th className="py-3 px-4">Estado Chat</th>
+                    <th className="py-3 px-4">SLA</th>
+                    <th className="py-3 px-4">Último Mensaje</th>
+                    <th className="py-3 px-4">Fecha Último Msg</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-800/60">
+                  {data.length === 0 && !loading ? (
+                    <tr>
+                      <td colSpan={13} className="py-12 text-center text-slate-500">
+                        No hay chats de Mantra registrados con los filtros seleccionados
+                      </td>
+                    </tr>
+                  ) : (
+                    data.map((row, idx) => (
+                      <tr key={idx} className="hover:bg-slate-800/40 transition-colors">
+                        <td className="py-2.5 px-4">
+                          <button
+                            onClick={() => setSelectedRow(row)}
+                            className="p-1.5 bg-slate-800 hover:bg-orange-500/20 hover:text-orange-400 text-slate-400 rounded-lg transition-colors"
+                            title="Ver detalle completo"
+                          >
+                            <Eye className="w-3.5 h-3.5" />
+                          </button>
+                        </td>
+                        <td className="py-2.5 px-4 font-mono font-medium text-white">#{row.id}</td>
+                        <td className="py-2.5 px-4 font-mono text-slate-300">{row.orden_id || '-'}</td>
+                        <td className="py-2.5 px-4 font-mono font-semibold text-orange-400">{row.ticket || '-'}</td>
+                        <td className="py-2.5 px-4 font-mono text-slate-300">{row.phone || '-'}</td>
+                        <td className="py-2.5 px-4 font-medium text-slate-100 max-w-[180px] truncate" title={row.cliente_nombre}>
+                          {row.cliente_nombre || '-'}
+                        </td>
+                        <td className="py-2.5 px-4">
+                          <span className="px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-slate-700 text-[10px]">
+                            {row.grupo_servicio || '-'}
+                          </span>
+                        </td>
+                        <td className="py-2.5 px-4 max-w-[150px] truncate" title={`${row.distrito || ''} ${row.provincia ? `(${row.provincia})` : ''}`}>
+                          {row.distrito || row.provincia || '-'}
+                        </td>
+                        <td className="py-2.5 px-4">
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                            row.quien_tiene_la_palabra === 'CLIENTE'
+                              ? 'bg-blue-500/15 text-blue-300 border border-blue-500/30'
+                              : row.quien_tiene_la_palabra === 'ASESOR'
+                              ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30'
+                              : 'bg-purple-500/15 text-purple-300 border border-purple-500/30'
+                          }`}>
+                            {row.quien_tiene_la_palabra || '-'}
+                          </span>
+                        </td>
+                        <td className="py-2.5 px-4">
+                          <span className="px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-slate-700 text-[10px]">
+                            {row.estado_chat || '-'}
+                          </span>
+                        </td>
+                        <td className="py-2.5 px-4">
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                            row.semaforo_sla === 'VERDE'
+                              ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30'
+                              : row.semaforo_sla === 'AMARILLO'
+                              ? 'bg-amber-500/15 text-amber-300 border border-amber-500/30'
+                              : 'bg-rose-500/15 text-rose-300 border border-rose-500/30'
+                          }`}>
+                            {row.semaforo_sla || '-'}
+                          </span>
+                        </td>
+                        <td className="py-2.5 px-4 max-w-[220px] truncate" title={row.ultimo_mensaje_texto}>
+                          {row.ultimo_mensaje_texto || '-'}
+                        </td>
+                        <td className="py-2.5 px-4 whitespace-nowrap text-amber-300/90">
+                          {formatDate(row.ultimo_mensaje_fecha || row.cliente_ultima_fecha)}
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            )}
+
             {activeTab === 'reprogramaciones' && (
               <table className="w-full text-left text-xs text-slate-300 border-collapse">
                 <thead className="bg-slate-950/80 sticky top-0 z-10 border-b border-slate-800 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
@@ -688,6 +796,10 @@ export default function AdminDashboard() {
                   <span className="text-xs text-slate-100 font-mono break-all select-all">
                     {value === null || value === undefined || value === '' ? (
                       <span className="text-slate-600 italic">null</span>
+                    ) : typeof value === 'object' ? (
+                      <pre className="text-[10px] bg-slate-900 p-2 rounded-lg text-emerald-400 overflow-x-auto max-h-48 border border-slate-800 font-mono">
+                        {JSON.stringify(value, null, 2)}
+                      </pre>
                     ) : key.toLowerCase().includes('fecha') || key === 'F.Visita' || key === 'F.Soli' ? (
                       formatDate(value)
                     ) : (

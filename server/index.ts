@@ -1193,6 +1193,37 @@ app.get('/api/admin/data', async (req, res) => {
         LIMIT ? OFFSET ?
       `;
       params.push(limit, offset);
+    } else if (tabla === 'chats_mantra' || tabla === 'historial_chats_mantra') {
+      let whereClauses: string[] = ['1=1'];
+
+      if (fechaInicio) {
+        whereClauses.push('(h.fecha_gestion_dia >= ? OR h.ultimo_mensaje_fecha >= ?)');
+        params.push(fechaInicio, `${fechaInicio} 00:00:00`);
+        countParams.push(fechaInicio, `${fechaInicio} 00:00:00`);
+      }
+      if (fechaFin) {
+        whereClauses.push('(h.fecha_gestion_dia <= ? OR h.ultimo_mensaje_fecha <= ?)');
+        params.push(fechaFin, `${fechaFin} 23:59:59`);
+        countParams.push(fechaFin, `${fechaFin} 23:59:59`);
+      }
+      if (search) {
+        whereClauses.push('(h.orden_id LIKE ? OR h.ticket LIKE ? OR h.phone LIKE ? OR h.cliente_nombre LIKE ? OR h.ultimo_mensaje_texto LIKE ? OR h.asesor_asignado LIKE ?)');
+        const s = `%${search}%`;
+        params.push(s, s, s, s, s, s);
+        countParams.push(s, s, s, s, s, s);
+      }
+
+      const whereSql = whereClauses.join(' AND ');
+      countQuery = `SELECT COUNT(*) as total FROM historial_chats_mantra h WHERE ${whereSql}`;
+      selectQuery = `
+        SELECT 
+          h.*
+        FROM historial_chats_mantra h
+        WHERE ${whereSql}
+        ORDER BY h.ultimo_mensaje_fecha DESC, h.id DESC
+        LIMIT ? OFFSET ?
+      `;
+      params.push(limit, offset);
     } else {
       // Tabla principal: vw_winordetraba cruzada con tiposervicio
       let whereClauses: string[] = ['1=1'];
@@ -1336,6 +1367,29 @@ app.get('/api/admin/export', async (req, res) => {
         FROM reprogramaciones r
         WHERE ${whereClauses.join(' AND ')}
         ORDER BY r.fecha_registro DESC
+        LIMIT ${maxExportRows}
+      `;
+    } else if (tabla === 'chats_mantra' || tabla === 'historial_chats_mantra') {
+      let whereClauses: string[] = ['1=1'];
+      if (fechaInicio) {
+        whereClauses.push('(h.fecha_gestion_dia >= ? OR h.ultimo_mensaje_fecha >= ?)');
+        params.push(fechaInicio, `${fechaInicio} 00:00:00`);
+      }
+      if (fechaFin) {
+        whereClauses.push('(h.fecha_gestion_dia <= ? OR h.ultimo_mensaje_fecha <= ?)');
+        params.push(fechaFin, `${fechaFin} 23:59:59`);
+      }
+      if (search) {
+        whereClauses.push('(h.orden_id LIKE ? OR h.ticket LIKE ? OR h.phone LIKE ? OR h.cliente_nombre LIKE ? OR h.ultimo_mensaje_texto LIKE ? OR h.asesor_asignado LIKE ?)');
+        const s = `%${search}%`;
+        params.push(s, s, s, s, s, s);
+      }
+      selectQuery = `
+        SELECT 
+          h.*
+        FROM historial_chats_mantra h
+        WHERE ${whereClauses.join(' AND ')}
+        ORDER BY h.ultimo_mensaje_fecha DESC, h.id DESC
         LIMIT ${maxExportRows}
       `;
     } else {
