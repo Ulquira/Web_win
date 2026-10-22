@@ -943,7 +943,6 @@ app.get(
       success: true,
       documento: cleanDoc,
       link: `${PUBLIC_APP_URL}/miwin/v/${createOpaqueToken(cleanDoc)}`,
-      token_opaco: createOpaqueToken(cleanDoc),
       ordenes_abiertas: casesSet.size,
       ultimo_estado: ultimoRegistro ? ultimoRegistro.estado : null,
       total_registros_encontrados: listAll.length
