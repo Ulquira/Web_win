@@ -1,3 +1,4 @@
+import { createOpaqueToken, decodeOpaqueToken } from './opaqueToken.js';
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
@@ -631,9 +632,14 @@ app.get('/api/instalaciones/:token', async (req, res) => {
 });
 
 // Endpoint MiWIN: Consulta de atenciones por DNI con fallback directo a base de datos
-app.get('/api/cliente/visitas/:dni', async (req, res) => {
-  const { dni } = req.params;
-  const cleanDni = String(dni || '').trim();
+app.get(['/api/cliente/visitas/:dni', '/api/cliente/visitas/v/:token'], async (req, res) => {
+  const rawParam = req.params.token || req.params.dni;
+  let cleanDni = String(rawParam || '').trim();
+  const decoded = decodeOpaqueToken(cleanDni);
+  if (decoded && decoded.documento) {
+    cleanDni = decoded.documento;
+  }
+  // cleanDni ya resuelto arriba
 
   if (!cleanDni || cleanDni.length < 5) {
     return res.status(400).json({ success: false, message: 'DNI inválido' });
@@ -936,7 +942,8 @@ app.get(
     return res.json({
       success: true,
       documento: cleanDoc,
-      link: `${PUBLIC_APP_URL}/miwin/${cleanDoc}`,
+      link: `${PUBLIC_APP_URL}/miwin/v/${createOpaqueToken(cleanDoc)}`,
+      token_opaco: createOpaqueToken(cleanDoc),
       ordenes_abiertas: casesSet.size,
       ultimo_estado: ultimoRegistro ? ultimoRegistro.estado : null,
       total_registros_encontrados: listAll.length

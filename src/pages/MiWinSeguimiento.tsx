@@ -75,23 +75,23 @@ function getPlanDisplayName(visita?: VisitaItem): string {
 }
 
 export default function MiWinSeguimiento() {
-  const { dni: paramDni } = useParams<{ dni: string }>();
+  const { dni: paramDni, token: paramToken } = useParams<{ dni?: string; token?: string }>();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
 
-  // El DNI puede venir por path param (:dni) o por query param (?dni=12345678)
-  const dni = paramDni || searchParams.get('dni') || '';
+  // El identificador puede ser un DNI plano o un Token Criptográfico opaco
+  const identifier = paramToken || paramDni || searchParams.get('token') || searchParams.get('t') || searchParams.get('dni') || '';
 
   const [visitas, setVisitas] = useState<VisitaItem[]>([]);
   const [selectedToken, setSelectedToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [isSelectorOpen, setIsSelectorOpen] = useState(false);
-  const [inputDoc, setInputDoc] = useState(dni);
+  const [inputDoc, setInputDoc] = useState(/^\d+$/.test(identifier) ? identifier : '');
 
   useEffect(() => {
-    if (!dni || dni.length < 5) {
-      setErrorMsg("No se proporcionó un número de documento válido.");
+    if (!identifier || identifier.length < 5) {
+      setErrorMsg("No se proporcionó un enlace o documento válido.");
       setLoading(false);
       return;
     }
@@ -107,12 +107,12 @@ export default function MiWinSeguimiento() {
         const baseUrl = isLocalHost 
           ? 'http://localhost:3001' 
           : (import.meta.env.VITE_API_URL || 'https://webwin-api-service.azurewebsites.net');
-        let res = await fetch(`${baseUrl}/api/cliente/visitas/${dni}`);
+        let res = await fetch(`${baseUrl}/api/cliente/visitas/${encodeURIComponent(identifier)}`);
         
         // Fallback al backend local si el entorno remoto no tiene aún el endpoint
         if (!res.ok && baseUrl !== 'http://localhost:3001') {
           try {
-            const localRes = await fetch(`http://localhost:3001/api/cliente/visitas/${dni}`);
+            const localRes = await fetch(`http://localhost:3001/api/cliente/visitas/${encodeURIComponent(identifier)}`);
             if (localRes.ok) res = localRes;
           } catch {}
         }
@@ -143,7 +143,7 @@ export default function MiWinSeguimiento() {
 
     fetchVisitas();
     return () => { isMounted = false; };
-  }, [dni]);
+  }, [identifier]);
 
   const selectedVisita = visitas.find(v => v.token === selectedToken) || visitas[0];
 
