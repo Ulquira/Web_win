@@ -25,10 +25,27 @@ import {
   X,
   ExternalLink,
   Sparkles,
-  Loader2
+  Loader2,
+  BarChart3,
+  Send,
+  Navigation
 } from 'lucide-react';
 
-type TabType = 'principal' | 'encuestas' | 'reprogramaciones' | 'chats_mantra';
+type TabType = 'principal' | 'encuestas' | 'reprogramaciones' | 'chats_mantra' | 'reporte';
+
+const getTodayPeruString = () => {
+  try {
+    const formatter = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'America/Lima',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit'
+    });
+    return formatter.format(new Date());
+  } catch {
+    return new Date().toISOString().split('T')[0];
+  }
+};
 
 interface FiltroOpciones {
   tiposTraba: string[];
@@ -105,8 +122,8 @@ export default function AdminDashboard() {
 
   // Filtros
   const [search, setSearch] = useState('');
-  const [fechaInicio, setFechaInicio] = useState('');
-  const [fechaFin, setFechaFin] = useState('');
+  const [fechaInicio, setFechaInicio] = useState(getTodayPeruString());
+  const [fechaFin, setFechaFin] = useState(getTodayPeruString());
   const [tipoServicio, setTipoServicio] = useState('');
   const [grupoServicio, setGrupoServicio] = useState('');
   const [estadoChatFiltro, setEstadoChatFiltro] = useState('');
@@ -115,6 +132,7 @@ export default function AdminDashboard() {
   // Ordenamiento de columnas (ascendente / descendente)
   const [sortField, setSortField] = useState<string>('id');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+  const abortControllerRef = React.useRef<AbortController | null>(null);
 
   // Opciones de selects
   const [filtrosOpciones, setFiltrosOpciones] = useState<FiltroOpciones>({
@@ -152,7 +170,8 @@ export default function AdminDashboard() {
         e.preventDefault();
         const currentIdx = data.findIndex(r => 
           (r.id !== undefined && selectedRow.id !== undefined && r.id === selectedRow.id) ||
-          (r.OrdenId !== undefined && selectedRow.OrdenId !== undefined && r.OrdenId === selectedRow.OrdenId)
+          (r.OrdenId !== undefined && selectedRow.OrdenId !== undefined && r.OrdenId === selectedRow.OrdenId) ||
+          (r.orden_id !== undefined && selectedRow.orden_id !== undefined && r.orden_id === selectedRow.orden_id)
         );
         if (currentIdx > 0) {
           setSelectedRow(data[currentIdx - 1]);
@@ -161,7 +180,8 @@ export default function AdminDashboard() {
         e.preventDefault();
         const currentIdx = data.findIndex(r => 
           (r.id !== undefined && selectedRow.id !== undefined && r.id === selectedRow.id) ||
-          (r.OrdenId !== undefined && selectedRow.OrdenId !== undefined && r.OrdenId === selectedRow.OrdenId)
+          (r.OrdenId !== undefined && selectedRow.OrdenId !== undefined && r.OrdenId === selectedRow.OrdenId) ||
+          (r.orden_id !== undefined && selectedRow.orden_id !== undefined && r.orden_id === selectedRow.orden_id)
         );
         if (currentIdx >= 0 && currentIdx < data.length - 1) {
           setSelectedRow(data[currentIdx + 1]);
@@ -264,26 +284,44 @@ export default function AdminDashboard() {
   }, [apiUrl]);
 
   // Cargar datos al cambiar tab, paginación, ordenamiento o filtros
-  const fetchData = async (targetPage = page) => {
+  const fetchData = async (targetPage = page, customFilters?: any, retryCount = 1) => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
     setLoading(true);
     setErrorMsg(null);
     try {
+      const currentTab = customFilters?.activeTab ?? activeTab;
+      const currentSort = customFilters?.sortField ?? sortField;
+      const currentOrder = customFilters?.sortOrder ?? sortOrder;
+      const currentSearch = customFilters?.search ?? search;
+      const currentFInicio = customFilters?.fechaInicio ?? fechaInicio;
+      const currentFFin = customFilters?.fechaFin ?? fechaFin;
+      const currentTipo = customFilters?.tipoServicio ?? tipoServicio;
+      const currentGrupo = customFilters?.grupoServicio ?? grupoServicio;
+      const currentEstado = customFilters?.estadoChatFiltro ?? estadoChatFiltro;
+
       const params = new URLSearchParams({
-        tabla: activeTab,
+        tabla: currentTab,
         page: String(targetPage),
         limit: String(limit),
-        sortBy: sortField,
-        sortOrder: sortOrder
+        sortBy: currentSort === 'id' && currentTab === 'reporte' ? 'fecha_visita' : currentSort,
+        sortOrder: currentOrder
       });
 
-      if (search) params.append('search', search);
-      if (fechaInicio) params.append('fechaInicio', fechaInicio);
-      if (fechaFin) params.append('fechaFin', fechaFin);
-      if (tipoServicio && activeTab === 'principal') params.append('tipoServicio', tipoServicio);
-      if (grupoServicio && activeTab === 'chats_mantra') params.append('grupoServicio', grupoServicio);
-      if (estadoChatFiltro && activeTab === 'chats_mantra') params.append('estadoChat', estadoChatFiltro);
+      if (currentSearch) params.append('search', currentSearch);
+      if (currentFInicio) params.append('fechaInicio', currentFInicio);
+      if (currentFFin) params.append('fechaFin', currentFFin);
+      if (currentTipo && (currentTab === 'principal' || currentTab === 'reporte')) params.append('tipoServicio', currentTipo);
+      if (currentGrupo && currentTab === 'chats_mantra') params.append('grupoServicio', currentGrupo);
+      if (currentEstado && currentTab === 'chats_mantra') params.append('estadoChat', currentEstado);
 
-      const res = await fetch(`${apiUrl}/api/admin/data?${params.toString()}`);
+      const res = await fetch(`${apiUrl}/api/admin/data?${params.toString()}`, {
+        signal: controller.signal
+      });
       if (!res.ok) {
         throw new Error(`El servidor (${apiUrl}) respondió con error ${res.status} (${res.statusText})`);
       }
@@ -298,6 +336,14 @@ export default function AdminDashboard() {
         throw new Error(json.message || 'Error desconocido al consultar datos');
       }
     } catch (err: any) {
+      if (err.name === 'AbortError') {
+        return; // Petición cancelada intencionalmente
+      }
+      if (retryCount > 0) {
+        console.warn('Reintentando consulta admin/data por micro-corte o socket timeout...');
+        await new Promise(r => setTimeout(r, 1200));
+        return fetchData(targetPage, customFilters, retryCount - 1);
+      }
       console.error('Error cargando datos de BD:', err);
       setErrorMsg(err.message || 'No se pudo conectar con el servidor backend');
       setData([]);
@@ -319,16 +365,27 @@ export default function AdminDashboard() {
   };
 
   const handleResetFilters = () => {
+    const today = getTodayPeruString();
+    const defaultSort = activeTab === 'reporte' ? 'fecha_visita' : 'id';
     setSearch('');
-    setFechaInicio('');
-    setFechaFin('');
+    setFechaInicio(today);
+    setFechaFin(today);
     setTipoServicio('');
     setGrupoServicio('');
     setEstadoChatFiltro('');
-    setSortField('id');
+    setSortField(defaultSort);
     setSortOrder('desc');
     setPage(1);
-    fetchData(1);
+    fetchData(1, {
+      search: '',
+      fechaInicio: today,
+      fechaFin: today,
+      tipoServicio: '',
+      grupoServicio: '',
+      estadoChatFiltro: '',
+      sortField: defaultSort,
+      sortOrder: 'desc'
+    });
   };
 
   // Función para alternar ordenamiento de columna
@@ -397,14 +454,14 @@ export default function AdminDashboard() {
     const params = new URLSearchParams({
       tabla: activeTab,
       format,
-      sortBy: sortField,
+      sortBy: sortField === 'id' && activeTab === 'reporte' ? 'fecha_visita' : sortField,
       sortOrder: sortOrder
     });
 
     if (search) params.append('search', search);
     if (fechaInicio) params.append('fechaInicio', fechaInicio);
     if (fechaFin) params.append('fechaFin', fechaFin);
-    if (tipoServicio && activeTab === 'principal') params.append('tipoServicio', tipoServicio);
+    if (tipoServicio && (activeTab === 'principal' || activeTab === 'reporte')) params.append('tipoServicio', tipoServicio);
     if (grupoServicio && activeTab === 'chats_mantra') params.append('grupoServicio', grupoServicio);
     if (estadoChatFiltro && activeTab === 'chats_mantra') params.append('estadoChat', estadoChatFiltro);
 
@@ -512,6 +569,21 @@ export default function AdminDashboard() {
           </button>
 
           <button
+            onClick={() => {
+              setActiveTab('reporte');
+              if (sortField === 'id') setSortField('fecha_visita');
+            }}
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-medium text-sm transition-all ${
+              activeTab === 'reporte'
+                ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/20'
+                : 'bg-slate-900 text-slate-400 hover:text-slate-200 hover:bg-slate-800 border border-slate-800'
+            }`}
+          >
+            <BarChart3 className="w-4 h-4" />
+            <span>Reporte</span>
+          </button>
+
+          <button
             onClick={() => setActiveTab('encuestas')}
             className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-medium text-sm transition-all ${
               activeTab === 'encuestas'
@@ -565,6 +637,8 @@ export default function AdminDashboard() {
                       ? 'Cliente, DNI, Token, OT, Dirección...' 
                       : activeTab === 'chats_mantra'
                       ? 'Ticket, Teléfono, Cliente, Orden ID, Asesor...'
+                      : activeTab === 'reporte'
+                      ? 'OT, Ticket, Cliente, Teléfono, Cuadrilla, Distrito...'
                       : 'Token, comentario, motivo...'
                   }
                   className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-9 pr-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-orange-500 transition-colors"
@@ -575,7 +649,7 @@ export default function AdminDashboard() {
             {/* Fecha Inicio */}
             <div>
               <label className="text-[11px] font-medium text-slate-400 block mb-1">
-                {activeTab === 'principal' ? 'Fecha Visita Desde' : activeTab === 'chats_mantra' ? 'Fecha Gestión/Msg Desde' : 'Fecha Desde'}
+                {activeTab === 'principal' || activeTab === 'reporte' ? 'Fecha Visita Desde' : activeTab === 'chats_mantra' ? 'Fecha Gestión/Msg Desde' : 'Fecha Desde'}
               </label>
               <div className="relative">
                 <input
@@ -590,7 +664,7 @@ export default function AdminDashboard() {
             {/* Fecha Fin */}
             <div>
               <label className="text-[11px] font-medium text-slate-400 block mb-1">
-                {activeTab === 'principal' ? 'Fecha Visita Hasta' : activeTab === 'chats_mantra' ? 'Fecha Gestión/Msg Hasta' : 'Fecha Hasta'}
+                {activeTab === 'principal' || activeTab === 'reporte' ? 'Fecha Visita Hasta' : activeTab === 'chats_mantra' ? 'Fecha Gestión/Msg Hasta' : 'Fecha Hasta'}
               </label>
               <div className="relative">
                 <input
@@ -602,10 +676,10 @@ export default function AdminDashboard() {
               </div>
             </div>
 
-            {/* Tipo de Servicio (Solo visible en Tabla Principal) */}
-            {activeTab === 'principal' && (
+            {/* Tipo de Servicio (Visible en Principal y Reporte) */}
+            {(activeTab === 'principal' || activeTab === 'reporte') && (
               <div>
-                <label className="text-[11px] font-medium text-slate-400 block mb-1">Tipo de Servicio Cruzado</label>
+                <label className="text-[11px] font-medium text-slate-400 block mb-1">Tipo de Servicio / Trabajo</label>
                 <select
                   value={tipoServicio}
                   onChange={e => setTipoServicio(e.target.value)}
@@ -890,7 +964,173 @@ export default function AdminDashboard() {
               </table>
             )}
 
-            {/* 2. Historial Chats Mantra */}
+            {/* 2. Reporte Funnel Casos 360 (Monitoreo de Chats y Tracking) */}
+            {activeTab === 'reporte' && (
+              <table className="w-full text-left text-xs text-slate-300 border-collapse">
+                <thead className="bg-slate-950/80 sticky top-0 z-10 border-b border-slate-800 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
+                  <tr>
+                    <th className="py-3 px-4">Acción</th>
+                    <th onClick={() => handleSort('orden_id')} className="py-3 px-4 cursor-pointer hover:text-white select-none whitespace-nowrap">
+                      Orden / Ticket {renderSortIndicator('orden_id')}
+                    </th>
+                    <th onClick={() => handleSort('cliente')} className="py-3 px-4 cursor-pointer hover:text-white select-none">
+                      Cliente {renderSortIndicator('cliente')}
+                    </th>
+                    <th onClick={() => handleSort('telefono')} className="py-3 px-4 cursor-pointer hover:text-white select-none whitespace-nowrap">
+                      Teléfono {renderSortIndicator('telefono')}
+                    </th>
+                    <th onClick={() => handleSort('tipo_operacion')} className="py-3 px-4 cursor-pointer hover:text-white select-none whitespace-nowrap">
+                      Operación / Trabajo {renderSortIndicator('tipo_operacion')}
+                    </th>
+                    <th onClick={() => handleSort('estado_ot')} className="py-3 px-4 cursor-pointer hover:text-white select-none whitespace-nowrap">
+                      Estado OT {renderSortIndicator('estado_ot')}
+                    </th>
+                    <th onClick={() => handleSort('fecha_visita')} className="py-3 px-4 cursor-pointer hover:text-white select-none whitespace-nowrap">
+                      Fecha Visita {renderSortIndicator('fecha_visita')}
+                    </th>
+                    <th onClick={() => handleSort('distrito')} className="py-3 px-4 cursor-pointer hover:text-white select-none">
+                      Distrito / Cuadrilla {renderSortIndicator('distrito')}
+                    </th>
+                    <th onClick={() => handleSort('se_envio_wsp')} className="py-3 px-4 cursor-pointer hover:text-white select-none whitespace-nowrap">
+                      WhatsApp {renderSortIndicator('se_envio_wsp')}
+                    </th>
+                    <th onClick={() => handleSort('ingreso_tracking')} className="py-3 px-4 cursor-pointer hover:text-white select-none whitespace-nowrap">
+                      Tracking / Mapa {renderSortIndicator('ingreso_tracking')}
+                    </th>
+                    <th onClick={() => handleSort('reprogramo')} className="py-3 px-4 cursor-pointer hover:text-white select-none whitespace-nowrap">
+                      Reprogramó {renderSortIndicator('reprogramo')}
+                    </th>
+                    <th onClick={() => handleSort('respondio_encuesta')} className="py-3 px-4 cursor-pointer hover:text-white select-none whitespace-nowrap">
+                      Encuesta {renderSortIndicator('respondio_encuesta')}
+                    </th>
+                    <th onClick={() => handleSort('pulso_soporte')} className="py-3 px-4 cursor-pointer hover:text-white select-none whitespace-nowrap">
+                      Soporte {renderSortIndicator('pulso_soporte')}
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-800/60">
+                  {displayData.length === 0 && !loading ? (
+                    <tr>
+                      <td colSpan={13} className="py-12 text-center text-slate-500">
+                        No se encontraron registros en el Reporte Funnel 360 con los filtros seleccionados
+                      </td>
+                    </tr>
+                  ) : (
+                    displayData.map((row, idx) => (
+                      <tr key={idx} className="hover:bg-slate-800/40 transition-colors">
+                        <td className="py-2.5 px-4 whitespace-nowrap">
+                          <div className="flex items-center gap-1.5">
+                            <button
+                              onClick={() => setSelectedRow(row)}
+                              className="p-1.5 bg-slate-800 hover:bg-orange-500/20 hover:text-orange-400 text-slate-400 rounded-lg transition-colors"
+                              title="Ver ficha completa 360°"
+                            >
+                              <Eye className="w-3.5 h-3.5" />
+                            </button>
+                            {row.link_tracking && (
+                              <a
+                                href={row.link_tracking}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="p-1.5 bg-slate-800 hover:bg-cyan-500/20 hover:text-cyan-400 text-slate-400 rounded-lg transition-colors"
+                                title="Abrir link de seguimiento en vivo"
+                              >
+                                <ExternalLink className="w-3.5 h-3.5" />
+                              </a>
+                            )}
+                          </div>
+                        </td>
+                        <td className="py-2.5 px-4">
+                          <div className="font-mono font-bold text-white">{row.orden_id}</div>
+                          {row.ticket && <div className="text-[10px] text-slate-400 font-mono">Tk: {row.ticket}</div>}
+                        </td>
+                        <td className="py-2.5 px-4 max-w-[180px] truncate font-medium text-slate-100" title={row.cliente}>
+                          {row.cliente || '-'}
+                        </td>
+                        <td className="py-2.5 px-4 font-mono text-slate-300 whitespace-nowrap">
+                          {row.telefono || '-'}
+                        </td>
+                        <td className="py-2.5 px-4 whitespace-nowrap">
+                          <span className="px-2 py-0.5 rounded-md bg-slate-800 text-[10px] font-semibold text-slate-200 border border-slate-700">
+                            {row.tipo_operacion || row.tipo_trabajo || row.producto || '-'}
+                          </span>
+                        </td>
+                        <td className="py-2.5 px-4 whitespace-nowrap">
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${
+                            String(row.estado_ot).toLowerCase().includes('fin') || String(row.estado_ot).toLowerCase().includes('liquid')
+                              ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'
+                              : String(row.estado_ot).toLowerCase().includes('inic') || String(row.estado_ot).toLowerCase().includes('ruta')
+                              ? 'bg-cyan-500/15 text-cyan-300 border-cyan-500/30'
+                              : 'bg-amber-500/15 text-amber-300 border-amber-500/30'
+                          }`}>
+                            {row.estado_ot || '-'}
+                          </span>
+                        </td>
+                        <td className="py-2.5 px-4 whitespace-nowrap text-amber-300/90 font-mono text-[11px]">
+                          {formatDate(row.fecha_visita)}
+                        </td>
+                        <td className="py-2.5 px-4 text-slate-300">
+                          <div>{row.distrito || '-'}</div>
+                          {row.cuadrilla && <div className="text-[10px] text-slate-400">{row.cuadrilla}</div>}
+                        </td>
+                        <td className="py-2.5 px-4 whitespace-nowrap">
+                          {row.se_envio_wsp === 'SI' ? (
+                            <div className="flex flex-col gap-0.5">
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 text-[10px] font-semibold">
+                                <Send className="w-2.5 h-2.5" /> ENVIADO
+                              </span>
+                              {row.estado_wsp && <span className="text-[9px] text-slate-400 truncate max-w-[110px]">{row.estado_wsp}</span>}
+                            </div>
+                          ) : (
+                            <span className="px-2 py-0.5 rounded-md bg-slate-800 text-slate-400 text-[10px] font-medium border border-slate-700/60">
+                              NO ENVIADO
+                            </span>
+                          )}
+                        </td>
+                        <td className="py-2.5 px-4 whitespace-nowrap">
+                          {row.ingreso_tracking === 'SI' ? (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-blue-500/15 text-blue-300 border border-blue-500/30 text-[10px] font-semibold">
+                              <Navigation className="w-2.5 h-2.5" /> INGRESÓ ({row.vistas_mapa_seguimiento || 0})
+                            </span>
+                          ) : (
+                            <span className="px-2 py-0.5 rounded-md bg-slate-800 text-slate-500 text-[10px]">
+                              NO INGRESÓ
+                            </span>
+                          )}
+                        </td>
+                        <td className="py-2.5 px-4 whitespace-nowrap">
+                          {row.reprogramo === 'SI' ? (
+                            <span className="px-2 py-0.5 rounded-md bg-amber-500/15 text-amber-300 border border-amber-500/30 text-[10px] font-bold">
+                              REPROGRAMADO
+                            </span>
+                          ) : (
+                            <span className="text-slate-600">-</span>
+                          )}
+                        </td>
+                        <td className="py-2.5 px-4 whitespace-nowrap">
+                          {row.respondio_encuesta === 'SI' ? (
+                            <span className="px-2 py-0.5 rounded-md bg-purple-500/15 text-purple-300 border border-purple-500/30 text-[10px] font-bold">
+                              ★ {row.satisfaccion_general || 'SÍ'}
+                            </span>
+                          ) : (
+                            <span className="text-slate-600">-</span>
+                          )}
+                        </td>
+                        <td className="py-2.5 px-4 whitespace-nowrap">
+                          {row.pulso_soporte === 'SI' ? (
+                            <span className="px-2 py-0.5 rounded-md bg-rose-500/15 text-rose-300 border border-rose-500/30 text-[10px] font-bold">
+                              SOPORTE ({row.veces_pulso_soporte || 1})
+                            </span>
+                          ) : (
+                            <span className="text-slate-600">-</span>
+                          )}
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            )}
             {activeTab === 'chats_mantra' && (
               <table className="w-full text-left text-xs text-slate-300 border-collapse">
                 <thead className="bg-slate-950/80 sticky top-0 z-10 border-b border-slate-800 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
@@ -1219,16 +1459,19 @@ export default function AdminDashboard() {
                 </div>
                 <div className="min-w-0">
                   <h3 className="text-base font-bold text-white flex items-center gap-2 truncate">
-                    {activeTab === 'chats_mantra' ? 'Ficha Técnica & Conversación Mantra' : `Detalle Completo del Registro (${activeTab})`}
+                    {activeTab === 'chats_mantra' ? 'Ficha Técnica & Conversación Mantra' : activeTab === 'reporte' ? 'Ficha Técnica Funnel 360°' : `Detalle Completo del Registro (${activeTab})`}
                     <span className="text-xs px-2.5 py-0.5 rounded-full bg-slate-800 text-orange-400 border border-slate-700 font-mono">
-                      #{selectedRow.id || selectedRow.OrdenId}
+                      #{selectedRow.id || selectedRow.OrdenId || selectedRow.orden_id}
                     </span>
                   </h3>
                   <p className="text-xs text-slate-400 mt-0.5 truncate">
-                    {selectedRow.cliente_nombre ? <strong className="text-slate-200">{selectedRow.cliente_nombre}</strong> : 'Registro'} 
+                    {selectedRow.cliente_nombre || selectedRow.cliente || selectedRow.Cliente ? (
+                      <strong className="text-slate-200">{selectedRow.cliente_nombre || selectedRow.cliente || selectedRow.Cliente}</strong>
+                    ) : 'Registro'} 
                     {selectedRow.ticket ? ` · Ticket: ${selectedRow.ticket}` : ''} 
-                    {selectedRow.phone ? ` · Teléfono: ${selectedRow.phone}` : ''}
+                    {selectedRow.phone || selectedRow.telefono ? ` · Teléfono: ${selectedRow.phone || selectedRow.telefono}` : ''}
                     {selectedRow.grupo_servicio ? ` · Grupo: ${selectedRow.grupo_servicio}` : ''}
+                    {selectedRow.cuadrilla ? ` · Cuadrilla: ${selectedRow.cuadrilla}` : ''}
                   </p>
                 </div>
               </div>
@@ -1260,7 +1503,8 @@ export default function AdminDashboard() {
                 {(() => {
                   const currentIdx = data.findIndex(r => 
                     (r.id !== undefined && selectedRow.id !== undefined && r.id === selectedRow.id) ||
-                    (r.OrdenId !== undefined && selectedRow.OrdenId !== undefined && r.OrdenId === selectedRow.OrdenId)
+                    (r.OrdenId !== undefined && selectedRow.OrdenId !== undefined && r.OrdenId === selectedRow.OrdenId) ||
+                    (r.orden_id !== undefined && selectedRow.orden_id !== undefined && r.orden_id === selectedRow.orden_id)
                   );
                   const hasPrev = currentIdx > 0;
                   const hasNext = currentIdx >= 0 && currentIdx < data.length - 1;
@@ -1326,6 +1570,27 @@ export default function AdminDashboard() {
                     </span>
                   )}
                 </div>
+
+                {selectedRow.link_tracking && (
+                  <div className="p-3 mb-3 bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-transparent border border-orange-500/30 rounded-xl flex items-center justify-between gap-3 flex-shrink-0">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <Navigation className="w-4 h-4 text-orange-400 flex-shrink-0" />
+                      <div className="min-w-0">
+                        <div className="text-xs font-semibold text-white">Enlace de Seguimiento en Vivo</div>
+                        <div className="text-[10px] text-slate-400 font-mono truncate">{selectedRow.link_tracking}</div>
+                      </div>
+                    </div>
+                    <a
+                      href={selectedRow.link_tracking}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-orange-600 hover:bg-orange-500 text-white rounded-lg text-xs font-medium transition-all shadow-md active:scale-95 flex-shrink-0"
+                    >
+                      <span>Abrir Seguimiento</span>
+                      <ExternalLink className="w-3.5 h-3.5" />
+                    </a>
+                  </div>
+                )}
 
                 <div className="flex-1 overflow-y-auto space-y-2 pr-1.5 scrollbar-thin scrollbar-thumb-slate-700 min-h-0">
                   {Object.entries(selectedRow).map(([key, value]: [string, any]) => {

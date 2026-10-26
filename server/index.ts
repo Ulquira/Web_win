@@ -1141,6 +1141,11 @@ app.get('/api/admin/data', async (req, res) => {
     const tipoServicio = String(req.query.tipoServicio || '').trim();
     const grupoServicio = String(req.query.grupoServicio || '').trim();
     const estadoChat = String(req.query.estadoChat || '').trim();
+    const estadoOt = String(req.query.estadoOt || '').trim();
+    const seEnvioWsp = String(req.query.seEnvioWsp || '').trim();
+    const ingresoTracking = String(req.query.ingresoTracking || '').trim();
+    const reprogramo = String(req.query.reprogramo || '').trim();
+    const respondioEncuesta = String(req.query.respondioEncuesta || '').trim();
     const sortBy = String(req.query.sortBy || '').trim();
     const sortOrder = String(req.query.sortOrder || 'DESC').toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
     const page = Math.max(1, parseInt(String(req.query.page || '1'), 10));
@@ -1356,6 +1361,93 @@ app.get('/api/admin/data', async (req, res) => {
         LIMIT ? OFFSET ?
       `;
       params.push(limit, offset);
+    } else if (tabla === 'reporte' || tabla === 'vw_reporte_funnel_casos_360') {
+      let whereClauses: string[] = ['1=1'];
+
+      if (fechaInicio) {
+        whereClauses.push('r.fecha_visita >= ?');
+        params.push(`${fechaInicio} 00:00:00`);
+        countParams.push(`${fechaInicio} 00:00:00`);
+      }
+      if (fechaFin) {
+        whereClauses.push('r.fecha_visita <= ?');
+        params.push(`${fechaFin} 23:59:59`);
+        countParams.push(`${fechaFin} 23:59:59`);
+      }
+      if (tipoServicio) {
+        whereClauses.push('(r.tipo_operacion = ? OR r.tipo_trabajo = ? OR r.producto = ?)');
+        params.push(tipoServicio, tipoServicio, tipoServicio);
+        countParams.push(tipoServicio, tipoServicio, tipoServicio);
+      }
+      if (estadoOt) {
+        whereClauses.push('r.estado_ot = ?');
+        params.push(estadoOt);
+        countParams.push(estadoOt);
+      }
+      if (seEnvioWsp) {
+        whereClauses.push('r.se_envio_wsp = ?');
+        params.push(seEnvioWsp);
+        countParams.push(seEnvioWsp);
+      }
+      if (ingresoTracking) {
+        whereClauses.push('r.ingreso_tracking = ?');
+        params.push(ingresoTracking);
+        countParams.push(ingresoTracking);
+      }
+      if (reprogramo) {
+        whereClauses.push('r.reprogramo = ?');
+        params.push(reprogramo);
+        countParams.push(reprogramo);
+      }
+      if (respondioEncuesta) {
+        whereClauses.push('r.respondio_encuesta = ?');
+        params.push(respondioEncuesta);
+        countParams.push(respondioEncuesta);
+      }
+      if (search) {
+        whereClauses.push('(r.orden_id LIKE ? OR r.ticket LIKE ? OR r.cliente LIKE ? OR r.telefono LIKE ? OR r.distrito LIKE ? OR r.token_tracking LIKE ? OR r.cuadrilla LIKE ?)');
+        const s = `%${search}%`;
+        params.push(s, s, s, s, s, s, s);
+        countParams.push(s, s, s, s, s, s, s);
+      }
+
+      const allowedSortCols: Record<string, string> = {
+        orden_id: 'r.orden_id',
+        ticket: 'r.ticket',
+        cliente: 'r.cliente',
+        telefono: 'r.telefono',
+        producto: 'r.producto',
+        tipo_operacion: 'r.tipo_operacion',
+        tipo_trabajo: 'r.tipo_trabajo',
+        estado_ot: 'r.estado_ot',
+        fecha_visita: 'r.fecha_visita',
+        fecha_solicitud: 'r.fecha_solicitud',
+        distrito: 'r.distrito',
+        provincia: 'r.provincia',
+        cuadrilla: 'r.cuadrilla',
+        se_envio_wsp: 'r.se_envio_wsp',
+        fecha_envio_wsp: 'r.fecha_envio_wsp',
+        ingreso_tracking: 'r.ingreso_tracking',
+        total_interacciones_tracking: 'r.total_interacciones_tracking',
+        vistas_mapa_seguimiento: 'r.vistas_mapa_seguimiento',
+        refrescos_pantalla: 'r.refrescos_pantalla',
+        pulso_soporte: 'r.pulso_soporte',
+        reprogramo: 'r.reprogramo',
+        respondio_encuesta: 'r.respondio_encuesta',
+        satisfaccion_general: 'r.satisfaccion_general'
+      };
+      const orderCol = allowedSortCols[sortBy] || 'r.fecha_visita';
+
+      const whereSql = whereClauses.join(' AND ');
+      countQuery = `SELECT COUNT(*) as total FROM vw_reporte_funnel_casos_360 r WHERE ${whereSql}`;
+      selectQuery = `
+        SELECT r.*
+        FROM vw_reporte_funnel_casos_360 r
+        WHERE ${whereSql}
+        ORDER BY ${orderCol} ${sortOrder}, r.orden_id DESC
+        LIMIT ? OFFSET ?
+      `;
+      params.push(limit, offset);
     } else {
       // Tabla principal: vw_winordetraba cruzada con tiposervicio
       let whereClauses: string[] = ['1=1'];
@@ -1536,6 +1628,11 @@ app.get('/api/admin/export', async (req, res) => {
     const tipoServicio = String(req.query.tipoServicio || '').trim();
     const grupoServicio = String(req.query.grupoServicio || '').trim();
     const estadoChat = String(req.query.estadoChat || '').trim();
+    const estadoOt = String(req.query.estadoOt || '').trim();
+    const seEnvioWsp = String(req.query.seEnvioWsp || '').trim();
+    const ingresoTracking = String(req.query.ingresoTracking || '').trim();
+    const reprogramo = String(req.query.reprogramo || '').trim();
+    const respondioEncuesta = String(req.query.respondioEncuesta || '').trim();
     const sortBy = String(req.query.sortBy || '').trim();
     const sortOrder = String(req.query.sortOrder || 'DESC').toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
 
@@ -1719,6 +1816,68 @@ app.get('/api/admin/export', async (req, res) => {
         FROM historial_chats_mantra h
         WHERE ${whereClauses.join(' AND ')}
         ORDER BY ${orderCol} ${sortOrder}, h.id DESC
+        LIMIT ${maxExportRows}
+      `;
+    } else if (tabla === 'reporte' || tabla === 'vw_reporte_funnel_casos_360') {
+      let whereClauses: string[] = ['1=1'];
+      if (fechaInicio) {
+        whereClauses.push('r.fecha_visita >= ?');
+        params.push(`${fechaInicio} 00:00:00`);
+      }
+      if (fechaFin) {
+        whereClauses.push('r.fecha_visita <= ?');
+        params.push(`${fechaFin} 23:59:59`);
+      }
+      if (tipoServicio) {
+        whereClauses.push('(r.tipo_operacion = ? OR r.tipo_trabajo = ? OR r.producto = ?)');
+        params.push(tipoServicio, tipoServicio, tipoServicio);
+      }
+      if (estadoOt) {
+        whereClauses.push('r.estado_ot = ?');
+        params.push(estadoOt);
+      }
+      if (seEnvioWsp) {
+        whereClauses.push('r.se_envio_wsp = ?');
+        params.push(seEnvioWsp);
+      }
+      if (ingresoTracking) {
+        whereClauses.push('r.ingreso_tracking = ?');
+        params.push(ingresoTracking);
+      }
+      if (reprogramo) {
+        whereClauses.push('r.reprogramo = ?');
+        params.push(reprogramo);
+      }
+      if (respondioEncuesta) {
+        whereClauses.push('r.respondio_encuesta = ?');
+        params.push(respondioEncuesta);
+      }
+      if (search) {
+        whereClauses.push('(r.orden_id LIKE ? OR r.ticket LIKE ? OR r.cliente LIKE ? OR r.telefono LIKE ? OR r.distrito LIKE ? OR r.token_tracking LIKE ? OR r.cuadrilla LIKE ?)');
+        const s = `%${search}%`;
+        params.push(s, s, s, s, s, s, s);
+      }
+
+      const allowedSortCols: Record<string, string> = {
+        orden_id: 'r.orden_id',
+        ticket: 'r.ticket',
+        cliente: 'r.cliente',
+        telefono: 'r.telefono',
+        producto: 'r.producto',
+        tipo_operacion: 'r.tipo_operacion',
+        tipo_trabajo: 'r.tipo_trabajo',
+        estado_ot: 'r.estado_ot',
+        fecha_visita: 'r.fecha_visita',
+        distrito: 'r.distrito',
+        cuadrilla: 'r.cuadrilla'
+      };
+      const orderCol = allowedSortCols[sortBy] || 'r.fecha_visita';
+
+      selectQuery = `
+        SELECT r.*
+        FROM vw_reporte_funnel_casos_360 r
+        WHERE ${whereClauses.join(' AND ')}
+        ORDER BY ${orderCol} ${sortOrder}, r.orden_id DESC
         LIMIT ${maxExportRows}
       `;
     } else {
