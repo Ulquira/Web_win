@@ -755,7 +755,7 @@ export default function AdminDashboard() {
             )}
 
             {/* Botones de acción */}
-            <div className={`flex items-end gap-2 ${(activeTab !== 'principal' && activeTab !== 'chats_mantra') ? 'lg:col-span-2' : ''}`}>
+            <div className={`flex items-end gap-2 ${(activeTab !== 'principal' && activeTab !== 'chats_mantra' && activeTab !== 'reporte') ? 'lg:col-span-2' : ''}`}>
               <button
                 type="submit"
                 className="flex-1 flex items-center justify-center gap-1.5 px-4 py-2 bg-orange-600 hover:bg-orange-500 text-white font-medium text-xs rounded-xl transition-all shadow-md shadow-orange-950 active:scale-95"
@@ -1027,9 +1027,9 @@ export default function AdminDashboard() {
                             >
                               <Eye className="w-3.5 h-3.5" />
                             </button>
-                            {row.link_tracking && (
+                            {(row.link_tracking || row.link || row.token) && (
                               <a
-                                href={row.link_tracking}
+                                href={row.link_tracking || row.link || `https://enruta.win.pe/seguimiento/${row.token}`}
                                 target="_blank"
                                 rel="noreferrer"
                                 className="p-1.5 bg-slate-800 hover:bg-cyan-500/20 hover:text-cyan-400 text-slate-400 rounded-lg transition-colors"
@@ -1041,37 +1041,41 @@ export default function AdminDashboard() {
                           </div>
                         </td>
                         <td className="py-2.5 px-4">
-                          <div className="font-mono font-bold text-white">{row.orden_id}</div>
-                          {row.ticket && <div className="text-[10px] text-slate-400 font-mono">Tk: {row.ticket}</div>}
+                          <div className="font-mono font-bold text-white">{row.orden_id ?? row.OrdenId ?? row.id ?? '-'}</div>
+                          {(row.ticket || row.Ticket || row.CodiSegui) && (
+                            <div className="text-[10px] text-slate-400 font-mono">Tk: {row.ticket || row.Ticket || row.CodiSegui}</div>
+                          )}
                         </td>
-                        <td className="py-2.5 px-4 max-w-[180px] truncate font-medium text-slate-100" title={row.cliente}>
-                          {row.cliente || '-'}
+                        <td className="py-2.5 px-4 max-w-[180px] truncate font-medium text-slate-100" title={row.cliente || row.Cliente}>
+                          {row.cliente || row.Cliente || '-'}
                         </td>
                         <td className="py-2.5 px-4 font-mono text-slate-300 whitespace-nowrap">
-                          {row.telefono || '-'}
+                          {row.telefono || row.Telefono || row.TeleMovilNume || row.phone || '-'}
                         </td>
                         <td className="py-2.5 px-4 whitespace-nowrap">
                           <span className="px-2 py-0.5 rounded-md bg-slate-800 text-[10px] font-semibold text-slate-200 border border-slate-700">
-                            {row.tipo_operacion || row.tipo_trabajo || row.producto || '-'}
+                            {row.tipo_operacion || row.TipoServicioCalculado || row.tipo_trabajo || row.TipoTraba || row.producto || row.Producto || '-'}
                           </span>
                         </td>
                         <td className="py-2.5 px-4 whitespace-nowrap">
                           <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${
-                            String(row.estado_ot).toLowerCase().includes('fin') || String(row.estado_ot).toLowerCase().includes('liquid')
+                            String(row.estado_ot || row.Estado || row['Estado OT']).toLowerCase().includes('fin') || String(row.estado_ot || row.Estado || row['Estado OT']).toLowerCase().includes('liquid')
                               ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'
-                              : String(row.estado_ot).toLowerCase().includes('inic') || String(row.estado_ot).toLowerCase().includes('ruta')
+                              : String(row.estado_ot || row.Estado || row['Estado OT']).toLowerCase().includes('inic') || String(row.estado_ot || row.Estado || row['Estado OT']).toLowerCase().includes('ruta')
                               ? 'bg-cyan-500/15 text-cyan-300 border-cyan-500/30'
                               : 'bg-amber-500/15 text-amber-300 border-amber-500/30'
                           }`}>
-                            {row.estado_ot || '-'}
+                            {row.estado_ot || row.Estado || row['Estado OT'] || '-'}
                           </span>
                         </td>
                         <td className="py-2.5 px-4 whitespace-nowrap text-amber-300/90 font-mono text-[11px]">
-                          {formatDate(row.fecha_visita)}
+                          {formatDate(row.fecha_visita || row.FechaVisita || row['F.Visita'] || row.fecha_solicitud || row['F.Soli'])}
                         </td>
                         <td className="py-2.5 px-4 text-slate-300">
-                          <div>{row.distrito || '-'}</div>
-                          {row.cuadrilla && <div className="text-[10px] text-slate-400">{row.cuadrilla}</div>}
+                          <div>{row.distrito || row.Distrito || row.Localidad || '-'}</div>
+                          {(row.cuadrilla || row.Cuadrilla_nombre) && (
+                            <div className="text-[10px] text-slate-400">{row.cuadrilla || row.Cuadrilla_nombre}</div>
+                          )}
                         </td>
                         <td className="py-2.5 px-4 whitespace-nowrap">
                           {row.se_envio_wsp === 'SI' ? (
