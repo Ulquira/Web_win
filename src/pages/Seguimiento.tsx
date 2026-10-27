@@ -199,21 +199,14 @@ const Seguimiento = ({ customToken, renderServiceSelector }: SeguimientoProps = 
    useRef<HTMLInputElement>(null)
  ];
  
- const [encuesta, setEncuesta] = useState({
- instalacion_concretada: '',
- tecnico_trato: '',
- tecnico_puntualidad: '',
- tecnico_claridad: '',
- tecnico_orden: '',
- tecnico_efectividad: '',
- satisfaccion_general: '',
- satisfaccion_comentario: '',
- facilidad_gestion: '',
- facilidad_motivo: ''
+ const [encuestaApp, setEncuestaApp] = useState({
+ facilidad_uso: 0,
+ satisfaccion_experiencia: 0,
+ seguridad_datos_tecnico: '',
+ comentarios: ''
  });
  const [isSubmittingEncuesta, setIsSubmittingEncuesta] = useState(false);
  const [encuestaEnviada, setEncuestaEnviada] = useState(false);
- const [surveyStep, setSurveyStep] = useState<1 | 2 | 3>(1);
  const [isSurveyModalOpen, setIsSurveyModalOpen] = useState(true);
  const [pinCopied, setPinCopied] = useState(false);
 
@@ -551,12 +544,16 @@ const Seguimiento = ({ customToken, renderServiceSelector }: SeguimientoProps = 
  };
 
  const handleEncuestaSubmit = async () => {
-   if (!encuesta.instalacion_concretada) {
-     alert("Por favor indica si la atención se concretó.");
+   if (!encuestaApp.facilidad_uso) {
+     alert("Por favor califica qué tan fácil fue usar WIN EN RUTA.");
      return;
    }
-   if (!encuesta.satisfaccion_general) {
-     alert("Por favor califica tu nivel de satisfacción general.");
+   if (!encuestaApp.satisfaccion_experiencia) {
+     alert("Por favor califica tu experiencia general con WIN EN RUTA.");
+     return;
+   }
+   if (!encuestaApp.seguridad_datos_tecnico) {
+     alert("Por favor responde si conocer la ruta y los datos del técnico te dio seguridad.");
      return;
    }
 
@@ -564,13 +561,12 @@ const Seguimiento = ({ customToken, renderServiceSelector }: SeguimientoProps = 
    try {
      const payload = {
        token,
-       ...encuesta,
-       tecnico_trato: encuesta.tecnico_trato || '5',
-       tecnico_puntualidad: encuesta.tecnico_puntualidad || '5',
-       tecnico_claridad: encuesta.tecnico_claridad || '5',
-       tecnico_orden: encuesta.tecnico_orden || encuesta.tecnico_efectividad || '5',
-       tecnico_efectividad: encuesta.tecnico_efectividad || '5',
-       facilidad_gestion: encuesta.facilidad_gestion || encuesta.satisfaccion_general || '5',
+       orden_id: data?.idoperacion || (data as any)?.orden_id || null,
+       codisegui: data?.codisegui || null,
+       facilidad_uso: encuestaApp.facilidad_uso,
+       satisfaccion_experiencia: encuestaApp.satisfaccion_experiencia,
+       seguridad_datos_tecnico: encuestaApp.seguridad_datos_tecnico,
+       comentarios: encuestaApp.comentarios || ''
      };
 
      const response = await fetch(`${API_BASE_URL}/api/encuesta`, {
@@ -581,11 +577,11 @@ const Seguimiento = ({ customToken, renderServiceSelector }: SeguimientoProps = 
 
      const result = await response.json();
      if (result.success) {
-       trackEvent('encuesta_completada', { 
+       trackEvent('encuesta_app_completada', { 
          token, 
-         instalacion_concretada: encuesta.instalacion_concretada,
-         satisfaccion_general: encuesta.satisfaccion_general,
-         facilidad_gestion: encuesta.facilidad_gestion
+         facilidad_uso: encuestaApp.facilidad_uso,
+         satisfaccion_experiencia: encuestaApp.satisfaccion_experiencia,
+         seguridad_datos_tecnico: encuestaApp.seguridad_datos_tecnico
        });
        localStorage.setItem(`encuesta_completada_${token}`, 'true');
        setIsSurveyModalOpen(false);
@@ -1592,7 +1588,6 @@ return (
  <button 
  onClick={() => {
    setIsSurveyModalOpen(true);
-   setSurveyStep(1);
  }}
  className="w-full bg-[#FF5A0A] hover:bg-[#E04E07] text-white h-12 rounded-full text-[14px] font-bold flex items-center justify-center gap-2 active:scale-95 transition-transform shadow-md cursor-pointer"
  >
@@ -2131,220 +2126,157 @@ return (
           <div className="w-10 h-1 rounded-full bg-[#D9D9D9] mx-auto mb-4" />
 
           {/* Header con botón cerrar */}
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-[17px] font-bold text-[#26292E] leading-tight">
-              Cuéntanos sobre tu experiencia
-            </h3>
+          <div className="flex items-center justify-between mb-3">
+            <div>
+              <h3 className="text-[17px] font-bold text-[#26292E] leading-tight">
+                Cuéntanos tu experiencia
+              </h3>
+              <p className="text-[12px] text-[#535C67] mt-0.5">
+                Tu opinión nos ayuda a seguir mejorando
+              </p>
+            </div>
             <button
               onClick={() => setIsSurveyModalOpen(false)}
-              className="text-gray-400 hover:text-gray-600 p-1 rounded-full transition-colors cursor-pointer"
+              className="text-gray-400 hover:text-gray-600 p-1.5 rounded-full transition-colors cursor-pointer"
               aria-label="Cerrar"
             >
               <X className="w-5 h-5 stroke-[2]" />
             </button>
           </div>
 
-          {/* STEP 1 */}
-          {surveyStep === 1 && (
-            <div className="space-y-4">
-              <p className="text-[14px] font-bold text-[#26292E]">
-                1. ¿{data?.tipo === 'ticket' ? 'La visita técnica' : 'La instalación'} se concretó correctamente?
+          <div className="space-y-4 pt-1">
+            {/* Pregunta 1: Facilidad de uso (1 al 5) */}
+            <div className="bg-[#FAFBFD] border border-gray-100 rounded-[18px] p-3.5">
+              <p className="text-[13px] font-bold text-[#26292E] leading-snug">
+                1. ¿Qué tan fácil fue para ti usar WIN EN RUTA para ver el estado de tu servicio?
               </p>
-              <div className="grid grid-cols-2 gap-3.5 pt-1">
-                <button
-                  type="button"
-                  onClick={() => setEncuesta(prev => ({ ...prev, instalacion_concretada: 'Sí' }))}
-                  className={`h-[54px] rounded-[16px] flex items-center justify-center gap-2.5 font-semibold text-[15px] border transition-all cursor-pointer ${
-                    encuesta.instalacion_concretada === 'Sí'
-                      ? 'bg-[#FFEDE0] border-[#FF5A0A] text-[#FF5A0A]'
-                      : 'bg-[#F9FAFC] border-gray-100 text-[#26292E] hover:border-gray-200'
-                  }`}
-                >
-                  <div className={`w-5 h-5 rounded-full flex items-center justify-center border ${
-                    encuesta.instalacion_concretada === 'Sí' ? 'border-[#FF5A0A] bg-[#FF5A0A]' : 'border-gray-300 bg-white'
-                  }`}>
-                    {encuesta.instalacion_concretada === 'Sí' && <Check className="w-3.5 h-3.5 text-white stroke-[3]" />}
-                  </div>
-                  <span>Sí</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setEncuesta(prev => ({ ...prev, instalacion_concretada: 'No' }))}
-                  className={`h-[54px] rounded-[16px] flex items-center justify-center gap-2.5 font-semibold text-[15px] border transition-all cursor-pointer ${
-                    encuesta.instalacion_concretada === 'No'
-                      ? 'bg-[#FFEDE0] border-[#FF5A0A] text-[#FF5A0A]'
-                      : 'bg-[#F9FAFC] border-gray-100 text-[#26292E] hover:border-gray-200'
-                  }`}
-                >
-                  <div className={`w-5 h-5 rounded-full flex items-center justify-center border ${
-                    encuesta.instalacion_concretada === 'No' ? 'border-[#FF5A0A] bg-[#FF5A0A]' : 'border-gray-300 bg-white'
-                  }`}>
-                    {encuesta.instalacion_concretada === 'No' && <Check className="w-3.5 h-3.5 text-white stroke-[3]" />}
-                  </div>
-                  <span>No</span>
-                </button>
-              </div>
-
-              <button
-                disabled={!encuesta.instalacion_concretada}
-                onClick={() => setSurveyStep(2)}
-                className="w-full bg-[#FF5A0A] disabled:bg-[#E4E7E9] disabled:text-[#A0A2AC] text-white font-bold h-12 rounded-full text-[14px] mt-4 transition-all shadow-md disabled:shadow-none cursor-pointer disabled:cursor-not-allowed"
-              >
-                Siguiente
-              </button>
-            </div>
-          )}
-
-          {/* STEP 2 */}
-          {surveyStep === 2 && (
-            <div className="space-y-4">
-              <div>
-                <p className="text-[14px] font-bold text-[#26292E] mb-0.5">
-                  2. Evalúa al técnico en los siguientes aspectos:
-                </p>
-                <p className="text-[11px] text-[#535C67]">
-                  1 = Totalmente insatisfecho, 5 = Totalmente satisfecho
-                </p>
-              </div>
-
-              <div className="space-y-3.5 pt-1">
-                {[
-                  { key: 'tecnico_trato', label: 'Trato y respeto' },
-                  { key: 'tecnico_puntualidad', label: 'Puntualidad y cumplimiento' },
-                  { key: 'tecnico_claridad', label: 'Claridad de la explicación' },
-                  { key: 'tecnico_efectividad', label: 'Efectividad del trabajo realizado' },
-                ].map(aspect => {
-                  const currentVal = parseInt((encuesta as Record<string, string>)[aspect.key] || '0', 10);
+              <div className="flex items-center justify-between gap-1.5 pt-3">
+                {[1, 2, 3, 4, 5].map((val) => {
+                  const isSelected = encuestaApp.facilidad_uso === val;
                   return (
-                    <div key={aspect.key} className="flex items-center justify-between py-1 border-b border-gray-50 last:border-none">
-                      <span className="text-[13px] font-medium text-[#26292E] pr-2 flex-1">
-                        {aspect.label}
-                      </span>
-                      <div className="flex items-center gap-1 shrink-0">
-                        {[1, 2, 3, 4, 5].map(star => {
-                          const isFilled = star <= currentVal;
-                          return (
-                            <button
-                              key={star}
-                              type="button"
-                              onClick={() => setEncuesta(prev => ({ ...prev, [aspect.key]: star.toString() }))}
-                              className="p-1 cursor-pointer transition-transform hover:scale-110 active:scale-95"
-                            >
-                              <Star className={`w-6 h-6 transition-colors ${
-                                isFilled ? 'text-[#FFC200] fill-[#FFC200]' : 'text-[#D9D9D9] fill-[#D9D9D9]'
-                              }`} />
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
+                    <button
+                      key={val}
+                      type="button"
+                      onClick={() => setEncuestaApp(prev => ({ ...prev, facilidad_uso: val }))}
+                      className={`flex-1 h-11 rounded-[12px] font-bold text-[15px] flex items-center justify-center transition-all cursor-pointer ${
+                        isSelected
+                          ? 'bg-[#FF5A0A] text-white shadow-md shadow-[#FF5A0A]/20 scale-105'
+                          : 'bg-white text-[#26292E] border border-gray-200 hover:border-[#FF5A0A]/40'
+                      }`}
+                    >
+                      {val}
+                    </button>
                   );
                 })}
               </div>
+              <div className="flex justify-between items-center text-[11px] text-[#8C939D] pt-1.5 px-0.5">
+                <span>1 - Muy difícil</span>
+                <span>5 - Muy fácil</span>
+              </div>
+            </div>
 
-              <div className="flex gap-2.5 pt-2">
+            {/* Pregunta 2: Satisfacción con la experiencia (1 al 5) */}
+            <div className="bg-[#FAFBFD] border border-gray-100 rounded-[18px] p-3.5">
+              <p className="text-[13px] font-bold text-[#26292E] leading-snug">
+                2. ¿Qué tan satisfecho/a estás con tu experiencia usando WIN EN RUTA?
+              </p>
+              <div className="flex items-center justify-between gap-1.5 pt-3">
+                {[1, 2, 3, 4, 5].map((val) => {
+                  const isSelected = encuestaApp.satisfaccion_experiencia === val;
+                  return (
+                    <button
+                      key={val}
+                      type="button"
+                      onClick={() => setEncuestaApp(prev => ({ ...prev, satisfaccion_experiencia: val }))}
+                      className={`flex-1 h-11 rounded-[12px] font-bold text-[15px] flex items-center justify-center transition-all cursor-pointer ${
+                        isSelected
+                          ? 'bg-[#FF5A0A] text-white shadow-md shadow-[#FF5A0A]/20 scale-105'
+                          : 'bg-white text-[#26292E] border border-gray-200 hover:border-[#FF5A0A]/40'
+                      }`}
+                    >
+                      {val}
+                    </button>
+                  );
+                })}
+              </div>
+              <div className="flex justify-between items-center text-[11px] text-[#8C939D] pt-1.5 px-0.5">
+                <span>1 - Muy insatisfecho</span>
+                <span>5 - Muy satisfecho</span>
+              </div>
+            </div>
+
+            {/* Pregunta 3: Sentimiento de seguridad en casa */}
+            <div className="bg-[#FAFBFD] border border-gray-100 rounded-[18px] p-3.5">
+              <p className="text-[13px] font-bold text-[#26292E] leading-snug">
+                3. Conocer la ruta y los datos de tu técnico antes de su llegada, ¿te hizo sentir más seguro/a en casa?
+              </p>
+              <div className="grid grid-cols-2 gap-2.5 pt-3">
                 <button
                   type="button"
-                  onClick={() => setSurveyStep(1)}
-                  className="w-1/3 bg-gray-100 text-[#26292E] font-bold h-12 rounded-full text-[14px] cursor-pointer hover:bg-gray-200 transition-colors"
+                  onClick={() => setEncuestaApp(prev => ({ ...prev, seguridad_datos_tecnico: 'Sí, me dio seguridad' }))}
+                  className={`min-h-[48px] px-3 py-2 rounded-[14px] flex items-center justify-center text-center gap-2 font-semibold text-[13px] border transition-all cursor-pointer ${
+                    encuestaApp.seguridad_datos_tecnico === 'Sí, me dio seguridad'
+                      ? 'bg-[#FFEDE0] border-[#FF5A0A] text-[#FF5A0A]'
+                      : 'bg-white border-gray-200 text-[#26292E] hover:border-gray-300'
+                  }`}
                 >
-                  Atrás
+                  <div className={`w-4 h-4 rounded-full shrink-0 flex items-center justify-center border ${
+                    encuestaApp.seguridad_datos_tecnico === 'Sí, me dio seguridad' ? 'border-[#FF5A0A] bg-[#FF5A0A]' : 'border-gray-300 bg-white'
+                  }`}>
+                    {encuestaApp.seguridad_datos_tecnico === 'Sí, me dio seguridad' && <Check className="w-2.5 h-2.5 text-white stroke-[3]" />}
+                  </div>
+                  <span>Sí, me dio seguridad</span>
                 </button>
                 <button
                   type="button"
-                  disabled={!encuesta.tecnico_trato || !encuesta.tecnico_puntualidad}
-                  onClick={() => setSurveyStep(3)}
-                  className="flex-1 bg-[#FF5A0A] disabled:bg-[#E4E7E9] disabled:text-[#A0A2AC] text-white font-bold h-12 rounded-full text-[14px] transition-all shadow-md disabled:shadow-none cursor-pointer disabled:cursor-not-allowed"
+                  onClick={() => setEncuestaApp(prev => ({ ...prev, seguridad_datos_tecnico: 'No hizo diferencia' }))}
+                  className={`min-h-[48px] px-3 py-2 rounded-[14px] flex items-center justify-center text-center gap-2 font-semibold text-[13px] border transition-all cursor-pointer ${
+                    encuestaApp.seguridad_datos_tecnico === 'No hizo diferencia'
+                      ? 'bg-[#FFEDE0] border-[#FF5A0A] text-[#FF5A0A]'
+                      : 'bg-white border-gray-200 text-[#26292E] hover:border-gray-300'
+                  }`}
                 >
-                  Siguiente
+                  <div className={`w-4 h-4 rounded-full shrink-0 flex items-center justify-center border ${
+                    encuestaApp.seguridad_datos_tecnico === 'No hizo diferencia' ? 'border-[#FF5A0A] bg-[#FF5A0A]' : 'border-gray-300 bg-white'
+                  }`}>
+                    {encuestaApp.seguridad_datos_tecnico === 'No hizo diferencia' && <Check className="w-2.5 h-2.5 text-white stroke-[3]" />}
+                  </div>
+                  <span>No hizo diferencia</span>
                 </button>
               </div>
             </div>
-          )}
 
-          {/* STEP 3 */}
-          {surveyStep === 3 && (
-            <div className="space-y-4">
-              <div>
-                <p className="text-[14px] font-bold text-[#26292E] mb-2">
-                  3. ¿Qué tan satisfecho(a) estás con el servicio en general?
-                </p>
-                <div className="flex items-center justify-center gap-2 py-1">
-                  {[1, 2, 3, 4, 5].map(star => {
-                    const currentVal = parseInt(encuesta.satisfaccion_general || '0', 10);
-                    const isFilled = star <= currentVal;
-                    return (
-                      <button
-                        key={star}
-                        type="button"
-                        onClick={() => setEncuesta(prev => ({ ...prev, satisfaccion_general: star.toString() }))}
-                        className="p-1.5 cursor-pointer transition-transform hover:scale-110 active:scale-95"
-                      >
-                        <Star className={`w-7 h-7 transition-colors ${
-                          isFilled ? 'text-[#FFC200] fill-[#FFC200]' : 'text-[#D9D9D9] fill-[#D9D9D9]'
-                        }`} />
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              <div>
-                <p className="text-[14px] font-bold text-[#26292E] mb-2">
-                  4. ¿Qué tan fácil fue gestionar tu solicitud?
-                </p>
-                <div className="flex items-center justify-center gap-2 py-1">
-                  {[1, 2, 3, 4, 5].map(star => {
-                    const currentVal = parseInt(encuesta.facilidad_gestion || '0', 10);
-                    const isFilled = star <= currentVal;
-                    return (
-                      <button
-                        key={star}
-                        type="button"
-                        onClick={() => setEncuesta(prev => ({ ...prev, facilidad_gestion: star.toString() }))}
-                        className="p-1.5 cursor-pointer transition-transform hover:scale-110 active:scale-95"
-                      >
-                        <Star className={`w-7 h-7 transition-colors ${
-                          isFilled ? 'text-[#FFC200] fill-[#FFC200]' : 'text-[#D9D9D9] fill-[#D9D9D9]'
-                        }`} />
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              <div>
-                <p className="text-[13px] font-medium text-[#26292E] mb-1.5">
-                  Comentario adicional (Opcional)
-                </p>
-                <textarea
-                  value={encuesta.satisfaccion_comentario}
-                  onChange={(e) => setEncuesta(prev => ({ ...prev, satisfaccion_comentario: e.target.value }))}
-                  placeholder="¿Deseas dejarnos algún comentario o sugerencia?"
-                  className="w-full bg-[#F9F9F9] border border-[#E4E7E9] rounded-[14px] p-3 text-[13px] text-gray-800 resize-none placeholder:text-gray-400 focus:outline-none focus:border-[#FF5A0A]"
-                  rows={2}
-                />
-              </div>
-
-              <div className="flex gap-2.5 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setSurveyStep(2)}
-                  className="w-1/3 bg-gray-100 text-[#26292E] font-bold h-12 rounded-full text-[14px] cursor-pointer hover:bg-gray-200 transition-colors"
-                >
-                  Atrás
-                </button>
-                <button
-                  type="button"
-                  disabled={!encuesta.satisfaccion_general || isSubmittingEncuesta}
-                  onClick={handleEncuestaSubmit}
-                  className="flex-1 bg-[#FF5A0A] disabled:bg-[#E4E7E9] disabled:text-[#A0A2AC] text-white font-bold h-12 rounded-full text-[14px] transition-all shadow-md disabled:shadow-none cursor-pointer disabled:cursor-not-allowed"
-                >
-                  {isSubmittingEncuesta ? "Enviando..." : "Enviar"}
-                </button>
-              </div>
+            {/* Comentario Adicional Opcional */}
+            <div>
+              <p className="text-[12px] font-medium text-[#26292E] mb-1">
+                Comentario adicional (Opcional)
+              </p>
+              <textarea
+                value={encuestaApp.comentarios}
+                onChange={(e) => setEncuestaApp(prev => ({ ...prev, comentarios: e.target.value }))}
+                placeholder="¿Deseas dejarnos algún comentario o sugerencia?"
+                className="w-full bg-[#F9F9F9] border border-[#E4E7E9] rounded-[14px] p-2.5 text-[13px] text-gray-800 resize-none placeholder:text-gray-400 focus:outline-none focus:border-[#FF5A0A]"
+                rows={2}
+              />
             </div>
-          )}
+
+            {/* Botón de Enviar */}
+            <div className="pt-1">
+              <button
+                type="button"
+                disabled={
+                  !encuestaApp.facilidad_uso ||
+                  !encuestaApp.satisfaccion_experiencia ||
+                  !encuestaApp.seguridad_datos_tecnico ||
+                  isSubmittingEncuesta
+                }
+                onClick={handleEncuestaSubmit}
+                className="w-full bg-[#FF5A0A] disabled:bg-[#E4E7E9] disabled:text-[#A0A2AC] text-white font-bold h-12 rounded-full text-[14px] transition-all shadow-md disabled:shadow-none cursor-pointer disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              >
+                {isSubmittingEncuesta ? "Enviando..." : "Enviar encuesta"}
+              </button>
+            </div>
+          </div>
         </motion.div>
       </div>
     )}

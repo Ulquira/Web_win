@@ -95,9 +95,19 @@ app.post('/api/reprogramar', async (req, res) => {
   }
 });
 
-// Endpoint para guardar Encuestas en BD
+// Endpoint para guardar Encuestas en BD (soporta nuevo modelo Encuesta_app y modelo previo ENCUESTAS)
+const encuestaAppSchema = z.object({
+  token: z.string().min(1),
+  orden_id: z.union([z.string(), z.number()]).optional().nullable(),
+  codisegui: z.union([z.string(), z.number()]).optional().nullable(),
+  facilidad_uso: z.coerce.number().min(1).max(5),
+  satisfaccion_experiencia: z.coerce.number().min(1).max(5),
+  seguridad_datos_tecnico: z.string().min(1),
+  comentarios: z.string().max(1000).optional().default('')
+});
+
 const encuestaSchema = z.object({
-  token: z.string().min(5).max(150),
+  token: z.string().min(1).max(150),
   instalacion_concretada: z.string().min(1).max(50),
   tecnico_trato: z.union([z.number(), z.string()]).optional(),
   tecnico_puntualidad: z.union([z.number(), z.string()]).optional(),
@@ -111,10 +121,51 @@ const encuestaSchema = z.object({
 });
 
 app.post('/api/encuesta', async (req, res) => {
-  const parseResult = encuestaSchema.safeParse(req.body);
+  // 1. Evaluar si es el nuevo formato para Encuesta_app
+  const parseAppResult = encuestaAppSchema.safeParse(req.body);
+  if (parseAppResult.success) {
+    const {
+      token,
+      orden_id,
+      codisegui,
+      facilidad_uso,
+      satisfaccion_experiencia,
+      seguridad_datos_tecnico,
+      comentarios
+    } = parseAppResult.data;
 
+    try {
+      const clientIp = (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() || req.socket.remoteAddress || null;
+      const userAgent = (req.headers['user-agent'] as string) || null;
+
+      const query = `
+        INSERT INTO Encuesta_app (token, orden_id, codisegui, facilidad_uso, satisfaccion_experiencia, seguridad_datos_tecnico, comentarios, ip_address, user_agent)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `;
+      await pool.query(query, [
+        token,
+        orden_id || null,
+        codisegui || null,
+        facilidad_uso,
+        satisfaccion_experiencia,
+        seguridad_datos_tecnico,
+        comentarios || null,
+        clientIp,
+        userAgent
+      ]);
+
+      apiCache.delete(`inst_${token}`);
+      return res.json({ success: true, message: 'Encuesta guardada con éxito' });
+    } catch (error) {
+      console.error('Error guardando en Encuesta_app:', error);
+      return res.status(500).json({ success: false, message: 'Error interno guardando la encuesta' });
+    }
+  }
+
+  // 2. Fallback a formato legado ENCUESTAS
+  const parseResult = encuestaSchema.safeParse(req.body);
   if (!parseResult.success) {
-    return res.status(400).json({ success: false, message: 'Faltan datos obligatorios o son inválidos', errors: parseResult.error.format() });
+    return res.status(400).json({ success: false, message: 'Faltan datos obligatorios o son inválidos', errors: parseAppResult.error.format() });
   }
 
   const { 
@@ -137,21 +188,6 @@ app.post('/api/encuesta', async (req, res) => {
     // Invalidar caché inmediato
     apiCache.delete(`inst_${token}`);
 
-    // Replicar cambio a la base de datos secundaria en tiempo real
-    replicateChange('ENCUESTAS', 'INSERT', {
-      token,
-      instalacion_concretada,
-      tecnico_trato,
-      tecnico_puntualidad,
-      tecnico_claridad,
-      tecnico_orden,
-      tecnico_efectividad,
-      satisfaccion_general,
-      satisfaccion_comentario,
-      facilidad_gestion,
-      facilidad_motivo
-    });
-
     res.json({ success: true, message: 'Encuesta guardada con éxito' });
   } catch (error) {
     console.error('Error guardando encuesta en BD:', error);
@@ -159,12 +195,17 @@ app.post('/api/encuesta', async (req, res) => {
   }
 });
 
-// Endpoint para verificar si un token ya llenó la encuesta en BD
+// Endpoint para verificar si un token ya llenó la encuesta en BD (revisa Encuesta_app y ENCUESTAS)
 app.get('/api/encuesta/verificar/:token', async (req, res) => {
   const { token } = req.params;
   try {
+    const [rowsApp]: any = await pool.query('SELECT id FROM Encuesta_app WHERE token = ? LIMIT 1', [token]);
+    if (rowsApp && rowsApp.length > 0) {
+      return res.json({ success: true, completada: true });
+    }
+
     const [rows]: any = await pool.query('SELECT id FROM ENCUESTAS WHERE token = ? LIMIT 1', [token]);
-    const completada = rows.length > 0;
+    const completada = rows && rows.length > 0;
 
     res.json({ success: true, completada });
   } catch (error) {
@@ -382,7 +423,7 @@ app.get('/api/instalaciones/:token', async (req, res) => {
     // 1. Ejecutamos las verificaciones locales (Reprogramación y Encuesta) en paralelo con Promise.all
     const [reprogResult, encuestaResult, capaResponse] = await Promise.allSettled([
       pool.query('SELECT id FROM REPROGRAMACIONES WHERE token = ? LIMIT 1', [token]),
-      pool.query('SELECT id FROM ENCUESTAS WHERE token = ? LIMIT 1', [token]),
+      pool.query('SELECT id FROM Encuesta_app WHERE token = ? UNION SELECT id FROM ENCUESTAS WHERE token = ? LIMIT 1', [token, token]),
       fetch(`${CAPA_INTERMEDIA_URL}/api/v1/terceros/instalaciones/${token}`, {
         headers: { 'Authorization': `Bearer ${SECRET_API_KEY}` }
       })
