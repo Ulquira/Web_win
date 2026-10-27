@@ -733,8 +733,8 @@ export default function AdminDashboard() {
         </div>
 
         {/* Barra de Filtros */}
-        <div className="bg-slate-900/70 border border-slate-800 rounded-2xl p-4 shadow-sm backdrop-blur">
-          <form onSubmit={handleSearchSubmit} className={`grid grid-cols-1 md:grid-cols-2 ${activeTab === 'chats_mantra' ? 'lg:grid-cols-6' : 'lg:grid-cols-5'} gap-3`}>
+        <div className="bg-slate-900/70 border border-slate-800 rounded-2xl p-4 shadow-sm backdrop-blur relative z-30">
+          <form onSubmit={handleSearchSubmit} className={`grid grid-cols-1 md:grid-cols-2 ${activeTab === 'chats_mantra' ? 'lg:grid-cols-6' : 'lg:grid-cols-5'} gap-3 relative z-30`}>
             {/* Buscador general */}
             <div className="relative">
               <label className="text-[11px] font-medium text-slate-400 block mb-1">Búsqueda rápida</label>
@@ -790,7 +790,7 @@ export default function AdminDashboard() {
 
             {/* Tipo de Servicio (Visible en Principal, Reporte y Dashboard) con Selección Múltiple */}
             {(activeTab === 'principal' || activeTab === 'reporte' || activeTab === 'dashboard') && (
-              <div className="relative" ref={tipoServicioDropdownRef}>
+              <div className="relative z-40" ref={tipoServicioDropdownRef}>
                 <label className="text-[11px] font-medium text-slate-400 mb-1 flex items-center justify-between">
                   <span>Tipo de Servicio / Trabajo</span>
                   {tipoServicio.length > 0 && (
@@ -822,7 +822,7 @@ export default function AdminDashboard() {
                 </button>
 
                 {tipoServicioOpen && (
-                  <div className="absolute top-full left-0 right-0 mt-1 max-h-64 overflow-y-auto bg-slate-900 border border-slate-800 rounded-xl shadow-xl z-50 p-2 space-y-2 backdrop-blur">
+                  <div className="absolute top-full left-0 right-0 mt-1 max-h-72 min-w-[280px] overflow-y-auto bg-slate-900 border border-slate-700 rounded-xl shadow-2xl z-50 p-2 space-y-2 backdrop-blur">
                     <div className="flex items-center justify-between px-1 pb-1 border-b border-slate-800 text-[11px]">
                       <span className="text-slate-400 font-medium">Selección Múltiple</span>
                       {tipoServicio.length > 0 && (
@@ -1016,7 +1016,7 @@ export default function AdminDashboard() {
 
         {/* Resumen y paginación superior */}
         {activeTab !== 'dashboard' ? (
-          <div className="flex flex-wrap items-center justify-between gap-4 text-xs text-slate-400 px-1">
+          <div className="flex flex-wrap items-center justify-between gap-4 text-xs text-slate-400 px-1 relative z-10">
             <div className="flex items-center gap-3">
               <div>
                 Mostrando <span className="font-semibold text-white">{displayData.length}</span> de <span className="font-semibold text-orange-400">{total.toLocaleString()}</span> registros encontrados
@@ -1435,7 +1435,7 @@ export default function AdminDashboard() {
           </div>
         ) : (
           /* Tabla de Resultados */
-          <div className="bg-slate-900/60 border border-slate-800 rounded-2xl overflow-hidden shadow-xl backdrop-blur relative min-h-[400px]">
+          <div className="bg-slate-900/60 border border-slate-800 rounded-2xl overflow-hidden shadow-xl backdrop-blur relative min-h-[400px] z-10">
             {loading && (
               <div className="absolute inset-0 bg-slate-950/60 backdrop-blur-sm z-20 flex flex-col items-center justify-center gap-3">
                 <RefreshCw className="w-8 h-8 text-orange-500 animate-spin" />
