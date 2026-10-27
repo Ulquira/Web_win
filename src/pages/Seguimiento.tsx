@@ -2126,15 +2126,10 @@ return (
           <div className="w-10 h-1 rounded-full bg-[#D9D9D9] mx-auto mb-4" />
 
           {/* Header con botón cerrar */}
-          <div className="flex items-center justify-between mb-3">
-            <div>
-              <h3 className="text-[17px] font-bold text-[#26292E] leading-tight">
-                Cuéntanos tu experiencia
-              </h3>
-              <p className="text-[12px] text-[#535C67] mt-0.5">
-                Tu opinión nos ayuda a seguir mejorando
-              </p>
-            </div>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-[17px] font-bold text-[#26292E] leading-tight">
+              Cuéntanos sobre tu experiencia
+            </h3>
             <button
               onClick={() => setIsSurveyModalOpen(false)}
               className="text-gray-400 hover:text-gray-600 p-1.5 rounded-full transition-colors cursor-pointer"
@@ -2144,80 +2139,68 @@ return (
             </button>
           </div>
 
-          <div className="space-y-4 pt-1">
-            {/* Pregunta 1: Facilidad de uso (1 al 5) */}
-            <div className="bg-[#FAFBFD] border border-gray-100 rounded-[18px] p-3.5">
-              <p className="text-[13px] font-bold text-[#26292E] leading-snug">
+          <div className="space-y-5 pt-1">
+            {/* Pregunta 1: Facilidad de uso (1 al 5 con estrellas) */}
+            <div>
+              <p className="text-[14px] font-bold text-[#26292E] mb-2 leading-snug">
                 1. ¿Qué tan fácil fue para ti usar WIN EN RUTA para ver el estado de tu servicio?
               </p>
-              <div className="flex items-center justify-between gap-1.5 pt-3">
-                {[1, 2, 3, 4, 5].map((val) => {
-                  const isSelected = encuestaApp.facilidad_uso === val;
+              <div className="flex items-center justify-center gap-2 py-1">
+                {[1, 2, 3, 4, 5].map((star) => {
+                  const isFilled = star <= encuestaApp.facilidad_uso;
                   return (
                     <button
-                      key={val}
+                      key={star}
                       type="button"
-                      onClick={() => setEncuestaApp(prev => ({ ...prev, facilidad_uso: val }))}
-                      className={`flex-1 h-11 rounded-[12px] font-bold text-[15px] flex items-center justify-center transition-all cursor-pointer ${
-                        isSelected
-                          ? 'bg-[#FF5A0A] text-white shadow-md shadow-[#FF5A0A]/20 scale-105'
-                          : 'bg-white text-[#26292E] border border-gray-200 hover:border-[#FF5A0A]/40'
-                      }`}
+                      onClick={() => setEncuestaApp(prev => ({ ...prev, facilidad_uso: star }))}
+                      className="p-1.5 cursor-pointer transition-transform hover:scale-110 active:scale-95"
                     >
-                      {val}
+                      <Star className={`w-8 h-8 transition-colors ${
+                        isFilled ? 'text-[#FFC200] fill-[#FFC200]' : 'text-[#D9D9D9] fill-[#D9D9D9]'
+                      }`} />
                     </button>
                   );
                 })}
-              </div>
-              <div className="flex justify-between items-center text-[11px] text-[#8C939D] pt-1.5 px-0.5">
-                <span>1 - Muy difícil</span>
-                <span>5 - Muy fácil</span>
               </div>
             </div>
 
-            {/* Pregunta 2: Satisfacción con la experiencia (1 al 5) */}
-            <div className="bg-[#FAFBFD] border border-gray-100 rounded-[18px] p-3.5">
-              <p className="text-[13px] font-bold text-[#26292E] leading-snug">
+            {/* Pregunta 2: Satisfacción con la experiencia (1 al 5 con estrellas) */}
+            <div>
+              <p className="text-[14px] font-bold text-[#26292E] mb-2 leading-snug">
                 2. ¿Qué tan satisfecho/a estás con tu experiencia usando WIN EN RUTA?
               </p>
-              <div className="flex items-center justify-between gap-1.5 pt-3">
-                {[1, 2, 3, 4, 5].map((val) => {
-                  const isSelected = encuestaApp.satisfaccion_experiencia === val;
+              <div className="flex items-center justify-center gap-2 py-1">
+                {[1, 2, 3, 4, 5].map((star) => {
+                  const isFilled = star <= encuestaApp.satisfaccion_experiencia;
                   return (
                     <button
-                      key={val}
+                      key={star}
                       type="button"
-                      onClick={() => setEncuestaApp(prev => ({ ...prev, satisfaccion_experiencia: val }))}
-                      className={`flex-1 h-11 rounded-[12px] font-bold text-[15px] flex items-center justify-center transition-all cursor-pointer ${
-                        isSelected
-                          ? 'bg-[#FF5A0A] text-white shadow-md shadow-[#FF5A0A]/20 scale-105'
-                          : 'bg-white text-[#26292E] border border-gray-200 hover:border-[#FF5A0A]/40'
-                      }`}
+                      onClick={() => setEncuestaApp(prev => ({ ...prev, satisfaccion_experiencia: star }))}
+                      className="p-1.5 cursor-pointer transition-transform hover:scale-110 active:scale-95"
                     >
-                      {val}
+                      <Star className={`w-8 h-8 transition-colors ${
+                        isFilled ? 'text-[#FFC200] fill-[#FFC200]' : 'text-[#D9D9D9] fill-[#D9D9D9]'
+                      }`} />
                     </button>
                   );
                 })}
-              </div>
-              <div className="flex justify-between items-center text-[11px] text-[#8C939D] pt-1.5 px-0.5">
-                <span>1 - Muy insatisfecho</span>
-                <span>5 - Muy satisfecho</span>
               </div>
             </div>
 
             {/* Pregunta 3: Sentimiento de seguridad en casa */}
-            <div className="bg-[#FAFBFD] border border-gray-100 rounded-[18px] p-3.5">
-              <p className="text-[13px] font-bold text-[#26292E] leading-snug">
+            <div>
+              <p className="text-[14px] font-bold text-[#26292E] mb-2 leading-snug">
                 3. Conocer la ruta y los datos de tu técnico antes de su llegada, ¿te hizo sentir más seguro/a en casa?
               </p>
-              <div className="grid grid-cols-2 gap-2.5 pt-3">
+              <div className="grid grid-cols-2 gap-2.5 pt-1">
                 <button
                   type="button"
                   onClick={() => setEncuestaApp(prev => ({ ...prev, seguridad_datos_tecnico: 'Sí, me dio seguridad' }))}
-                  className={`min-h-[48px] px-3 py-2 rounded-[14px] flex items-center justify-center text-center gap-2 font-semibold text-[13px] border transition-all cursor-pointer ${
+                  className={`min-h-[50px] px-3 py-2 rounded-[16px] flex items-center justify-center text-center gap-2 font-semibold text-[13px] border transition-all cursor-pointer ${
                     encuestaApp.seguridad_datos_tecnico === 'Sí, me dio seguridad'
                       ? 'bg-[#FFEDE0] border-[#FF5A0A] text-[#FF5A0A]'
-                      : 'bg-white border-gray-200 text-[#26292E] hover:border-gray-300'
+                      : 'bg-[#F9FAFC] border-gray-200 text-[#26292E] hover:border-gray-300'
                   }`}
                 >
                   <div className={`w-4 h-4 rounded-full shrink-0 flex items-center justify-center border ${
@@ -2230,10 +2213,10 @@ return (
                 <button
                   type="button"
                   onClick={() => setEncuestaApp(prev => ({ ...prev, seguridad_datos_tecnico: 'No hizo diferencia' }))}
-                  className={`min-h-[48px] px-3 py-2 rounded-[14px] flex items-center justify-center text-center gap-2 font-semibold text-[13px] border transition-all cursor-pointer ${
+                  className={`min-h-[50px] px-3 py-2 rounded-[16px] flex items-center justify-center text-center gap-2 font-semibold text-[13px] border transition-all cursor-pointer ${
                     encuestaApp.seguridad_datos_tecnico === 'No hizo diferencia'
                       ? 'bg-[#FFEDE0] border-[#FF5A0A] text-[#FF5A0A]'
-                      : 'bg-white border-gray-200 text-[#26292E] hover:border-gray-300'
+                      : 'bg-[#F9FAFC] border-gray-200 text-[#26292E] hover:border-gray-300'
                   }`}
                 >
                   <div className={`w-4 h-4 rounded-full shrink-0 flex items-center justify-center border ${
@@ -2246,22 +2229,8 @@ return (
               </div>
             </div>
 
-            {/* Comentario Adicional Opcional */}
-            <div>
-              <p className="text-[12px] font-medium text-[#26292E] mb-1">
-                Comentario adicional (Opcional)
-              </p>
-              <textarea
-                value={encuestaApp.comentarios}
-                onChange={(e) => setEncuestaApp(prev => ({ ...prev, comentarios: e.target.value }))}
-                placeholder="¿Deseas dejarnos algún comentario o sugerencia?"
-                className="w-full bg-[#F9F9F9] border border-[#E4E7E9] rounded-[14px] p-2.5 text-[13px] text-gray-800 resize-none placeholder:text-gray-400 focus:outline-none focus:border-[#FF5A0A]"
-                rows={2}
-              />
-            </div>
-
             {/* Botón de Enviar */}
-            <div className="pt-1">
+            <div className="pt-2">
               <button
                 type="button"
                 disabled={
@@ -2273,7 +2242,7 @@ return (
                 onClick={handleEncuestaSubmit}
                 className="w-full bg-[#FF5A0A] disabled:bg-[#E4E7E9] disabled:text-[#A0A2AC] text-white font-bold h-12 rounded-full text-[14px] transition-all shadow-md disabled:shadow-none cursor-pointer disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
-                {isSubmittingEncuesta ? "Enviando..." : "Enviar encuesta"}
+                {isSubmittingEncuesta ? "Enviando..." : "Enviar"}
               </button>
             </div>
           </div>
