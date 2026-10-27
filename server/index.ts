@@ -1197,6 +1197,14 @@ app.get('/api/4dm1n_/data', async (req, res) => {
     const fechaFin = String(req.query.fechaFin || '').trim();
     const serviceFilters = parseAdminServiceFilters(req.query.tipoServicio);
     const grupoServicio = String(req.query.grupoServicio || '').trim();
+    let colFilters: Record<string, string> = {};
+    try {
+      if (req.query.colFilters) {
+        colFilters = JSON.parse(String(req.query.colFilters));
+      }
+    } catch {
+      colFilters = {};
+    }
     const estadoChat = String(req.query.estadoChat || '').trim();
     const estadoOt = String(req.query.estadoOt || '').trim();
     const seEnvioWsp = String(req.query.seEnvioWsp || '').trim();
@@ -1307,9 +1315,38 @@ app.get('/api/4dm1n_/data', async (req, res) => {
         countParams.push(fechaFin, fechaFin);
       }
       if (grupoServicio) {
-        whereClauses.push('(h.grupo_servicio = ? OR h.tipo_trabajo = ?)');
-        params.push(grupoServicio, grupoServicio);
-        countParams.push(grupoServicio, grupoServicio);
+        if (grupoServicio === 'Instalacion' || grupoServicio === 'Averias') {
+          whereClauses.push('h.grupo_servicio = ?');
+          params.push(grupoServicio);
+          countParams.push(grupoServicio);
+        } else {
+          whereClauses.push('h.tipo_trabajo = ?');
+          params.push(grupoServicio);
+          countParams.push(grupoServicio);
+        }
+      }
+      const allowedColsChats: Record<string, string> = {
+        id: 'h.id',
+        orden_id: 'h.orden_id',
+        ticket: 'h.ticket',
+        phone: 'h.phone',
+        cliente: 'h.cliente_nombre',
+        asesor: 'h.asesor_asignado',
+        tipo_trabajo: 'h.tipo_trabajo',
+        distrito: 'h.distrito',
+        palabra: 'h.quien_tiene_la_palabra',
+        estado_chat: 'h.estado_chat',
+        mensaje: 'h.ultimo_mensaje_texto'
+      };
+      for (const [colKey, colVal] of Object.entries(colFilters)) {
+        const sqlField = allowedColsChats[colKey];
+        const valStr = String(colVal || '').trim();
+        if (sqlField && valStr) {
+          whereClauses.push(`${sqlField} LIKE ?`);
+          const s = `%${valStr}%`;
+          params.push(s);
+          countParams.push(s);
+        }
       }
       if (search) {
         whereClauses.push('(h.orden_id LIKE ? OR h.ticket LIKE ? OR h.phone LIKE ? OR h.cliente_nombre LIKE ? OR h.ultimo_mensaje_texto LIKE ? OR h.asesor_asignado LIKE ?)');
@@ -1462,6 +1499,27 @@ app.get('/api/4dm1n_/data', async (req, res) => {
         params.push(s, s, s, s, s, s, s);
         countParams.push(s, s, s, s, s, s, s);
       }
+      const allowedColsReporte: Record<string, string> = {
+        orden_id: 'r.orden_id',
+        ticket: 'r.ticket',
+        cliente: 'r.cliente',
+        telefono: 'r.telefono',
+        producto: 'r.producto',
+        tipo_operacion: 'r.tipo_operacion',
+        estado_ot: 'r.estado_ot',
+        distrito: 'r.distrito',
+        cuadrilla: 'r.cuadrilla'
+      };
+      for (const [colKey, colVal] of Object.entries(colFilters)) {
+        const sqlField = allowedColsReporte[colKey];
+        const valStr = String(colVal || '').trim();
+        if (sqlField && valStr) {
+          whereClauses.push(`${sqlField} LIKE ?`);
+          const s = `%${valStr}%`;
+          params.push(s);
+          countParams.push(s);
+        }
+      }
 
       const allowedSortCols: Record<string, string> = {
         orden_id: 'r.orden_id',
@@ -1525,6 +1583,29 @@ app.get('/api/4dm1n_/data', async (req, res) => {
         const s = `%${search}%`;
         params.push(s, s, s, s, s, s);
         countParams.push(s, s, s, s, s, s);
+      }
+      const allowedColsPrincipal: Record<string, string> = {
+        orden_id: 'w.OrdenId',
+        cliente: 'w.Cliente',
+        documento: 'w.`Número Documento`',
+        tipo_traba: 'w.TipoTraba',
+        producto: 'w.Producto',
+        estado: 'w.Estado',
+        direccion: 'w.Direccion',
+        distrito: 'w.Localidad',
+        cuadrilla: 'w.Cuadrilla',
+        pin: 'w.Pin_token',
+        token: 'w.token'
+      };
+      for (const [colKey, colVal] of Object.entries(colFilters)) {
+        const sqlField = allowedColsPrincipal[colKey];
+        const valStr = String(colVal || '').trim();
+        if (sqlField && valStr) {
+          whereClauses.push(`${sqlField} LIKE ?`);
+          const s = `%${valStr}%`;
+          params.push(s);
+          countParams.push(s);
+        }
       }
 
       const whereSql = whereClauses.join(' AND ');
@@ -1801,6 +1882,14 @@ app.get('/api/4dm1n_/export', async (req, res) => {
     const fechaFin = String(req.query.fechaFin || '').trim();
     const serviceFilters = parseAdminServiceFilters(req.query.tipoServicio);
     const grupoServicio = String(req.query.grupoServicio || '').trim();
+    let colFilters: Record<string, string> = {};
+    try {
+      if (req.query.colFilters) {
+        colFilters = JSON.parse(String(req.query.colFilters));
+      }
+    } catch {
+      colFilters = {};
+    }
     const estadoChat = String(req.query.estadoChat || '').trim();
     const estadoOt = String(req.query.estadoOt || '').trim();
     const seEnvioWsp = String(req.query.seEnvioWsp || '').trim();
@@ -1888,8 +1977,34 @@ app.get('/api/4dm1n_/export', async (req, res) => {
         params.push(fechaFin, fechaFin);
       }
       if (grupoServicio) {
-        whereClauses.push('(h.grupo_servicio = ? OR h.tipo_trabajo = ?)');
-        params.push(grupoServicio, grupoServicio);
+        if (grupoServicio === 'Instalacion' || grupoServicio === 'Averias') {
+          whereClauses.push('h.grupo_servicio = ?');
+          params.push(grupoServicio);
+        } else {
+          whereClauses.push('h.tipo_trabajo = ?');
+          params.push(grupoServicio);
+        }
+      }
+      for (const [colKey, colVal] of Object.entries(colFilters)) {
+        const allowedColsChats: Record<string, string> = {
+          id: 'h.id',
+          orden_id: 'h.orden_id',
+          ticket: 'h.ticket',
+          phone: 'h.phone',
+          cliente: 'h.cliente_nombre',
+          asesor: 'h.asesor_asignado',
+          tipo_trabajo: 'h.tipo_trabajo',
+          distrito: 'h.distrito',
+          palabra: 'h.quien_tiene_la_palabra',
+          estado_chat: 'h.estado_chat',
+          mensaje: 'h.ultimo_mensaje_texto'
+        };
+        const sqlField = allowedColsChats[colKey];
+        const valStr = String(colVal || '').trim();
+        if (sqlField && valStr) {
+          whereClauses.push(`${sqlField} LIKE ?`);
+          params.push(`%${valStr}%`);
+        }
       }
       if (search) {
         whereClauses.push('(h.orden_id LIKE ? OR h.ticket LIKE ? OR h.phone LIKE ? OR h.cliente_nombre LIKE ? OR h.ultimo_mensaje_texto LIKE ? OR h.asesor_asignado LIKE ?)');
@@ -2027,6 +2142,25 @@ app.get('/api/4dm1n_/export', async (req, res) => {
         const s = `%${search}%`;
         params.push(s, s, s, s, s, s, s);
       }
+      for (const [colKey, colVal] of Object.entries(colFilters)) {
+        const allowedColsReporte: Record<string, string> = {
+          orden_id: 'r.orden_id',
+          ticket: 'r.ticket',
+          cliente: 'r.cliente',
+          telefono: 'r.telefono',
+          producto: 'r.producto',
+          tipo_operacion: 'r.tipo_operacion',
+          estado_ot: 'r.estado_ot',
+          distrito: 'r.distrito',
+          cuadrilla: 'r.cuadrilla'
+        };
+        const sqlField = allowedColsReporte[colKey];
+        const valStr = String(colVal || '').trim();
+        if (sqlField && valStr) {
+          whereClauses.push(`${sqlField} LIKE ?`);
+          params.push(`%${valStr}%`);
+        }
+      }
 
       const allowedSortCols: Record<string, string> = {
         orden_id: 'r.orden_id',
@@ -2069,6 +2203,27 @@ app.get('/api/4dm1n_/export', async (req, res) => {
         whereClauses.push('(w.OrdenId LIKE ? OR w.Cliente LIKE ? OR w.`Número Documento` LIKE ? OR w.token LIKE ? OR w.CodiSegui LIKE ? OR w.Direccion LIKE ?)');
         const s = `%${search}%`;
         params.push(s, s, s, s, s, s);
+      }
+      for (const [colKey, colVal] of Object.entries(colFilters)) {
+        const allowedColsPrincipal: Record<string, string> = {
+          orden_id: 'w.OrdenId',
+          cliente: 'w.Cliente',
+          documento: 'w.`Número Documento`',
+          tipo_traba: 'w.TipoTraba',
+          producto: 'w.Producto',
+          estado: 'w.Estado',
+          direccion: 'w.Direccion',
+          distrito: 'w.Localidad',
+          cuadrilla: 'w.Cuadrilla',
+          pin: 'w.Pin_token',
+          token: 'w.token'
+        };
+        const sqlField = allowedColsPrincipal[colKey];
+        const valStr = String(colVal || '').trim();
+        if (sqlField && valStr) {
+          whereClauses.push(`${sqlField} LIKE ?`);
+          params.push(`%${valStr}%`);
+        }
       }
       selectQuery = `
         SELECT 
