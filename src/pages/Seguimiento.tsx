@@ -2193,11 +2193,11 @@ return (
               <p className="text-[14px] font-bold text-[#26292E] mb-2 leading-snug">
                 3. Conocer la ruta y los datos de tu técnico antes de su llegada, ¿te hizo sentir más seguro/a en casa?
               </p>
-              <div className="grid grid-cols-2 gap-2.5 pt-1">
+              <div className="flex flex-col gap-2 pt-1">
                 <button
                   type="button"
                   onClick={() => setEncuestaApp(prev => ({ ...prev, seguridad_datos_tecnico: 'Sí, me dio seguridad' }))}
-                  className={`min-h-[50px] px-3 py-2 rounded-[16px] flex items-center justify-center text-center gap-2 font-semibold text-[13px] border transition-all cursor-pointer ${
+                  className={`w-full min-h-[46px] px-4 py-2.5 rounded-[14px] flex items-center justify-start text-left gap-3 font-semibold text-[13px] border transition-all cursor-pointer ${
                     encuestaApp.seguridad_datos_tecnico === 'Sí, me dio seguridad'
                       ? 'bg-[#FFEDE0] border-[#FF5A0A] text-[#FF5A0A]'
                       : 'bg-[#F9FAFC] border-gray-200 text-[#26292E] hover:border-gray-300'
@@ -2213,7 +2213,7 @@ return (
                 <button
                   type="button"
                   onClick={() => setEncuestaApp(prev => ({ ...prev, seguridad_datos_tecnico: 'No hizo diferencia' }))}
-                  className={`min-h-[50px] px-3 py-2 rounded-[16px] flex items-center justify-center text-center gap-2 font-semibold text-[13px] border transition-all cursor-pointer ${
+                  className={`w-full min-h-[46px] px-4 py-2.5 rounded-[14px] flex items-center justify-start text-left gap-3 font-semibold text-[13px] border transition-all cursor-pointer ${
                     encuestaApp.seguridad_datos_tecnico === 'No hizo diferencia'
                       ? 'bg-[#FFEDE0] border-[#FF5A0A] text-[#FF5A0A]'
                       : 'bg-[#F9FAFC] border-gray-200 text-[#26292E] hover:border-gray-300'
