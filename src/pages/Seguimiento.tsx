@@ -166,7 +166,7 @@ const isLocalHost = typeof window !== 'undefined' && (
   window.location.hostname === 'localhost' || 
   window.location.hostname === '127.0.0.1'
 );
-const PROD_API_URL = 'https://webwin-api-service.azurewebsites.net';
+const PROD_API_URL = 'https://webwin-api-service-eus.azurewebsites.net';
 const API_BASE_URL = isLocalHost ? 'http://localhost:3001' : (import.meta.env.VITE_API_URL || PROD_API_URL);
 
 const Seguimiento = ({ customToken, renderServiceSelector }: SeguimientoProps = {}) => {

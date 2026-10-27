@@ -74,7 +74,7 @@ export const trackEvent = async (eventName: string, eventParams?: Record<string,
         window.location.hostname === 'localhost' || 
         window.location.hostname === '127.0.0.1'
       );
-      const apiBase = isLocalHost ? 'http://localhost:3001' : (import.meta.env.VITE_API_URL || 'https://webwin-api-service.azurewebsites.net');
+      const apiBase = isLocalHost ? 'http://localhost:3001' : (import.meta.env.VITE_API_URL || 'https://webwin-api-service-eus.azurewebsites.net');
       fetch(`${apiBase}/api/log`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

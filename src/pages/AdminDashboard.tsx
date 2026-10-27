@@ -163,7 +163,7 @@ export default function AdminDashboard() {
   const [loadingStats, setLoadingStats] = useState<boolean>(false);
 
   // Endpoint en línea (Azure App Service con soporte para variable de entorno)
-  const apiUrl = (import.meta as any).env?.VITE_API_URL || 'https://webwin-api-service.azurewebsites.net';
+  const apiUrl = (import.meta as any).env?.VITE_API_URL || 'https://webwin-api-service-eus.azurewebsites.net';
 
   // Atajos de teclado interactivos: ESC (cerrar), ArrowLeft/ArrowRight (navegar registros), V (alternar vista)
   useEffect(() => {
