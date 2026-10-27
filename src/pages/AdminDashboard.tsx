@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { 
   Database, 
   Search, 
@@ -6,6 +6,7 @@ import {
   RefreshCw, 
   ChevronLeft, 
   ChevronRight, 
+  ChevronDown,
   FileSpreadsheet, 
   FileCode, 
   Eye, 
@@ -28,10 +29,16 @@ import {
   Loader2,
   BarChart3,
   Send,
-  Navigation
+  Navigation,
+  LayoutDashboard,
+  PieChart,
+  Activity,
+  CheckCheck,
+  TrendingUp,
+  MapPin
 } from 'lucide-react';
 
-type TabType = 'principal' | 'encuestas' | 'reprogramaciones' | 'chats_mantra' | 'reporte';
+type TabType = 'principal' | 'reporte' | 'dashboard' | 'encuestas' | 'reprogramaciones' | 'chats_mantra';
 
 const getTodayPeruString = () => {
   try {
@@ -124,7 +131,9 @@ export default function AdminDashboard() {
   const [search, setSearch] = useState('');
   const [fechaInicio, setFechaInicio] = useState(getTodayPeruString());
   const [fechaFin, setFechaFin] = useState(getTodayPeruString());
-  const [tipoServicio, setTipoServicio] = useState('');
+  const [tipoServicio, setTipoServicio] = useState<string[]>([]);
+  const [tipoServicioOpen, setTipoServicioOpen] = useState(false);
+  const tipoServicioDropdownRef = useRef<HTMLDivElement>(null);
   const [grupoServicio, setGrupoServicio] = useState('');
   const [estadoChatFiltro, setEstadoChatFiltro] = useState('');
   const [updatingChatId, setUpdatingChatId] = useState<number | null>(null);
@@ -150,6 +159,8 @@ export default function AdminDashboard() {
   const [liveChatTotal, setLiveChatTotal] = useState<number | null>(null);
   const [loadingChat, setLoadingChat] = useState<boolean>(false);
   const [chatLimit, setChatLimit] = useState<number>(15);
+  const [dashboardStats, setDashboardStats] = useState<any | null>(null);
+  const [loadingStats, setLoadingStats] = useState<boolean>(false);
 
   // Endpoint en línea (Azure App Service con soporte para variable de entorno)
   const apiUrl = (import.meta as any).env?.VITE_API_URL || 'https://webwin-api-service.azurewebsites.net';
@@ -209,7 +220,7 @@ export default function AdminDashboard() {
     let isMounted = true;
     setLoadingChat(true);
 
-    fetch(`${apiUrl}/api/admin/mantra-chat?phone=${encodeURIComponent(selectedRow.phone)}&grupoServicio=${encodeURIComponent(selectedRow.grupo_servicio || '')}&limit=${chatLimit}`)
+    fetch(`${apiUrl}/api/4dm1n_/mantra-chat?phone=${encodeURIComponent(selectedRow.phone)}&grupoServicio=${encodeURIComponent(selectedRow.grupo_servicio || '')}&limit=${chatLimit}`)
       .then(async res => {
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         return res.json();
@@ -243,7 +254,7 @@ export default function AdminDashboard() {
     }
 
     try {
-      const res = await fetch(`${apiUrl}/api/admin/chat-estado`, {
+      const res = await fetch(`${apiUrl}/api/4dm1n_/chat-estado`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id, estado: nuevoEstado })
@@ -262,7 +273,7 @@ export default function AdminDashboard() {
 
   // Cargar catálogo de filtros al inicio
   useEffect(() => {
-    fetch(`${apiUrl}/api/admin/filtros`)
+    fetch(`${apiUrl}/api/4dm1n_/filtros`)
       .then(async res => {
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         return res.json();
@@ -283,6 +294,19 @@ export default function AdminDashboard() {
       });
   }, [apiUrl]);
 
+  // Cerrar dropdown de Tipo de Servicio al hacer clic fuera
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (tipoServicioDropdownRef.current && !tipoServicioDropdownRef.current.contains(event.target as Node)) {
+        setTipoServicioOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+
   // Cargar datos al cambiar tab, paginación, ordenamiento o filtros
   const fetchData = async (targetPage = page, customFilters?: any, retryCount = 1) => {
     if (abortControllerRef.current) {
@@ -300,7 +324,12 @@ export default function AdminDashboard() {
       const currentSearch = customFilters?.search ?? search;
       const currentFInicio = customFilters?.fechaInicio ?? fechaInicio;
       const currentFFin = customFilters?.fechaFin ?? fechaFin;
-      const currentTipo = customFilters?.tipoServicio ?? tipoServicio;
+      const currentTipoRaw = customFilters?.tipoServicio ?? tipoServicio;
+      const currentTipo: string[] = Array.isArray(currentTipoRaw) 
+        ? currentTipoRaw 
+        : typeof currentTipoRaw === 'string' && currentTipoRaw 
+          ? [currentTipoRaw] 
+          : [];
       const currentGrupo = customFilters?.grupoServicio ?? grupoServicio;
       const currentEstado = customFilters?.estadoChatFiltro ?? estadoChatFiltro;
 
@@ -315,11 +344,13 @@ export default function AdminDashboard() {
       if (currentSearch) params.append('search', currentSearch);
       if (currentFInicio) params.append('fechaInicio', currentFInicio);
       if (currentFFin) params.append('fechaFin', currentFFin);
-      if (currentTipo && (currentTab === 'principal' || currentTab === 'reporte')) params.append('tipoServicio', currentTipo);
+      if (currentTipo.length > 0 && (currentTab === 'principal' || currentTab === 'reporte')) {
+        params.append('tipoServicio', currentTipo.join(','));
+      }
       if (currentGrupo && currentTab === 'chats_mantra') params.append('grupoServicio', currentGrupo);
       if (currentEstado && currentTab === 'chats_mantra') params.append('estadoChat', currentEstado);
 
-      const res = await fetch(`${apiUrl}/api/admin/data?${params.toString()}`, {
+      const res = await fetch(`${apiUrl}/api/4dm1n_/data?${params.toString()}`, {
         signal: controller.signal
       });
       if (!res.ok) {
@@ -353,15 +384,68 @@ export default function AdminDashboard() {
     }
   };
 
+  // Cargar métricas ejecutivas del Dashboard
+  const fetchDashboardStats = async (customFilters?: any, retryCount = 1) => {
+    setLoadingStats(true);
+    setErrorMsg(null);
+    try {
+      const currentSearch = customFilters?.search ?? search;
+      const currentFInicio = customFilters?.fechaInicio ?? fechaInicio;
+      const currentFFin = customFilters?.fechaFin ?? fechaFin;
+      const currentTipoRaw = customFilters?.tipoServicio ?? tipoServicio;
+      const currentTipo: string[] = Array.isArray(currentTipoRaw)
+        ? currentTipoRaw
+        : typeof currentTipoRaw === 'string' && currentTipoRaw
+          ? [currentTipoRaw]
+          : [];
+
+      const params = new URLSearchParams();
+      if (currentSearch) params.append('search', currentSearch);
+      if (currentFInicio) params.append('fechaInicio', currentFInicio);
+      if (currentFFin) params.append('fechaFin', currentFFin);
+      if (currentTipo.length > 0) params.append('tipoServicio', currentTipo.join(','));
+
+      const res = await fetch(`${apiUrl}/api/4dm1n_/dashboard-stats?${params.toString()}`);
+      if (!res.ok) {
+        throw new Error(`El servidor (${apiUrl}) respondió con error ${res.status} (${res.statusText})`);
+      }
+      const json = await res.json();
+      if (json.success) {
+        setDashboardStats(json);
+      } else {
+        throw new Error(json.message || 'Error desconocido al consultar estadísticas');
+      }
+    } catch (err: any) {
+      if (retryCount > 0) {
+        console.warn('Reintentando consulta dashboard-stats por micro-corte...');
+        await new Promise(r => setTimeout(r, 1200));
+        return fetchDashboardStats(customFilters, retryCount - 1);
+      }
+      console.error('Error cargando estadísticas de dashboard:', err);
+      setErrorMsg(err.message || 'No se pudo conectar con el servidor backend');
+      setDashboardStats(null);
+    } finally {
+      setLoadingStats(false);
+    }
+  };
+
   useEffect(() => {
-    setPage(1);
-    fetchData(1);
+    if (activeTab === 'dashboard') {
+      fetchDashboardStats();
+    } else {
+      setPage(1);
+      fetchData(1);
+    }
   }, [activeTab, limit, grupoServicio, sortField, sortOrder, apiUrl]);
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    setPage(1);
-    fetchData(1);
+    if (activeTab === 'dashboard') {
+      fetchDashboardStats();
+    } else {
+      setPage(1);
+      fetchData(1);
+    }
   };
 
   const handleResetFilters = () => {
@@ -370,22 +454,27 @@ export default function AdminDashboard() {
     setSearch('');
     setFechaInicio(today);
     setFechaFin(today);
-    setTipoServicio('');
+    setTipoServicio([]);
     setGrupoServicio('');
     setEstadoChatFiltro('');
     setSortField(defaultSort);
     setSortOrder('desc');
     setPage(1);
-    fetchData(1, {
+    const resetObj = {
       search: '',
       fechaInicio: today,
       fechaFin: today,
-      tipoServicio: '',
+      tipoServicio: [] as string[],
       grupoServicio: '',
       estadoChatFiltro: '',
       sortField: defaultSort,
       sortOrder: 'desc'
-    });
+    };
+    if (activeTab === 'dashboard') {
+      fetchDashboardStats(resetObj);
+    } else {
+      fetchData(1, resetObj);
+    }
   };
 
   // Función para alternar ordenamiento de columna
@@ -428,8 +517,17 @@ export default function AdminDashboard() {
     });
   }, [data, sortField, sortOrder]);
 
-  // Mensajes parseados para la vista amigable de chat
+  // Mensajes parseados para la vista amigable de chat (prioriza mensajes en vivo de Mantra si existen)
   const parsedChatMessages = useMemo(() => {
+    if (liveChatMessages && Array.isArray(liveChatMessages) && liveChatMessages.length > 0) {
+      return [...liveChatMessages].sort((a, b) => {
+        const timeA = new Date(a.fecha_utc || 0).getTime();
+        const timeB = new Date(b.fecha_utc || 0).getTime();
+        if (timeA && timeB) return timeA - timeB;
+        return (a.orden || 0) - (b.orden || 0);
+      });
+    }
+
     if (!selectedRow?.ultimos_mensajes_json) return [];
     try {
       const raw = typeof selectedRow.ultimos_mensajes_json === 'string'
@@ -447,7 +545,7 @@ export default function AdminDashboard() {
     } catch {
       return [];
     }
-  }, [selectedRow]);
+  }, [selectedRow, liveChatMessages]);
 
   // Descargar archivo (CSV o JSON)
   const handleDownload = (format: 'csv' | 'json') => {
@@ -461,11 +559,13 @@ export default function AdminDashboard() {
     if (search) params.append('search', search);
     if (fechaInicio) params.append('fechaInicio', fechaInicio);
     if (fechaFin) params.append('fechaFin', fechaFin);
-    if (tipoServicio && (activeTab === 'principal' || activeTab === 'reporte')) params.append('tipoServicio', tipoServicio);
+    if (tipoServicio.length > 0 && (activeTab === 'principal' || activeTab === 'reporte')) {
+      params.append('tipoServicio', tipoServicio.join(','));
+    }
     if (grupoServicio && activeTab === 'chats_mantra') params.append('grupoServicio', grupoServicio);
     if (estadoChatFiltro && activeTab === 'chats_mantra') params.append('estadoChat', estadoChatFiltro);
 
-    window.open(`${apiUrl}/api/admin/export?${params.toString()}`, '_blank');
+    window.open(`${apiUrl}/api/4dm1n_/export?${params.toString()}`, '_blank');
   };
 
   const formatDate = (val: any) => {
@@ -584,6 +684,18 @@ export default function AdminDashboard() {
           </button>
 
           <button
+            onClick={() => setActiveTab('dashboard')}
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-medium text-sm transition-all ${
+              activeTab === 'dashboard'
+                ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/20'
+                : 'bg-slate-900 text-slate-400 hover:text-slate-200 hover:bg-slate-800 border border-slate-800'
+            }`}
+          >
+            <LayoutDashboard className="w-4 h-4" />
+            <span>Dashboard</span>
+          </button>
+
+          <button
             onClick={() => setActiveTab('encuestas')}
             className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-medium text-sm transition-all ${
               activeTab === 'encuestas'
@@ -637,7 +749,7 @@ export default function AdminDashboard() {
                       ? 'Cliente, DNI, Token, OT, Dirección...' 
                       : activeTab === 'chats_mantra'
                       ? 'Ticket, Teléfono, Cliente, Orden ID, Asesor...'
-                      : activeTab === 'reporte'
+                      : activeTab === 'reporte' || activeTab === 'dashboard'
                       ? 'OT, Ticket, Cliente, Teléfono, Cuadrilla, Distrito...'
                       : 'Token, comentario, motivo...'
                   }
@@ -649,7 +761,7 @@ export default function AdminDashboard() {
             {/* Fecha Inicio */}
             <div>
               <label className="text-[11px] font-medium text-slate-400 block mb-1">
-                {activeTab === 'principal' || activeTab === 'reporte' ? 'Fecha Visita Desde' : activeTab === 'chats_mantra' ? 'Fecha Gestión/Msg Desde' : 'Fecha Desde'}
+                {activeTab === 'principal' || activeTab === 'reporte' || activeTab === 'dashboard' ? 'Fecha Visita Desde' : activeTab === 'chats_mantra' ? 'Fecha Gestión/Msg Desde' : 'Fecha Desde'}
               </label>
               <div className="relative">
                 <input
@@ -664,7 +776,7 @@ export default function AdminDashboard() {
             {/* Fecha Fin */}
             <div>
               <label className="text-[11px] font-medium text-slate-400 block mb-1">
-                {activeTab === 'principal' || activeTab === 'reporte' ? 'Fecha Visita Hasta' : activeTab === 'chats_mantra' ? 'Fecha Gestión/Msg Hasta' : 'Fecha Hasta'}
+                {activeTab === 'principal' || activeTab === 'reporte' || activeTab === 'dashboard' ? 'Fecha Visita Hasta' : activeTab === 'chats_mantra' ? 'Fecha Gestión/Msg Hasta' : 'Fecha Hasta'}
               </label>
               <div className="relative">
                 <input
@@ -676,32 +788,151 @@ export default function AdminDashboard() {
               </div>
             </div>
 
-            {/* Tipo de Servicio (Visible en Principal y Reporte) */}
-            {(activeTab === 'principal' || activeTab === 'reporte') && (
-              <div>
-                <label className="text-[11px] font-medium text-slate-400 block mb-1">Tipo de Servicio / Trabajo</label>
-                <select
-                  value={tipoServicio}
-                  onChange={e => setTipoServicio(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-orange-500 transition-colors"
+            {/* Tipo de Servicio (Visible en Principal, Reporte y Dashboard) con Selección Múltiple */}
+            {(activeTab === 'principal' || activeTab === 'reporte' || activeTab === 'dashboard') && (
+              <div className="relative" ref={tipoServicioDropdownRef}>
+                <label className="text-[11px] font-medium text-slate-400 mb-1 flex items-center justify-between">
+                  <span>Tipo de Servicio / Trabajo</span>
+                  {tipoServicio.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setTipoServicio([]);
+                      }}
+                      className="text-[10px] text-orange-400 hover:text-orange-300 transition-colors"
+                    >
+                      Limpiar ({tipoServicio.length})
+                    </button>
+                  )}
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setTipoServicioOpen(prev => !prev)}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white flex items-center justify-between focus:outline-none focus:border-orange-500 transition-colors text-left"
                 >
-                  <option value="">Todos los tipos</option>
-                  <optgroup label="Tipos Cruzados (tiposervicio)">
-                    {filtrosOpciones.tiposClasificados.map(tc => (
-                      <option key={tc} value={tc}>{tc}</option>
-                    ))}
-                  </optgroup>
-                  <optgroup label="Tipos de Trabajo (vw)">
-                    {filtrosOpciones.tiposTraba.map(t => (
-                      <option key={t} value={t}>{t}</option>
-                    ))}
-                  </optgroup>
-                  <optgroup label="Productos (vw)">
-                    {filtrosOpciones.productos.map(p => (
-                      <option key={p} value={p}>{p}</option>
-                    ))}
-                  </optgroup>
-                </select>
+                  <span className="truncate">
+                    {tipoServicio.length === 0
+                      ? 'Todos los tipos'
+                      : tipoServicio.length === 1
+                      ? (tipoServicio[0].includes(':') ? tipoServicio[0].split(':')[1] : tipoServicio[0])
+                      : `${tipoServicio.length} tipos seleccionados`}
+                  </span>
+                  <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform ${tipoServicioOpen ? 'rotate-180' : ''}`} />
+                </button>
+
+                {tipoServicioOpen && (
+                  <div className="absolute top-full left-0 right-0 mt-1 max-h-64 overflow-y-auto bg-slate-900 border border-slate-800 rounded-xl shadow-xl z-50 p-2 space-y-2 backdrop-blur">
+                    <div className="flex items-center justify-between px-1 pb-1 border-b border-slate-800 text-[11px]">
+                      <span className="text-slate-400 font-medium">Selección Múltiple</span>
+                      {tipoServicio.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => setTipoServicio([])}
+                          className="text-[10px] text-slate-400 hover:text-white"
+                        >
+                          Deseleccionar todo
+                        </button>
+                      )}
+                    </div>
+
+                    {filtrosOpciones.tiposClasificados.length > 0 && (
+                      <div>
+                        <div className="text-[10px] font-bold text-orange-400 uppercase tracking-wider px-1 py-1">
+                          Tipos Cruzados (tiposervicio)
+                        </div>
+                        <div className="space-y-0.5">
+                          {filtrosOpciones.tiposClasificados.map(tc => {
+                            const val = `tipo:${tc}`;
+                            const isChecked = tipoServicio.includes(val);
+                            return (
+                              <label
+                                key={tc}
+                                className="flex items-center gap-2 px-2 py-1 rounded-lg hover:bg-slate-800 cursor-pointer text-xs text-slate-200 transition-colors select-none"
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={isChecked}
+                                  onChange={() => {
+                                    setTipoServicio(prev =>
+                                      isChecked ? prev.filter(x => x !== val) : [...prev, val]
+                                    );
+                                  }}
+                                  className="rounded border-slate-700 bg-slate-950 text-orange-500 focus:ring-0 focus:ring-offset-0 cursor-pointer"
+                                />
+                                <span className="truncate">{tc}</span>
+                              </label>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+
+                    {filtrosOpciones.tiposTraba.length > 0 && (
+                      <div>
+                        <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-1 py-1 border-t border-slate-800/60 pt-1.5">
+                          Tipos de Trabajo (vw)
+                        </div>
+                        <div className="space-y-0.5">
+                          {filtrosOpciones.tiposTraba.map(t => {
+                            const val = `trabajo:${t}`;
+                            const isChecked = tipoServicio.includes(val);
+                            return (
+                              <label
+                                key={t}
+                                className="flex items-center gap-2 px-2 py-1 rounded-lg hover:bg-slate-800 cursor-pointer text-xs text-slate-200 transition-colors select-none"
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={isChecked}
+                                  onChange={() => {
+                                    setTipoServicio(prev =>
+                                      isChecked ? prev.filter(x => x !== val) : [...prev, val]
+                                    );
+                                  }}
+                                  className="rounded border-slate-700 bg-slate-950 text-orange-500 focus:ring-0 focus:ring-offset-0 cursor-pointer"
+                                />
+                                <span className="truncate">{t}</span>
+                              </label>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+
+                    {filtrosOpciones.productos.length > 0 && (
+                      <div>
+                        <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-1 py-1 border-t border-slate-800/60 pt-1.5">
+                          Productos (vw)
+                        </div>
+                        <div className="space-y-0.5">
+                          {filtrosOpciones.productos.map(p => {
+                            const val = `producto:${p}`;
+                            const isChecked = tipoServicio.includes(val);
+                            return (
+                              <label
+                                key={p}
+                                className="flex items-center gap-2 px-2 py-1 rounded-lg hover:bg-slate-800 cursor-pointer text-xs text-slate-200 transition-colors select-none"
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={isChecked}
+                                  onChange={() => {
+                                    setTipoServicio(prev =>
+                                      isChecked ? prev.filter(x => x !== val) : [...prev, val]
+                                    );
+                                  }}
+                                  className="rounded border-slate-700 bg-slate-950 text-orange-500 focus:ring-0 focus:ring-offset-0 cursor-pointer"
+                                />
+                                <span className="truncate">{p}</span>
+                              </label>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             )}
 
@@ -755,7 +986,7 @@ export default function AdminDashboard() {
             )}
 
             {/* Botones de acción */}
-            <div className={`flex items-end gap-2 ${(activeTab !== 'principal' && activeTab !== 'chats_mantra' && activeTab !== 'reporte') ? 'lg:col-span-2' : ''}`}>
+            <div className={`flex items-end gap-2 ${(activeTab !== 'principal' && activeTab !== 'chats_mantra' && activeTab !== 'reporte' && activeTab !== 'dashboard') ? 'lg:col-span-2' : ''}`}>
               <button
                 type="submit"
                 className="flex-1 flex items-center justify-center gap-1.5 px-4 py-2 bg-orange-600 hover:bg-orange-500 text-white font-medium text-xs rounded-xl transition-all shadow-md shadow-orange-950 active:scale-95"
@@ -773,81 +1004,449 @@ export default function AdminDashboard() {
               </button>
               <button
                 type="button"
-                onClick={() => fetchData()}
+                onClick={() => activeTab === 'dashboard' ? fetchDashboardStats() : fetchData()}
                 className="p-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl border border-slate-700 transition-all active:scale-95"
                 title="Refrescar datos"
               >
-                <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin text-orange-400' : ''}`} />
+                <RefreshCw className={`w-4 h-4 ${(loading || loadingStats) ? 'animate-spin text-orange-400' : ''}`} />
               </button>
             </div>
           </form>
         </div>
 
         {/* Resumen y paginación superior */}
-        <div className="flex flex-wrap items-center justify-between gap-4 text-xs text-slate-400 px-1">
-          <div className="flex items-center gap-3">
-            <div>
-              Mostrando <span className="font-semibold text-white">{displayData.length}</span> de <span className="font-semibold text-orange-400">{total.toLocaleString()}</span> registros encontrados
+        {activeTab !== 'dashboard' ? (
+          <div className="flex flex-wrap items-center justify-between gap-4 text-xs text-slate-400 px-1">
+            <div className="flex items-center gap-3">
+              <div>
+                Mostrando <span className="font-semibold text-white">{displayData.length}</span> de <span className="font-semibold text-orange-400">{total.toLocaleString()}</span> registros encontrados
+              </div>
             </div>
-            
-          </div>
 
-          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2">
+                <span>Filas por página:</span>
+                <select
+                  value={limit}
+                  onChange={e => setLimit(Number(e.target.value))}
+                  className="bg-slate-900 border border-slate-800 text-white rounded-lg px-2 py-1 focus:outline-none focus:border-orange-500"
+                >
+                  <option value={25}>25</option>
+                  <option value={50}>50</option>
+                  <option value={100}>100</option>
+                  <option value={200}>200</option>
+                </select>
+              </div>
+
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => {
+                    const p = Math.max(1, page - 1);
+                    setPage(p);
+                    fetchData(p);
+                  }}
+                  disabled={page <= 1 || loading}
+                  className="p-1.5 rounded-lg bg-slate-900 border border-slate-800 text-slate-300 hover:bg-slate-800 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+                <span className="px-2">Página <strong className="text-white">{page}</strong> de {totalPages}</span>
+                <button
+                  onClick={() => {
+                    const p = Math.min(totalPages, page + 1);
+                    setPage(p);
+                    fetchData(p);
+                  }}
+                  disabled={page >= totalPages || loading}
+                  className="p-1.5 rounded-lg bg-slate-900 border border-slate-800 text-slate-300 hover:bg-slate-800 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="flex flex-wrap items-center justify-between gap-2 px-1 text-xs text-slate-400">
             <div className="flex items-center gap-2">
-              <span>Filas por página:</span>
-              <select
-                value={limit}
-                onChange={e => setLimit(Number(e.target.value))}
-                className="bg-slate-900 border border-slate-800 text-white rounded-lg px-2 py-1 focus:outline-none focus:border-orange-500"
-              >
-                <option value={25}>25</option>
-                <option value={50}>50</option>
-                <option value={100}>100</option>
-                <option value={200}>200</option>
-              </select>
+              <Activity className="w-4 h-4 text-orange-400" />
+              <span className="font-semibold text-slate-200">Panel Ejecutivo de Métricas y Monitoreo Mantra</span>
             </div>
-
-            <div className="flex items-center gap-1">
-              <button
-                onClick={() => {
-                  const p = Math.max(1, page - 1);
-                  setPage(p);
-                  fetchData(p);
-                }}
-                disabled={page <= 1 || loading}
-                className="p-1.5 rounded-lg bg-slate-900 border border-slate-800 text-slate-300 hover:bg-slate-800 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-              >
-                <ChevronLeft className="w-4 h-4" />
-              </button>
-              <span className="px-2">Página <strong className="text-white">{page}</strong> de {totalPages}</span>
-              <button
-                onClick={() => {
-                  const p = Math.min(totalPages, page + 1);
-                  setPage(p);
-                  fetchData(p);
-                }}
-                disabled={page >= totalPages || loading}
-                className="p-1.5 rounded-lg bg-slate-900 border border-slate-800 text-slate-300 hover:bg-slate-800 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-              >
-                <ChevronRight className="w-4 h-4" />
-              </button>
-            </div>
+            {dashboardStats?.kpis && (
+              <span className="text-xs text-slate-400">
+                Total Órdenes Evaluadas: <strong className="text-white font-mono">{Number(dashboardStats.kpis.total_ots || 0).toLocaleString()}</strong>
+              </span>
+            )}
           </div>
-        </div>
+        )}
 
-        {/* Tabla de Resultados */}
-        <div className="bg-slate-900/60 border border-slate-800 rounded-2xl overflow-hidden shadow-xl backdrop-blur relative min-h-[400px]">
-          {loading && (
-            <div className="absolute inset-0 bg-slate-950/60 backdrop-blur-sm z-20 flex flex-col items-center justify-center gap-3">
-              <RefreshCw className="w-8 h-8 text-orange-500 animate-spin" />
-              <p className="text-xs text-slate-300 font-medium">Cargando registros de la base de datos...</p>
-            </div>
-          )}
+        {/* 1. Vista Dashboard Ejecutivo vs 2. Tablas de Resultados */}
+        {activeTab === 'dashboard' ? (
+          <div className="space-y-4">
+            {loadingStats ? (
+              <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-16 flex flex-col items-center justify-center gap-3 backdrop-blur min-h-[350px]">
+                <RefreshCw className="w-8 h-8 text-orange-500 animate-spin" />
+                <p className="text-xs text-slate-300 font-medium">Calculando métricas agregadas del embudo y sectores...</p>
+              </div>
+            ) : !dashboardStats || !dashboardStats.kpis ? (
+              <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-16 text-center text-slate-400 backdrop-blur min-h-[300px] flex items-center justify-center">
+                No se encontraron registros para generar el dashboard con los filtros seleccionados
+              </div>
+            ) : (
+              (() => {
+                const k = dashboardStats.kpis || {};
+                const totalOts = Number(k.total_ots || 0);
+                const wspEnviados = Number(k.wsp_enviados || 0);
+                const wspNoEnviados = Number(k.wsp_no_enviados || 0);
+                const trackingIngresados = Number(k.tracking_ingresados || 0);
+                const reprogramados = Number(k.reprogramados || 0);
+                const encuestas = Number(k.encuestas_respondidas || 0);
+                const soporte = Number(k.pulso_soporte || 0);
+                const vistasMapa = Number(k.total_vistas_mapa || 0);
 
-          <div className="overflow-x-auto max-h-[650px] scrollbar-thin scrollbar-thumb-slate-700">
-            {/* 1. Tabla Principal */}
-            {activeTab === 'principal' && (
-              <table className="w-full text-left text-xs text-slate-300 border-collapse">
+                const pctEnviados = totalOts > 0 ? ((wspEnviados / totalOts) * 100).toFixed(1) : '0.0';
+                const pctNoEnviados = totalOts > 0 ? ((wspNoEnviados / totalOts) * 100).toFixed(1) : '0.0';
+                const pctTracking = totalOts > 0 ? ((trackingIngresados / totalOts) * 100).toFixed(1) : '0.0';
+                const pctTrackingDeEnviados = wspEnviados > 0 ? ((trackingIngresados / wspEnviados) * 100).toFixed(1) : '0.0';
+
+                const estadosList: Array<{ estado: string; total: number }> = dashboardStats.estadosWsp || [];
+                const readTotal = estadosList.find(e => e.estado.toLowerCase() === 'read')?.total || 0;
+                const deliveredTotal = estadosList.find(e => e.estado.toLowerCase() === 'delivered')?.total || 0;
+                const sentTotal = estadosList.find(e => e.estado.toLowerCase() === 'sent')?.total || 0;
+                const failedTotal = estadosList.find(e => e.estado.toLowerCase() === 'failed')?.total || 0;
+                const pctRead = wspEnviados > 0 ? ((readTotal / wspEnviados) * 100).toFixed(1) : '0.0';
+
+                return (
+                  <div className="space-y-4">
+                    {/* 1. Tarjetas KPI Principales */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5">
+                      {/* KPI 1 */}
+                      <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-4 flex flex-col justify-between shadow-sm relative overflow-hidden backdrop-blur">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-[11px] font-medium text-slate-400">Total OTs Visita</span>
+                          <div className="p-2 bg-blue-500/10 text-blue-400 rounded-xl">
+                            <Database className="w-4 h-4" />
+                          </div>
+                        </div>
+                        <div className="text-2xl font-bold text-white font-mono">{totalOts.toLocaleString()}</div>
+                        <div className="text-[10px] text-slate-400 mt-1">Órdenes evaluadas en rango</div>
+                        <div className="absolute top-0 right-0 h-1 w-full bg-blue-500/40" />
+                      </div>
+
+                      {/* KPI 2 */}
+                      <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-4 flex flex-col justify-between shadow-sm relative overflow-hidden backdrop-blur">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-[11px] font-medium text-slate-400">WSP Enviados</span>
+                          <div className="p-2 bg-emerald-500/10 text-emerald-400 rounded-xl">
+                            <Send className="w-4 h-4" />
+                          </div>
+                        </div>
+                        <div className="flex items-baseline gap-2">
+                          <div className="text-2xl font-bold text-emerald-400 font-mono">{wspEnviados.toLocaleString()}</div>
+                          <span className="text-xs px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-bold font-mono">
+                            {pctEnviados}%
+                          </span>
+                        </div>
+                        <div className="text-[10px] text-slate-400 mt-1">
+                          No enviados: <span className="text-slate-300 font-mono">{wspNoEnviados.toLocaleString()}</span> ({pctNoEnviados}%)
+                        </div>
+                        <div className="absolute top-0 right-0 h-1 w-full bg-emerald-500/50" />
+                      </div>
+
+                      {/* KPI 3 */}
+                      <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-4 flex flex-col justify-between shadow-sm relative overflow-hidden backdrop-blur">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-[11px] font-medium text-slate-400">Mensajes Leídos (Read)</span>
+                          <div className="p-2 bg-cyan-500/10 text-cyan-400 rounded-xl">
+                            <CheckCheck className="w-4 h-4" />
+                          </div>
+                        </div>
+                        <div className="flex items-baseline gap-2">
+                          <div className="text-2xl font-bold text-cyan-400 font-mono">{readTotal.toLocaleString()}</div>
+                          <span className="text-xs px-1.5 py-0.5 rounded bg-cyan-500/20 text-cyan-300 font-bold font-mono">
+                            {pctRead}%
+                          </span>
+                        </div>
+                        <div className="text-[10px] text-slate-400 mt-1 truncate">
+                          Delivered: <span className="text-slate-300 font-mono">{deliveredTotal}</span> · Sent: <span className="text-blue-400 font-mono">{sentTotal}</span> · Failed: <span className="text-rose-400 font-mono">{failedTotal}</span>
+                        </div>
+                        <div className="absolute top-0 right-0 h-1 w-full bg-cyan-500/50" />
+                      </div>
+
+                      {/* KPI 4 */}
+                      <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-4 flex flex-col justify-between shadow-sm relative overflow-hidden backdrop-blur">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-[11px] font-medium text-slate-400">Ingreso a Tracking</span>
+                          <div className="p-2 bg-amber-500/10 text-amber-400 rounded-xl">
+                            <Navigation className="w-4 h-4" />
+                          </div>
+                        </div>
+                        <div className="flex items-baseline gap-2">
+                          <div className="text-2xl font-bold text-amber-400 font-mono">{trackingIngresados.toLocaleString()}</div>
+                          <span className="text-xs px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 font-bold font-mono">
+                            {pctTracking}% CTR
+                          </span>
+                        </div>
+                        <div className="text-[10px] text-slate-400 mt-1">
+                          Vistas de mapa: <span className="text-slate-300 font-mono">{vistasMapa.toLocaleString()}</span>
+                        </div>
+                        <div className="absolute top-0 right-0 h-1 w-full bg-amber-500/50" />
+                      </div>
+
+                      {/* KPI 5 */}
+                      <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-4 flex flex-col justify-between shadow-sm relative overflow-hidden backdrop-blur">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-[11px] font-medium text-slate-400">Autogestión & Calidad</span>
+                          <div className="p-2 bg-purple-500/10 text-purple-400 rounded-xl">
+                            <Activity className="w-4 h-4" />
+                          </div>
+                        </div>
+                        <div className="flex flex-col gap-1.5 justify-center flex-1 my-0.5">
+                          <div className="flex items-center justify-between text-xs">
+                            <span className="text-slate-300 font-medium">Reprogramaron:</span>
+                            <span className="font-mono font-bold text-purple-400 text-sm">{reprogramados.toLocaleString()}</span>
+                          </div>
+                          <div className="flex items-center justify-between text-xs">
+                            <span className="text-slate-300 font-medium">Encuestas:</span>
+                            <span className="font-mono font-bold text-emerald-400 text-sm">{encuestas.toLocaleString()}</span>
+                          </div>
+                          <div className="flex items-center justify-between text-xs">
+                            <span className="text-slate-300 font-medium">SOS:</span>
+                            <span className="font-mono font-bold text-rose-400 text-sm">{soporte.toLocaleString()}</span>
+                          </div>
+                        </div>
+                        <div className="absolute top-0 right-0 h-1 w-full bg-purple-500/50" />
+                      </div>
+                    </div>
+
+                    {/* 2. Sección Central: Estados de WhatsApp y Embudo Funnel */}
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                      {/* Card Estados WSP */}
+                      <div className="bg-slate-900/70 border border-slate-800 rounded-2xl p-4 shadow-sm backdrop-blur">
+                        <div className="flex items-center justify-between border-b border-slate-800 pb-3 mb-4">
+                          <div className="flex items-center gap-2">
+                            <Send className="w-4 h-4 text-emerald-400" />
+                            <h4 className="text-xs font-bold text-white uppercase tracking-wider">
+                              Distribución por Estado del Mensaje WSP
+                            </h4>
+                          </div>
+                          <span className="text-[11px] font-mono text-slate-400">{wspEnviados + wspNoEnviados} msgs</span>
+                        </div>
+                        <div className="space-y-3">
+                          {estadosList.map((item, idx) => {
+                            const count = Number(item.total || 0);
+                            const grandTotal = totalOts || 1;
+                            const pct = ((count / grandTotal) * 100).toFixed(1);
+                            const isRead = item.estado.toLowerCase() === 'read';
+                            const isDelivered = item.estado.toLowerCase() === 'delivered';
+                            const isSent = item.estado.toLowerCase() === 'sent';
+                            const isFailed = item.estado.toLowerCase() === 'failed';
+
+                            const colorClass = isRead ? 'bg-emerald-500' : isDelivered ? 'bg-cyan-500' : isSent ? 'bg-blue-500' : isFailed ? 'bg-rose-500' : 'bg-slate-600';
+                            const badgeBorder = isRead ? 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10' : isDelivered ? 'text-cyan-400 border-cyan-500/30 bg-cyan-500/10' : isSent ? 'text-blue-400 border-blue-500/30 bg-blue-500/10' : isFailed ? 'text-rose-400 border-rose-500/30 bg-rose-500/10' : 'text-slate-400 border-slate-700 bg-slate-800/40';
+
+                            return (
+                              <div key={idx} className="space-y-1">
+                                <div className="flex items-center justify-between text-xs">
+                                  <span className={`px-2 py-0.5 rounded-md font-mono text-[10px] font-bold border ${badgeBorder}`}>
+                                    {item.estado.toUpperCase()}
+                                  </span>
+                                  <div className="flex items-center gap-2">
+                                    <span className="font-mono font-bold text-white">{count.toLocaleString()}</span>
+                                    <span className="text-[10px] text-slate-400 font-mono w-12 text-right">({pct}%)</span>
+                                  </div>
+                                </div>
+                                <div className="h-2 w-full bg-slate-950 rounded-full overflow-hidden border border-slate-800/80">
+                                  <div 
+                                    className={`h-full ${colorClass} rounded-full transition-all duration-500`} 
+                                    style={{ width: `${pct}%` }} 
+                                  />
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      {/* Card Embudo Funnel */}
+                      <div className="bg-slate-900/70 border border-slate-800 rounded-2xl p-4 shadow-sm backdrop-blur flex flex-col">
+                        <div className="flex items-center justify-between border-b border-slate-800 pb-3 mb-4">
+                          <div className="flex items-center gap-2">
+                            <TrendingUp className="w-4 h-4 text-orange-400" />
+                            <h4 className="text-xs font-bold text-white uppercase tracking-wider">
+                              Embudo de Conversión Operativa
+                            </h4>
+                          </div>
+                          <span className="text-[11px] text-orange-400 font-semibold">{pctTrackingDeEnviados}% apertura</span>
+                        </div>
+                        <div className="space-y-3 flex-1 justify-center flex flex-col">
+                          {/* Paso 1 */}
+                          <div className="p-2.5 bg-slate-950/70 rounded-xl border border-slate-800 flex items-center justify-between">
+                            <div className="flex items-center gap-2.5">
+                              <span className="w-5 h-5 rounded-full bg-blue-500/20 text-blue-400 font-bold text-[10px] flex items-center justify-center">1</span>
+                              <span className="text-xs text-slate-200 font-medium">Órdenes Programadas en Agenda</span>
+                            </div>
+                            <div className="text-right">
+                              <div className="font-mono font-bold text-white text-xs">{totalOts.toLocaleString()}</div>
+                              <span className="text-[10px] text-slate-500 font-mono">100% Base</span>
+                            </div>
+                          </div>
+
+                          {/* Paso 2 */}
+                          <div className="p-2.5 bg-slate-950/70 rounded-xl border border-slate-800 flex items-center justify-between">
+                            <div className="flex items-center gap-2.5">
+                              <span className="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-400 font-bold text-[10px] flex items-center justify-center">2</span>
+                              <span className="text-xs text-slate-200 font-medium">WhatsApp Mantra Notificados</span>
+                            </div>
+                            <div className="text-right">
+                              <div className="font-mono font-bold text-emerald-400 text-xs">{wspEnviados.toLocaleString()}</div>
+                              <span className="text-[10px] text-emerald-400/80 font-mono">{pctEnviados}% de base</span>
+                            </div>
+                          </div>
+
+                          {/* Paso 3 */}
+                          <div className="p-2.5 bg-slate-950/70 rounded-xl border border-slate-800 flex items-center justify-between">
+                            <div className="flex items-center gap-2.5">
+                              <span className="w-5 h-5 rounded-full bg-cyan-500/20 text-cyan-400 font-bold text-[10px] flex items-center justify-center">3</span>
+                              <span className="text-xs text-slate-200 font-medium">Mensajes Leídos por el Cliente</span>
+                            </div>
+                            <div className="text-right">
+                              <div className="font-mono font-bold text-cyan-400 text-xs">{readTotal.toLocaleString()}</div>
+                              <span className="text-[10px] text-cyan-400/80 font-mono">{pctRead}% de enviados</span>
+                            </div>
+                          </div>
+
+                          {/* Paso 4 */}
+                          <div className="p-2.5 bg-slate-950/70 rounded-xl border border-slate-800 flex items-center justify-between">
+                            <div className="flex items-center gap-2.5">
+                              <span className="w-5 h-5 rounded-full bg-amber-500/20 text-amber-400 font-bold text-[10px] flex items-center justify-center">4</span>
+                              <span className="text-xs text-slate-200 font-medium">Clientes que Ingresaron al Mapa</span>
+                            </div>
+                            <div className="text-right">
+                              <div className="font-mono font-bold text-amber-400 text-xs">{trackingIngresados.toLocaleString()}</div>
+                              <span className="text-[10px] text-amber-400/80 font-mono">{pctTracking}% del total</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* 3. Desglose por Sector Operativo y Tipo de Operación */}
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                      {/* Tabla de Sectores Operativos (2 columnas) */}
+                      <div className="lg:col-span-2 bg-slate-900/70 border border-slate-800 rounded-2xl p-4 shadow-sm backdrop-blur">
+                        <div className="flex items-center justify-between border-b border-slate-800 pb-3 mb-3">
+                          <div className="flex items-center gap-2">
+                            <MapPin className="w-4 h-4 text-orange-400" />
+                            <h4 className="text-xs font-bold text-white uppercase tracking-wider">
+                              Rendimiento por Sector Operativo (Top Sectores)
+                            </h4>
+                          </div>
+                          <span className="text-[11px] text-slate-400 font-mono">{dashboardStats.sectores?.length || 0} sectores</span>
+                        </div>
+                        <div className="overflow-x-auto max-h-[380px] scrollbar-thin scrollbar-thumb-slate-700">
+                          <table className="w-full text-left text-xs text-slate-300 border-collapse">
+                            <thead className="bg-slate-950/80 sticky top-0 z-10 border-b border-slate-800 text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
+                              <tr>
+                                <th className="py-2.5 px-3">Sector Operativo</th>
+                                <th className="py-2.5 px-3 text-right">Total OTs</th>
+                                <th className="py-2.5 px-3 text-right">Enviados</th>
+                                <th className="py-2.5 px-3 text-right">No Env.</th>
+                                <th className="py-2.5 px-3 text-center">% Cobertura WSP</th>
+                                <th className="py-2.5 px-3 text-right">Tracking</th>
+                                <th className="py-2.5 px-3 text-right">Leídos</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-800/60 font-mono text-[11px]">
+                              {(dashboardStats.sectores || []).map((sec: any, sIdx: number) => {
+                                const secTotal = Number(sec.total || 0);
+                                const secEnv = Number(sec.enviados || 0);
+                                const secNoEnv = Number(sec.no_enviados || 0);
+                                const secTrack = Number(sec.tracking_ingresados || 0);
+                                const secRead = Number(sec.leidos || 0);
+                                const pct = secTotal > 0 ? Math.round((secEnv / secTotal) * 100) : 0;
+
+                                return (
+                                  <tr key={sIdx} className="hover:bg-slate-800/40 transition-colors">
+                                    <td className="py-2 px-3 font-sans font-medium text-slate-200">
+                                      {sec.sector}
+                                    </td>
+                                    <td className="py-2 px-3 text-right font-bold text-white">{secTotal.toLocaleString()}</td>
+                                    <td className="py-2 px-3 text-right text-emerald-400">{secEnv.toLocaleString()}</td>
+                                    <td className="py-2 px-3 text-right text-slate-500">{secNoEnv.toLocaleString()}</td>
+                                    <td className="py-2 px-3 text-center">
+                                      <div className="flex items-center justify-center gap-1.5">
+                                        <div className="w-16 h-1.5 bg-slate-950 rounded-full overflow-hidden border border-slate-800">
+                                          <div className={`h-full ${pct >= 80 ? 'bg-emerald-500' : pct >= 60 ? 'bg-amber-500' : 'bg-rose-500'} rounded-full`} style={{ width: `${pct}%` }} />
+                                        </div>
+                                        <span className={`text-[10px] font-bold ${pct >= 80 ? 'text-emerald-400' : pct >= 60 ? 'text-amber-400' : 'text-rose-400'}`}>{pct}%</span>
+                                      </div>
+                                    </td>
+                                    <td className="py-2 px-3 text-right text-amber-400">{secTrack}</td>
+                                    <td className="py-2 px-3 text-right text-cyan-400">{secRead}</td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+
+                      {/* Card Tipos de Operación (1 columna) */}
+                      <div className="bg-slate-900/70 border border-slate-800 rounded-2xl p-4 shadow-sm backdrop-blur flex flex-col">
+                        <div className="flex items-center justify-between border-b border-slate-800 pb-3 mb-3">
+                          <div className="flex items-center gap-2">
+                            <PieChart className="w-4 h-4 text-orange-400" />
+                            <h4 className="text-xs font-bold text-white uppercase tracking-wider">
+                              Tipo de Operación
+                            </h4>
+                          </div>
+                          <span className="text-[11px] text-slate-400 font-mono">{dashboardStats.operaciones?.length || 0} tipos</span>
+                        </div>
+                        <div className="space-y-3 flex-1 overflow-y-auto max-h-[380px] pr-1">
+                          {(dashboardStats.operaciones || []).map((op: any, oIdx: number) => {
+                            const opTotal = Number(op.total || 0);
+                            const opEnv = Number(op.enviados || 0);
+                            const pctOp = totalOts > 0 ? ((opTotal / totalOts) * 100).toFixed(1) : '0';
+                            const pctCob = opTotal > 0 ? Math.round((opEnv / opTotal) * 100) : 0;
+
+                            return (
+                              <div key={oIdx} className="p-3 bg-slate-950/70 rounded-xl border border-slate-800 space-y-1.5">
+                                <div className="flex items-center justify-between text-xs">
+                                  <span className="font-bold text-white truncate max-w-[150px]">{op.operacion}</span>
+                                  <span className="font-mono text-slate-300 font-bold">{opTotal.toLocaleString()} ({pctOp}%)</span>
+                                </div>
+                                <div className="flex items-center justify-between text-[10px] text-slate-400">
+                                  <span>Enviados WSP: <strong className="text-emerald-400 font-mono">{opEnv}</strong></span>
+                                  <span>Cobertura: <strong className="text-orange-400 font-mono">{pctCob}%</strong></span>
+                                </div>
+                                <div className="h-1.5 w-full bg-slate-900 rounded-full overflow-hidden border border-slate-800">
+                                  <div className="h-full bg-orange-500 rounded-full" style={{ width: `${pctCob}%` }} />
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()
+            )}
+          </div>
+        ) : (
+          /* Tabla de Resultados */
+          <div className="bg-slate-900/60 border border-slate-800 rounded-2xl overflow-hidden shadow-xl backdrop-blur relative min-h-[400px]">
+            {loading && (
+              <div className="absolute inset-0 bg-slate-950/60 backdrop-blur-sm z-20 flex flex-col items-center justify-center gap-3">
+                <RefreshCw className="w-8 h-8 text-orange-500 animate-spin" />
+                <p className="text-xs text-slate-300 font-medium">Cargando registros de la base de datos...</p>
+              </div>
+            )}
+
+            <div className="overflow-x-auto max-h-[650px] scrollbar-thin scrollbar-thumb-slate-700">
+              {/* 1. Tabla Principal */}
+              {activeTab === 'principal' && (
+                <table className="w-full text-left text-xs text-slate-300 border-collapse">
                 <thead className="bg-slate-950/80 sticky top-0 z-10 border-b border-slate-800 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
                   <tr>
                     <th className="py-3 px-4">Acción</th>
@@ -1448,6 +2047,7 @@ export default function AdminDashboard() {
             )}
           </div>
         </div>
+        )}
       </main>
 
       {/* Modal para ver registro completo + Visor Amigable de Chat (Campos a la izquierda, Chat más grande a la derecha) */}

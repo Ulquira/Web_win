@@ -1052,6 +1052,63 @@ app.post('/api/route', async (req, res) => {
 // ENDPOINTS ADMINISTRACIÓN LOCAL / DASHBOARD
 // ==========================================
 
+type AdminServiceFilter = { kind: 'tipo' | 'trabajo' | 'producto'; value: string };
+
+const parseAdminServiceFilters = (rawInput: any): AdminServiceFilter[] => {
+  if (!rawInput) return [];
+  const list = Array.isArray(rawInput) 
+    ? rawInput.flatMap(x => String(x).split(',')) 
+    : String(rawInput).split(',');
+  const result: AdminServiceFilter[] = [];
+  for (const item of list) {
+    const trimmed = String(item).trim();
+    if (!trimmed) continue;
+    const separator = trimmed.indexOf(':');
+    const kind = separator >= 0 ? trimmed.slice(0, separator) : '';
+    const value = separator >= 0 ? trimmed.slice(separator + 1) : trimmed;
+
+    if (kind === 'tipo' || kind === 'trabajo' || kind === 'producto') {
+      result.push({ kind, value });
+    } else {
+      result.push({ kind: 'tipo', value: trimmed });
+    }
+  }
+  return result;
+};
+
+const buildServiceFilterSql = (
+  serviceFilters: AdminServiceFilter[], 
+  tableContext: 'reporte' | 'principal'
+): { sql: string; values: string[] } | null => {
+  if (!serviceFilters || serviceFilters.length === 0) return null;
+
+  const clauses: string[] = [];
+  const values: string[] = [];
+
+  for (const sf of serviceFilters) {
+    if (tableContext === 'reporte') {
+      if (sf.kind === 'tipo') {
+        clauses.push('EXISTS (SELECT 1 FROM tiposervicio ts_filter WHERE UPPER(TRIM(ts_filter.Servicio)) = UPPER(TRIM(r.producto)) AND ts_filter.Tipo = ?)');
+      } else {
+        clauses.push(`${sf.kind === 'trabajo' ? 'r.tipo_trabajo' : 'r.producto'} = ?`);
+      }
+      values.push(sf.value);
+    } else {
+      const col = sf.kind === 'tipo'
+        ? 'COALESCE(ts_prod.Tipo, ts_traba.Tipo, w.TipoTraba)'
+        : sf.kind === 'trabajo' ? 'w.TipoTraba' : 'w.Producto';
+      clauses.push(`${col} = ?`);
+      values.push(sf.value);
+    }
+  }
+
+  if (clauses.length === 0) return null;
+  return {
+    sql: `(${clauses.join(' OR ')})`,
+    values
+  };
+};
+
 // Middleware de seguridad: estrictamente local (bloquea peticiones externas si se ejecutara en producción)
 const requireLocalAdminOnly = (req: express.Request, res: express.Response, next: express.NextFunction) => {
   const ip = req.ip || req.socket.remoteAddress || '';
@@ -1072,10 +1129,10 @@ const requireLocalAdminOnly = (req: express.Request, res: express.Response, next
   next();
 };
 
-app.use('/api/admin', requireLocalAdminOnly);
+app.use('/api/4dm1n_', requireLocalAdminOnly);
 
 // 1. Obtener opciones para filtros (Tipos de Servicio / Trabajos)
-app.get('/api/admin/filtros', async (_req, res) => {
+app.get('/api/4dm1n_/filtros', async (_req, res) => {
   try {
     const [tiposTraba]: any = await pool.query(
       'SELECT DISTINCT TipoTraba FROM vw_winordetraba WHERE TipoTraba IS NOT NULL AND TipoTraba != "" ORDER BY TipoTraba ASC'
@@ -1115,7 +1172,7 @@ app.get('/api/admin/filtros', async (_req, res) => {
 
 // 2. Consulta de tablas con filtros dinámicos, paginación y ordenamiento
 // 1.1 Actualizar estado del chat Mantra (Cerrar / Reabrir)
-app.post('/api/admin/chat-estado', async (req, res) => {
+app.post('/api/4dm1n_/chat-estado', async (req, res) => {
   try {
     const { id, estado } = req.body;
     if (!id || !estado) {
@@ -1132,13 +1189,13 @@ app.post('/api/admin/chat-estado', async (req, res) => {
   }
 });
 
-app.get('/api/admin/data', async (req, res) => {
+app.get('/api/4dm1n_/data', async (req, res) => {
   try {
     const tabla = String(req.query.tabla || 'principal').toLowerCase();
     const search = String(req.query.search || '').trim();
     const fechaInicio = String(req.query.fechaInicio || '').trim();
     const fechaFin = String(req.query.fechaFin || '').trim();
-    const tipoServicio = String(req.query.tipoServicio || '').trim();
+    const serviceFilters = parseAdminServiceFilters(req.query.tipoServicio);
     const grupoServicio = String(req.query.grupoServicio || '').trim();
     const estadoChat = String(req.query.estadoChat || '').trim();
     const estadoOt = String(req.query.estadoOt || '').trim();
@@ -1240,25 +1297,19 @@ app.get('/api/admin/data', async (req, res) => {
       let whereClauses: string[] = ['1=1'];
 
       if (fechaInicio) {
-        whereClauses.push('(h.fecha_gestion_dia >= ? OR h.ultimo_mensaje_fecha >= ?)');
-        params.push(fechaInicio, `${fechaInicio} 00:00:00`);
-        countParams.push(fechaInicio, `${fechaInicio} 00:00:00`);
+        whereClauses.push('(h.fecha_gestion_dia >= ? OR DATE(CONVERT_TZ(h.ultimo_mensaje_fecha, "+00:00", "-05:00")) >= ?)');
+        params.push(fechaInicio, fechaInicio);
+        countParams.push(fechaInicio, fechaInicio);
       }
       if (fechaFin) {
-        whereClauses.push('(h.fecha_gestion_dia <= ? OR h.ultimo_mensaje_fecha <= ?)');
-        params.push(fechaFin, `${fechaFin} 23:59:59`);
-        countParams.push(fechaFin, `${fechaFin} 23:59:59`);
+        whereClauses.push('(h.fecha_gestion_dia <= ? OR DATE(CONVERT_TZ(h.ultimo_mensaje_fecha, "+00:00", "-05:00")) <= ?)');
+        params.push(fechaFin, fechaFin);
+        countParams.push(fechaFin, fechaFin);
       }
       if (grupoServicio) {
-        if (grupoServicio === 'Instalacion' || grupoServicio === 'Averias') {
-          whereClauses.push('h.grupo_servicio = ?');
-          params.push(grupoServicio);
-          countParams.push(grupoServicio);
-        } else {
-          whereClauses.push('h.tipo_trabajo = ?');
-          params.push(grupoServicio);
-          countParams.push(grupoServicio);
-        }
+        whereClauses.push('(h.grupo_servicio = ? OR h.tipo_trabajo = ?)');
+        params.push(grupoServicio, grupoServicio);
+        countParams.push(grupoServicio, grupoServicio);
       }
       if (search) {
         whereClauses.push('(h.orden_id LIKE ? OR h.ticket LIKE ? OR h.phone LIKE ? OR h.cliente_nombre LIKE ? OR h.ultimo_mensaje_texto LIKE ? OR h.asesor_asignado LIKE ?)');
@@ -1374,10 +1425,11 @@ app.get('/api/admin/data', async (req, res) => {
         params.push(`${fechaFin} 23:59:59`);
         countParams.push(`${fechaFin} 23:59:59`);
       }
-      if (tipoServicio) {
-        whereClauses.push('(r.tipo_operacion = ? OR r.tipo_trabajo = ? OR r.producto = ?)');
-        params.push(tipoServicio, tipoServicio, tipoServicio);
-        countParams.push(tipoServicio, tipoServicio, tipoServicio);
+      const serviceCond = buildServiceFilterSql(serviceFilters, 'reporte');
+      if (serviceCond) {
+        whereClauses.push(serviceCond.sql);
+        params.push(...serviceCond.values);
+        countParams.push(...serviceCond.values);
       }
       if (estadoOt) {
         whereClauses.push('r.estado_ot = ?');
@@ -1462,10 +1514,11 @@ app.get('/api/admin/data', async (req, res) => {
         params.push(`${fechaFin} 23:59:59`);
         countParams.push(`${fechaFin} 23:59:59`);
       }
-      if (tipoServicio) {
-        whereClauses.push('COALESCE(ts_prod.Tipo, ts_traba.Tipo, w.TipoTraba) = ?');
-        params.push(tipoServicio);
-        countParams.push(tipoServicio);
+      const serviceCond = buildServiceFilterSql(serviceFilters, 'principal');
+      if (serviceCond) {
+        whereClauses.push(serviceCond.sql);
+        params.push(...serviceCond.values);
+        countParams.push(...serviceCond.values);
       }
       if (search) {
         whereClauses.push('(w.OrdenId LIKE ? OR w.Cliente LIKE ? OR w.`Número Documento` LIKE ? OR w.token LIKE ? OR w.CodiSegui LIKE ? OR w.Direccion LIKE ?)');
@@ -1516,8 +1569,118 @@ app.get('/api/admin/data', async (req, res) => {
   }
 });
 
+// 2.3 Métricas Agrupadas para el Dashboard Ejecutivo (Funnel de Envíos Mantra, Sectores y Estados)
+app.get('/api/4dm1n_/dashboard-stats', async (req, res) => {
+  try {
+    const search = String(req.query.search || '').trim();
+    const fechaInicio = String(req.query.fechaInicio || '').trim();
+    const fechaFin = String(req.query.fechaFin || '').trim();
+    const serviceFilters = parseAdminServiceFilters(req.query.tipoServicio);
+
+    const whereClauses: string[] = ['1=1'];
+    const params: any[] = [];
+
+    if (fechaInicio) {
+      whereClauses.push('r.fecha_visita >= ?');
+      params.push(`${fechaInicio} 00:00:00`);
+    }
+    if (fechaFin) {
+      whereClauses.push('r.fecha_visita <= ?');
+      params.push(`${fechaFin} 23:59:59`);
+    }
+    const serviceCond = buildServiceFilterSql(serviceFilters, 'reporte');
+    if (serviceCond) {
+      whereClauses.push(serviceCond.sql);
+      params.push(...serviceCond.values);
+    }
+    if (search) {
+      whereClauses.push('(r.orden_id LIKE ? OR r.ticket LIKE ? OR r.cliente LIKE ? OR r.telefono LIKE ? OR r.distrito LIKE ? OR r.cuadrilla LIKE ?)');
+      const s = `%${search}%`;
+      params.push(s, s, s, s, s, s);
+    }
+
+    const whereSql = whereClauses.join(' AND ');
+
+    // 1. Totales generales del embudo
+    const kpiQuery = `
+      SELECT 
+        COUNT(*) as total_ots,
+        COALESCE(SUM(CASE WHEN r.se_envio_wsp = 'SI' THEN 1 ELSE 0 END), 0) as wsp_enviados,
+        COALESCE(SUM(CASE WHEN r.se_envio_wsp = 'NO' THEN 1 ELSE 0 END), 0) as wsp_no_enviados,
+        COALESCE(SUM(CASE WHEN r.ingreso_tracking = 'SI' THEN 1 ELSE 0 END), 0) as tracking_ingresados,
+        COALESCE(SUM(CASE WHEN r.reprogramo = 'SI' THEN 1 ELSE 0 END), 0) as reprogramados,
+        COALESCE(SUM(CASE WHEN r.respondio_encuesta = 'SI' THEN 1 ELSE 0 END), 0) as encuestas_respondidas,
+        COALESCE(SUM(CASE WHEN r.pulso_soporte = 'SI' THEN 1 ELSE 0 END), 0) as pulso_soporte,
+        COALESCE(SUM(r.total_interacciones_tracking), 0) as total_interacciones,
+        COALESCE(SUM(r.vistas_mapa_seguimiento), 0) as total_vistas_mapa
+      FROM vw_reporte_funnel_casos_360 r
+      WHERE ${whereSql}
+    `;
+
+    // 2. Desglose de estados de mensaje WSP
+    const estadosWspQuery = `
+      SELECT 
+        COALESCE(NULLIF(TRIM(r.estado_wsp), ''), 'NO ENVIADO') as estado,
+        COUNT(*) as total
+      FROM vw_reporte_funnel_casos_360 r
+      WHERE ${whereSql}
+      GROUP BY estado
+      ORDER BY total DESC
+    `;
+
+    // 3. Desglose por Sector Operativo
+    const sectoresQuery = `
+      SELECT 
+        COALESCE(NULLIF(TRIM(r.sector_operativo), ''), 'SIN SECTOR') as sector,
+        COUNT(*) as total,
+        COALESCE(SUM(CASE WHEN r.se_envio_wsp = 'SI' THEN 1 ELSE 0 END), 0) as enviados,
+        COALESCE(SUM(CASE WHEN r.se_envio_wsp = 'NO' THEN 1 ELSE 0 END), 0) as no_enviados,
+        COALESCE(SUM(CASE WHEN r.ingreso_tracking = 'SI' THEN 1 ELSE 0 END), 0) as tracking_ingresados,
+        COALESCE(SUM(CASE WHEN LOWER(r.estado_wsp) = 'read' THEN 1 ELSE 0 END), 0) as leidos,
+        COALESCE(SUM(CASE WHEN LOWER(r.estado_wsp) = 'failed' THEN 1 ELSE 0 END), 0) as fallidos
+      FROM vw_reporte_funnel_casos_360 r
+      WHERE ${whereSql}
+      GROUP BY sector
+      ORDER BY total DESC
+      LIMIT 30
+    `;
+
+    // 4. Desglose por Tipo de Operación
+    const operacionesQuery = `
+      SELECT 
+        COALESCE(NULLIF(TRIM(r.tipo_operacion), ''), 'OTROS') as operacion,
+        COUNT(*) as total,
+        COALESCE(SUM(CASE WHEN r.se_envio_wsp = 'SI' THEN 1 ELSE 0 END), 0) as enviados,
+        COALESCE(SUM(CASE WHEN r.ingreso_tracking = 'SI' THEN 1 ELSE 0 END), 0) as tracking_ingresados
+      FROM vw_reporte_funnel_casos_360 r
+      WHERE ${whereSql}
+      GROUP BY operacion
+      ORDER BY total DESC
+      LIMIT 12
+    `;
+
+    const [[kpiRows], [estadosRows], [sectoresRows], [operacionesRows]]: any = await Promise.all([
+      pool.query(kpiQuery, params),
+      pool.query(estadosWspQuery, params),
+      pool.query(sectoresQuery, params),
+      pool.query(operacionesQuery, params)
+    ]);
+
+    res.json({
+      success: true,
+      kpis: kpiRows[0] || {},
+      estadosWsp: estadosRows || [],
+      sectores: sectoresRows || [],
+      operaciones: operacionesRows || []
+    });
+  } catch (error: any) {
+    console.error('Error en /api/4dm1n_/dashboard-stats:', error);
+    res.status(500).json({ success: false, message: 'Error consultando métricas del dashboard' });
+  }
+});
+
 // 2.5 Consultar historial en vivo de Mantra con división estricta en 3 segmentos: CLIENTE / ASESOR / PLANTILLA
-app.get('/api/admin/mantra-chat', async (req, res) => {
+app.get('/api/4dm1n_/mantra-chat', async (req, res) => {
   try {
     const rawPhone = String(req.query.phone || '').trim().replace(/\D/g, '');
     const phone = rawPhone.length > 9 ? rawPhone.slice(-9) : rawPhone;
@@ -1528,11 +1691,22 @@ app.get('/api/admin/mantra-chat', async (req, res) => {
       return res.status(400).json({ success: false, message: 'Parámetro phone requerido' });
     }
 
-    // Configuración según grupo de servicio
-    const isAverias = grupoServicio.toLowerCase().includes('averia');
-    const config = isAverias
-      ? { GROUP_ID: '68508b455ba42fd0a6660300', API_KEY: '618684ea-0e61-478f-9b22-bc0fd8b8a934' }
-      : { GROUP_ID: '685dc70e53dd0ac2492c69ca', API_KEY: '3d0d59f1-f3ea-47be-b5b0-d7ffca33817d' };
+    // Configuración dinámica según catálogo de plantillas config_plantillas_mantra
+    let config = { GROUP_ID: '685dc70e53dd0ac2492c69ca', API_KEY: '3d0d59f1-f3ea-47be-b5b0-d7ffca33817d' };
+    try {
+      const [cfgRows]: any = await pool.query(
+        `SELECT group_id, api_key FROM config_plantillas_mantra 
+         WHERE (UPPER(TRIM(tipo_servicio)) = UPPER(TRIM(?)) OR nombre_alias LIKE ?) AND activo = 1 LIMIT 1`,
+        [grupoServicio, `%${grupoServicio}%`]
+      );
+      if (cfgRows && cfgRows.length > 0 && cfgRows[0].group_id && cfgRows[0].api_key) {
+        config = { GROUP_ID: cfgRows[0].group_id, API_KEY: cfgRows[0].api_key };
+      } else if (grupoServicio.toLowerCase().includes('averia')) {
+        config = { GROUP_ID: '68508b455ba42fd0a6660300', API_KEY: '618684ea-0e61-478f-9b22-bc0fd8b8a934' };
+      }
+    } catch (e) {
+      console.warn('Error resolviendo config dinámica de Mantra:', e);
+    }
 
     const mantraRes = await fetch('https://wbpback2pro2.mantra.chat/contacts/chats/historial', {
       method: 'POST',
@@ -1613,19 +1787,19 @@ app.get('/api/admin/mantra-chat', async (req, res) => {
       messages
     });
   } catch (err: any) {
-    console.error('Error en /api/admin/mantra-chat:', err);
+    console.error('Error en /api/4dm1n_/mantra-chat:', err);
     res.status(500).json({ success: false, message: err.message || 'Error consultando Mantra API' });
   }
 });
 
-app.get('/api/admin/export', async (req, res) => {
+app.get('/api/4dm1n_/export', async (req, res) => {
   try {
     const tabla = String(req.query.tabla || 'principal').toLowerCase();
     const format = String(req.query.format || 'csv').toLowerCase();
     const search = String(req.query.search || '').trim();
     const fechaInicio = String(req.query.fechaInicio || '').trim();
     const fechaFin = String(req.query.fechaFin || '').trim();
-    const tipoServicio = String(req.query.tipoServicio || '').trim();
+    const serviceFilters = parseAdminServiceFilters(req.query.tipoServicio);
     const grupoServicio = String(req.query.grupoServicio || '').trim();
     const estadoChat = String(req.query.estadoChat || '').trim();
     const estadoOt = String(req.query.estadoOt || '').trim();
@@ -1706,21 +1880,16 @@ app.get('/api/admin/export', async (req, res) => {
     } else if (tabla === 'chats_mantra' || tabla === 'historial_chats_mantra') {
       let whereClauses: string[] = ['1=1'];
       if (fechaInicio) {
-        whereClauses.push('(h.fecha_gestion_dia >= ? OR h.ultimo_mensaje_fecha >= ?)');
-        params.push(fechaInicio, `${fechaInicio} 00:00:00`);
+        whereClauses.push('(h.fecha_gestion_dia >= ? OR DATE(CONVERT_TZ(h.ultimo_mensaje_fecha, "+00:00", "-05:00")) >= ?)');
+        params.push(fechaInicio, fechaInicio);
       }
       if (fechaFin) {
-        whereClauses.push('(h.fecha_gestion_dia <= ? OR h.ultimo_mensaje_fecha <= ?)');
-        params.push(fechaFin, `${fechaFin} 23:59:59`);
+        whereClauses.push('(h.fecha_gestion_dia <= ? OR DATE(CONVERT_TZ(h.ultimo_mensaje_fecha, "+00:00", "-05:00")) <= ?)');
+        params.push(fechaFin, fechaFin);
       }
       if (grupoServicio) {
-        if (grupoServicio === 'Instalacion' || grupoServicio === 'Averias') {
-          whereClauses.push('h.grupo_servicio = ?');
-          params.push(grupoServicio);
-        } else {
-          whereClauses.push('h.tipo_trabajo = ?');
-          params.push(grupoServicio);
-        }
+        whereClauses.push('(h.grupo_servicio = ? OR h.tipo_trabajo = ?)');
+        params.push(grupoServicio, grupoServicio);
       }
       if (search) {
         whereClauses.push('(h.orden_id LIKE ? OR h.ticket LIKE ? OR h.phone LIKE ? OR h.cliente_nombre LIKE ? OR h.ultimo_mensaje_texto LIKE ? OR h.asesor_asignado LIKE ?)');
@@ -1828,9 +1997,10 @@ app.get('/api/admin/export', async (req, res) => {
         whereClauses.push('r.fecha_visita <= ?');
         params.push(`${fechaFin} 23:59:59`);
       }
-      if (tipoServicio) {
-        whereClauses.push('(r.tipo_operacion = ? OR r.tipo_trabajo = ? OR r.producto = ?)');
-        params.push(tipoServicio, tipoServicio, tipoServicio);
+      const serviceCond = buildServiceFilterSql(serviceFilters, 'reporte');
+      if (serviceCond) {
+        whereClauses.push(serviceCond.sql);
+        params.push(...serviceCond.values);
       }
       if (estadoOt) {
         whereClauses.push('r.estado_ot = ?');
@@ -1890,9 +2060,10 @@ app.get('/api/admin/export', async (req, res) => {
         whereClauses.push('w.`F.Visita` <= ?');
         params.push(`${fechaFin} 23:59:59`);
       }
-      if (tipoServicio) {
-        whereClauses.push('COALESCE(ts_prod.Tipo, ts_traba.Tipo, w.TipoTraba) = ?');
-        params.push(tipoServicio);
+      const serviceCond = buildServiceFilterSql(serviceFilters, 'principal');
+      if (serviceCond) {
+        whereClauses.push(serviceCond.sql);
+        params.push(...serviceCond.values);
       }
       if (search) {
         whereClauses.push('(w.OrdenId LIKE ? OR w.Cliente LIKE ? OR w.`Número Documento` LIKE ? OR w.token LIKE ? OR w.CodiSegui LIKE ? OR w.Direccion LIKE ?)');
@@ -1950,6 +2121,7 @@ app.get('/api/admin/export', async (req, res) => {
   }
 });
 
-app.listen(port, '0.0.0.0', () => {
-  console.log(`🚀 Servidor API corriendo en http://0.0.0.0:${port}`);
+const host = process.env.HOST || '0.0.0.0';
+app.listen(port, host, () => {
+  console.log(`🚀 Servidor API corriendo en http://${host}:${port}`);
 });

@@ -35,7 +35,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
             <Route path="/miwin/v" element={<MiWinSeguimiento />} />
             <Route path="/miwin/:dni" element={<MiWinSeguimiento />} />
             <Route path="/miwin" element={<MiWinSeguimiento />} />
-            <Route path="/admin" element={<AdminDashboard />} />
+            <Route path="/4dm1n_" element={<AdminDashboard />} />
           </Routes>
         </Suspense>
         <Toaster />
