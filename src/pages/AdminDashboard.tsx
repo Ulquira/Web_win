@@ -1115,7 +1115,25 @@ export default function AdminDashboard() {
                 const failedTotal = estadosList.find(e => e.estado.toLowerCase() === 'failed')?.total || 0;
                 const pctRead = wspEnviados > 0 ? ((readTotal / wspEnviados) * 100).toFixed(1) : '0.0';
                 const pctTrackingDeRead = readTotal > 0 ? ((trackingIngresados / readTotal) * 100).toFixed(1) : '0.0';
-                const avanceDiarioList: Array<any> = dashboardStats.avanceDiario || [];
+                const avanceDiarioList: Array<any> = (dashboardStats.avanceDiario && dashboardStats.avanceDiario.length > 0)
+                  ? dashboardStats.avanceDiario
+                  : totalOts > 0
+                    ? [{
+                        fecha: fechaInicio || getTodayPeruString(),
+                        total_ots: totalOts,
+                        wsp_enviados: wspEnviados,
+                        wsp_no_enviados: wspNoEnviados,
+                        read_total: readTotal,
+                        delivered_total: deliveredTotal,
+                        sent_total: sentTotal,
+                        failed_total: failedTotal,
+                        tracking_ingresados: trackingIngresados,
+                        total_vistas_mapa: vistasMapa,
+                        reprogramados: reprogramados,
+                        encuestas_respondidas: encuestas,
+                        pulso_soporte: soporte
+                      }]
+                    : [];
 
                 const formatDia = (fechaStr: string) => {
                   if (!fechaStr || fechaStr === 'Sin fecha') return 'Sin fecha';
