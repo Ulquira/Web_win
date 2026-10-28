@@ -1799,18 +1799,28 @@ app.get('/api/4dm1n_/dashboard-stats', async (req, res) => {
         COALESCE(SUM(CASE WHEN r.pulso_soporte = 'SI' THEN 1 ELSE 0 END), 0) as pulso_soporte
       FROM vw_reporte_funnel_casos_360 r
       WHERE ${whereSql}
-      GROUP BY DATE_FORMAT(r.fecha_visita, '%Y-%m-%d')
+      GROUP BY fecha
       ORDER BY fecha DESC
-      LIMIT 60
+      LIMIT 90
     `;
 
-    const [[kpiRows], [estadosRows], [sectoresRows], [operacionesRows], [diarioRows]]: any = await Promise.all([
+    const [kpiRes, estadosRes, sectoresRes, operacionesRes, diarioRes] = await Promise.allSettled([
       pool.query(kpiQuery, params),
       pool.query(estadosWspQuery, params),
       pool.query(sectoresQuery, params),
       pool.query(operacionesQuery, params),
       pool.query(diarioQuery, params)
     ]);
+
+    const kpiRows = kpiRes.status === 'fulfilled' ? (kpiRes.value as any)[0] : [];
+    const estadosRows = estadosRes.status === 'fulfilled' ? (estadosRes.value as any)[0] : [];
+    const sectoresRows = sectoresRes.status === 'fulfilled' ? (sectoresRes.value as any)[0] : [];
+    const operacionesRows = operacionesRes.status === 'fulfilled' ? (operacionesRes.value as any)[0] : [];
+    const diarioRows = diarioRes.status === 'fulfilled' ? (diarioRes.value as any)[0] : [];
+
+    if (diarioRes.status === 'rejected') {
+      console.error('Error en diarioQuery:', diarioRes.reason);
+    }
 
     res.json({
       success: true,
