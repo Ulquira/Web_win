@@ -1114,6 +1114,21 @@ export default function AdminDashboard() {
                 const sentTotal = estadosList.find(e => e.estado.toLowerCase() === 'sent')?.total || 0;
                 const failedTotal = estadosList.find(e => e.estado.toLowerCase() === 'failed')?.total || 0;
                 const pctRead = wspEnviados > 0 ? ((readTotal / wspEnviados) * 100).toFixed(1) : '0.0';
+                const pctTrackingDeRead = readTotal > 0 ? ((trackingIngresados / readTotal) * 100).toFixed(1) : '0.0';
+                const avanceDiarioList: Array<any> = dashboardStats.avanceDiario || [];
+
+                const formatDia = (fechaStr: string) => {
+                  if (!fechaStr || fechaStr === 'Sin fecha') return 'Sin fecha';
+                  try {
+                    const parts = fechaStr.split('-');
+                    if (parts.length === 3) {
+                      return `${parts[2]}/${parts[1]}/${parts[0]}`;
+                    }
+                    return fechaStr;
+                  } catch {
+                    return fechaStr;
+                  }
+                };
 
                 return (
                   <div className="space-y-4">
@@ -1180,14 +1195,26 @@ export default function AdminDashboard() {
                             <Navigation className="w-4 h-4" />
                           </div>
                         </div>
-                        <div className="flex items-baseline gap-2">
+                        <div className="flex items-baseline gap-2 flex-wrap">
                           <div className="text-2xl font-bold text-amber-400 font-mono">{trackingIngresados.toLocaleString()}</div>
-                          <span className="text-xs px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 font-bold font-mono">
-                            {pctTracking}% CTR
-                          </span>
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span 
+                              className="text-[11px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 font-bold font-mono border border-amber-500/30"
+                              title="Ingresos sobre total de mensajes enviados"
+                            >
+                              {pctTrackingDeEnviados}% s/Env
+                            </span>
+                            <span 
+                              className="text-[11px] px-1.5 py-0.5 rounded bg-cyan-500/20 text-cyan-300 font-bold font-mono border border-cyan-500/30"
+                              title="Ingresos sobre total de mensajes leídos (Read)"
+                            >
+                              {pctTrackingDeRead}% s/Read
+                            </span>
+                          </div>
                         </div>
-                        <div className="text-[10px] text-slate-400 mt-1">
-                          Vistas de mapa: <span className="text-slate-300 font-mono">{vistasMapa.toLocaleString()}</span>
+                        <div className="text-[10px] text-slate-400 mt-1 flex items-center justify-between">
+                          <span>Vistas de mapa: <span className="text-slate-300 font-mono">{vistasMapa.toLocaleString()}</span></span>
+                          <span className="text-slate-500 font-mono text-[10px]">({pctTracking}% base)</span>
                         </div>
                         <div className="absolute top-0 right-0 h-1 w-full bg-amber-500/50" />
                       </div>
@@ -1218,113 +1245,215 @@ export default function AdminDashboard() {
                       </div>
                     </div>
 
-                    {/* 2. Sección Central: Estados de WhatsApp y Embudo Funnel */}
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    {/* 2. Sección Central: Estados de WhatsApp y Tabla de Avance Diario */}
+                    <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
                       {/* Card Estados WSP */}
-                      <div className="bg-slate-900/70 border border-slate-800 rounded-2xl p-4 shadow-sm backdrop-blur">
-                        <div className="flex items-center justify-between border-b border-slate-800 pb-3 mb-4">
-                          <div className="flex items-center gap-2">
-                            <Send className="w-4 h-4 text-emerald-400" />
-                            <h4 className="text-xs font-bold text-white uppercase tracking-wider">
-                              Distribución por Estado del Mensaje WSP
-                            </h4>
+                      <div className="bg-slate-900/70 border border-slate-800 rounded-2xl p-4 shadow-sm backdrop-blur flex flex-col justify-between">
+                        <div>
+                          <div className="flex items-center justify-between border-b border-slate-800 pb-3 mb-4">
+                            <div className="flex items-center gap-2">
+                              <Send className="w-4 h-4 text-emerald-400" />
+                              <h4 className="text-xs font-bold text-white uppercase tracking-wider">
+                                Distribución por Estado del Mensaje WSP
+                              </h4>
+                            </div>
+                            <span className="text-[11px] font-mono text-slate-400">{wspEnviados + wspNoEnviados} msgs</span>
                           </div>
-                          <span className="text-[11px] font-mono text-slate-400">{wspEnviados + wspNoEnviados} msgs</span>
-                        </div>
-                        <div className="space-y-3">
-                          {estadosList.map((item, idx) => {
-                            const count = Number(item.total || 0);
-                            const grandTotal = totalOts || 1;
-                            const pct = ((count / grandTotal) * 100).toFixed(1);
-                            const isRead = item.estado.toLowerCase() === 'read';
-                            const isDelivered = item.estado.toLowerCase() === 'delivered';
-                            const isSent = item.estado.toLowerCase() === 'sent';
-                            const isFailed = item.estado.toLowerCase() === 'failed';
+                          <div className="space-y-3">
+                            {estadosList.map((item, idx) => {
+                              const count = Number(item.total || 0);
+                              const grandTotal = totalOts || 1;
+                              const pct = ((count / grandTotal) * 100).toFixed(1);
+                              const isRead = item.estado.toLowerCase() === 'read';
+                              const isDelivered = item.estado.toLowerCase() === 'delivered';
+                              const isSent = item.estado.toLowerCase() === 'sent';
+                              const isFailed = item.estado.toLowerCase() === 'failed';
 
-                            const colorClass = isRead ? 'bg-emerald-500' : isDelivered ? 'bg-cyan-500' : isSent ? 'bg-blue-500' : isFailed ? 'bg-rose-500' : 'bg-slate-600';
-                            const badgeBorder = isRead ? 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10' : isDelivered ? 'text-cyan-400 border-cyan-500/30 bg-cyan-500/10' : isSent ? 'text-blue-400 border-blue-500/30 bg-blue-500/10' : isFailed ? 'text-rose-400 border-rose-500/30 bg-rose-500/10' : 'text-slate-400 border-slate-700 bg-slate-800/40';
+                              const colorClass = isRead ? 'bg-emerald-500' : isDelivered ? 'bg-cyan-500' : isSent ? 'bg-blue-500' : isFailed ? 'bg-rose-500' : 'bg-slate-600';
+                              const badgeBorder = isRead ? 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10' : isDelivered ? 'text-cyan-400 border-cyan-500/30 bg-cyan-500/10' : isSent ? 'text-blue-400 border-blue-500/30 bg-blue-500/10' : isFailed ? 'text-rose-400 border-rose-500/30 bg-rose-500/10' : 'text-slate-400 border-slate-700 bg-slate-800/40';
 
-                            return (
-                              <div key={idx} className="space-y-1">
-                                <div className="flex items-center justify-between text-xs">
-                                  <span className={`px-2 py-0.5 rounded-md font-mono text-[10px] font-bold border ${badgeBorder}`}>
-                                    {item.estado.toUpperCase()}
-                                  </span>
-                                  <div className="flex items-center gap-2">
-                                    <span className="font-mono font-bold text-white">{count.toLocaleString()}</span>
-                                    <span className="text-[10px] text-slate-400 font-mono w-12 text-right">({pct}%)</span>
+                              return (
+                                <div key={idx} className="space-y-1">
+                                  <div className="flex items-center justify-between text-xs">
+                                    <span className={`px-2 py-0.5 rounded-md font-mono text-[10px] font-bold border ${badgeBorder}`}>
+                                      {item.estado.toUpperCase()}
+                                    </span>
+                                    <div className="flex items-center gap-2">
+                                      <span className="font-mono font-bold text-white">{count.toLocaleString()}</span>
+                                      <span className="text-[10px] text-slate-400 font-mono w-12 text-right">({pct}%)</span>
+                                    </div>
+                                  </div>
+                                  <div className="h-2 w-full bg-slate-950 rounded-full overflow-hidden border border-slate-800/80">
+                                    <div 
+                                      className={`h-full ${colorClass} rounded-full transition-all duration-500`} 
+                                      style={{ width: `${pct}%` }} 
+                                    />
                                   </div>
                                 </div>
-                                <div className="h-2 w-full bg-slate-950 rounded-full overflow-hidden border border-slate-800/80">
-                                  <div 
-                                    className={`h-full ${colorClass} rounded-full transition-all duration-500`} 
-                                    style={{ width: `${pct}%` }} 
-                                  />
-                                </div>
-                              </div>
-                            );
-                          })}
+                              );
+                            })}
+                          </div>
                         </div>
                       </div>
 
-                      {/* Card Embudo Funnel */}
+                      {/* Card Avance Diario (Tabla de Indicadores Día a Día) */}
                       <div className="bg-slate-900/70 border border-slate-800 rounded-2xl p-4 shadow-sm backdrop-blur flex flex-col">
-                        <div className="flex items-center justify-between border-b border-slate-800 pb-3 mb-4">
+                        <div className="flex items-center justify-between border-b border-slate-800 pb-3 mb-3">
                           <div className="flex items-center gap-2">
-                            <TrendingUp className="w-4 h-4 text-orange-400" />
+                            <CalendarClock className="w-4 h-4 text-cyan-400" />
                             <h4 className="text-xs font-bold text-white uppercase tracking-wider">
-                              Embudo de Conversión Operativa
+                              Avance Diario de Indicadores
                             </h4>
                           </div>
-                          <span className="text-[11px] text-orange-400 font-semibold">{pctTrackingDeEnviados}% apertura</span>
+                          <span className="text-[11px] font-mono text-slate-400">
+                            {avanceDiarioList.length} {avanceDiarioList.length === 1 ? 'día' : 'días'}
+                          </span>
                         </div>
-                        <div className="space-y-3 flex-1 justify-center flex flex-col">
-                          {/* Paso 1 */}
-                          <div className="p-2.5 bg-slate-950/70 rounded-xl border border-slate-800 flex items-center justify-between">
-                            <div className="flex items-center gap-2.5">
-                              <span className="w-5 h-5 rounded-full bg-blue-500/20 text-blue-400 font-bold text-[10px] flex items-center justify-center">1</span>
-                              <span className="text-xs text-slate-200 font-medium">Órdenes Programadas en Agenda</span>
-                            </div>
-                            <div className="text-right">
-                              <div className="font-mono font-bold text-white text-xs">{totalOts.toLocaleString()}</div>
-                              <span className="text-[10px] text-slate-500 font-mono">100% Base</span>
-                            </div>
-                          </div>
+                        <div className="overflow-x-auto max-h-[320px] scrollbar-thin scrollbar-thumb-slate-700">
+                          <table className="w-full text-left text-xs text-slate-300 border-collapse">
+                            <thead className="bg-slate-950/90 sticky top-0 z-10 border-b border-slate-800 text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
+                              <tr>
+                                <th className="py-2.5 px-3 whitespace-nowrap">Fecha</th>
+                                <th className="py-2.5 px-3 text-right whitespace-nowrap">Total Base</th>
+                                <th className="py-2.5 px-3 text-right whitespace-nowrap">WSP Env.</th>
+                                <th className="py-2.5 px-3 text-right whitespace-nowrap">Leídos (Read)</th>
+                                <th className="py-2.5 px-3 text-right whitespace-nowrap">Tracking</th>
+                                <th className="py-2.5 px-3 text-right whitespace-nowrap">Vistas</th>
+                                <th className="py-2.5 px-3 text-right whitespace-nowrap">Reprog.</th>
+                                <th className="py-2.5 px-3 text-right whitespace-nowrap">Encuestas</th>
+                                <th className="py-2.5 px-3 text-right whitespace-nowrap">SOS</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-800/60 font-mono text-[11px]">
+                              {avanceDiarioList.length === 0 ? (
+                                <tr>
+                                  <td colSpan={9} className="py-8 text-center text-slate-500 font-sans text-xs">
+                                    No hay registros diarios en el rango seleccionado
+                                  </td>
+                                </tr>
+                              ) : (
+                                avanceDiarioList.map((dia: any, dIdx: number) => {
+                                  const diaTotal = Number(dia.total_ots || 0);
+                                  const diaEnv = Number(dia.wsp_enviados || 0);
+                                  const diaPctEnv = diaTotal > 0 ? ((diaEnv / diaTotal) * 100).toFixed(1) : '0.0';
+                                  const diaRead = Number(dia.read_total || 0);
+                                  const diaPctRead = diaEnv > 0 ? ((diaRead / diaEnv) * 100).toFixed(1) : '0.0';
+                                  const diaTrack = Number(dia.tracking_ingresados || 0);
+                                  const diaPctTrackEnv = diaEnv > 0 ? ((diaTrack / diaEnv) * 100).toFixed(1) : '0.0';
+                                  const diaPctTrackRead = diaRead > 0 ? ((diaTrack / diaRead) * 100).toFixed(1) : '0.0';
+                                  const diaVistas = Number(dia.total_vistas_mapa || 0);
+                                  const diaReprog = Number(dia.reprogramados || 0);
+                                  const diaEnc = Number(dia.encuestas_respondidas || 0);
+                                  const diaSos = Number(dia.pulso_soporte || 0);
 
-                          {/* Paso 2 */}
-                          <div className="p-2.5 bg-slate-950/70 rounded-xl border border-slate-800 flex items-center justify-between">
-                            <div className="flex items-center gap-2.5">
-                              <span className="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-400 font-bold text-[10px] flex items-center justify-center">2</span>
-                              <span className="text-xs text-slate-200 font-medium">WhatsApp Mantra Notificados</span>
-                            </div>
-                            <div className="text-right">
-                              <div className="font-mono font-bold text-emerald-400 text-xs">{wspEnviados.toLocaleString()}</div>
-                              <span className="text-[10px] text-emerald-400/80 font-mono">{pctEnviados}% de base</span>
-                            </div>
-                          </div>
+                                  return (
+                                    <tr key={dIdx} className="hover:bg-slate-800/30 transition-colors">
+                                      <td className="py-2 px-3 font-semibold text-white whitespace-nowrap font-sans">
+                                        {formatDia(dia.fecha)}
+                                      </td>
+                                      <td className="py-2 px-3 text-right text-slate-200">
+                                        {diaTotal.toLocaleString()}
+                                      </td>
+                                      <td className="py-2 px-3 text-right whitespace-nowrap">
+                                        <span className="text-emerald-400 font-bold">{diaEnv.toLocaleString()}</span>
+                                        <span className="text-[10px] text-emerald-400/80 ml-1 font-normal">({diaPctEnv}%)</span>
+                                      </td>
+                                      <td className="py-2 px-3 text-right whitespace-nowrap">
+                                        <span className="text-cyan-400 font-bold">{diaRead.toLocaleString()}</span>
+                                        <span className="text-[10px] text-cyan-400/80 ml-1 font-normal">({diaPctRead}%)</span>
+                                      </td>
+                                      <td className="py-2 px-3 text-right whitespace-nowrap">
+                                        <span className="text-amber-400 font-bold">{diaTrack.toLocaleString()}</span>
+                                        <span className="text-[10px] text-amber-300 ml-1" title="s/ Enviados">({diaPctTrackEnv}%)</span>
+                                        <span className="text-[10px] text-cyan-300 ml-1" title="s/ Read">[{diaPctTrackRead}%]</span>
+                                      </td>
+                                      <td className="py-2 px-3 text-right text-slate-300">
+                                        {diaVistas.toLocaleString()}
+                                      </td>
+                                      <td className="py-2 px-3 text-right text-purple-400 font-bold">
+                                        {diaReprog.toLocaleString()}
+                                      </td>
+                                      <td className="py-2 px-3 text-right text-emerald-400 font-bold">
+                                        {diaEnc.toLocaleString()}
+                                      </td>
+                                      <td className="py-2 px-3 text-right text-rose-400 font-bold">
+                                        {diaSos.toLocaleString()}
+                                      </td>
+                                    </tr>
+                                  );
+                                })
+                              )}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    </div>
 
-                          {/* Paso 3 */}
-                          <div className="p-2.5 bg-slate-950/70 rounded-xl border border-slate-800 flex items-center justify-between">
-                            <div className="flex items-center gap-2.5">
-                              <span className="w-5 h-5 rounded-full bg-cyan-500/20 text-cyan-400 font-bold text-[10px] flex items-center justify-center">3</span>
-                              <span className="text-xs text-slate-200 font-medium">Mensajes Leídos por el Cliente</span>
-                            </div>
-                            <div className="text-right">
-                              <div className="font-mono font-bold text-cyan-400 text-xs">{readTotal.toLocaleString()}</div>
-                              <span className="text-[10px] text-cyan-400/80 font-mono">{pctRead}% de enviados</span>
-                            </div>
+                    {/* 3. Panel Embudo de Conversión Operativa (Reubicado debajo de Distribución y Avance Diario) */}
+                    <div className="bg-slate-900/70 border border-slate-800 rounded-2xl p-4 shadow-sm backdrop-blur">
+                      <div className="flex items-center justify-between border-b border-slate-800 pb-3 mb-4">
+                        <div className="flex items-center gap-2">
+                          <TrendingUp className="w-4 h-4 text-orange-400" />
+                          <h4 className="text-xs font-bold text-white uppercase tracking-wider">
+                            Embudo de Conversión Operativa
+                          </h4>
+                        </div>
+                        <div className="flex items-center gap-2 text-xs">
+                          <span className="text-orange-400 font-semibold">{pctTrackingDeEnviados}% apertura s/env</span>
+                          <span className="text-slate-600">·</span>
+                          <span className="text-cyan-400 font-semibold">{pctTrackingDeRead}% s/read</span>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                        {/* Paso 1 */}
+                        <div className="p-3 bg-slate-950/70 rounded-xl border border-slate-800 flex flex-col justify-between">
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="w-5 h-5 rounded-full bg-blue-500/20 text-blue-400 font-bold text-[10px] flex items-center justify-center">1</span>
+                            <span className="text-[10px] text-slate-500 font-mono">100% Base</span>
                           </div>
+                          <div className="text-xs text-slate-300 font-medium mb-1">Órdenes Programadas</div>
+                          <div className="font-mono font-bold text-white text-lg">{totalOts.toLocaleString()}</div>
+                          <div className="h-1.5 w-full bg-slate-800 rounded-full mt-2.5 overflow-hidden">
+                            <div className="h-full bg-blue-500 rounded-full w-full" />
+                          </div>
+                        </div>
 
-                          {/* Paso 4 */}
-                          <div className="p-2.5 bg-slate-950/70 rounded-xl border border-slate-800 flex items-center justify-between">
-                            <div className="flex items-center gap-2.5">
-                              <span className="w-5 h-5 rounded-full bg-amber-500/20 text-amber-400 font-bold text-[10px] flex items-center justify-center">4</span>
-                              <span className="text-xs text-slate-200 font-medium">Clientes que Ingresaron al Mapa</span>
-                            </div>
-                            <div className="text-right">
-                              <div className="font-mono font-bold text-amber-400 text-xs">{trackingIngresados.toLocaleString()}</div>
-                              <span className="text-[10px] text-amber-400/80 font-mono">{pctTracking}% del total</span>
-                            </div>
+                        {/* Paso 2 */}
+                        <div className="p-3 bg-slate-950/70 rounded-xl border border-slate-800 flex flex-col justify-between">
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-400 font-bold text-[10px] flex items-center justify-center">2</span>
+                            <span className="text-[10px] text-emerald-400/80 font-mono">{pctEnviados}% de base</span>
+                          </div>
+                          <div className="text-xs text-slate-300 font-medium mb-1">WhatsApp Notificados</div>
+                          <div className="font-mono font-bold text-emerald-400 text-lg">{wspEnviados.toLocaleString()}</div>
+                          <div className="h-1.5 w-full bg-slate-800 rounded-full mt-2.5 overflow-hidden">
+                            <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${pctEnviados}%` }} />
+                          </div>
+                        </div>
+
+                        {/* Paso 3 */}
+                        <div className="p-3 bg-slate-950/70 rounded-xl border border-slate-800 flex flex-col justify-between">
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="w-5 h-5 rounded-full bg-cyan-500/20 text-cyan-400 font-bold text-[10px] flex items-center justify-center">3</span>
+                            <span className="text-[10px] text-cyan-400/80 font-mono">{pctRead}% de env.</span>
+                          </div>
+                          <div className="text-xs text-slate-300 font-medium mb-1">Leídos por Cliente</div>
+                          <div className="font-mono font-bold text-cyan-400 text-lg">{readTotal.toLocaleString()}</div>
+                          <div className="h-1.5 w-full bg-slate-800 rounded-full mt-2.5 overflow-hidden">
+                            <div className="h-full bg-cyan-500 rounded-full" style={{ width: `${pctRead}%` }} />
+                          </div>
+                        </div>
+
+                        {/* Paso 4 */}
+                        <div className="p-3 bg-slate-950/70 rounded-xl border border-slate-800 flex flex-col justify-between">
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="w-5 h-5 rounded-full bg-amber-500/20 text-amber-400 font-bold text-[10px] flex items-center justify-center">4</span>
+                            <span className="text-[10px] text-amber-400/80 font-mono">{pctTrackingDeEnviados}% s/env · {pctTrackingDeRead}% s/read</span>
+                          </div>
+                          <div className="text-xs text-slate-300 font-medium mb-1">Ingresaron al Mapa</div>
+                          <div className="font-mono font-bold text-amber-400 text-lg">{trackingIngresados.toLocaleString()}</div>
+                          <div className="h-1.5 w-full bg-slate-800 rounded-full mt-2.5 overflow-hidden">
+                            <div className="h-full bg-amber-500 rounded-full" style={{ width: `${pctTrackingDeEnviados}%` }} />
                           </div>
                         </div>
                       </div>

@@ -1740,11 +1740,35 @@ app.get('/api/4dm1n_/dashboard-stats', async (req, res) => {
       LIMIT 12
     `;
 
-    const [[kpiRows], [estadosRows], [sectoresRows], [operacionesRows]]: any = await Promise.all([
+    // 5. Desglose diario de avance e indicadores
+    const diarioQuery = `
+      SELECT 
+        COALESCE(DATE_FORMAT(r.fecha_visita, '%Y-%m-%d'), 'Sin fecha') as fecha,
+        COUNT(*) as total_ots,
+        COALESCE(SUM(CASE WHEN r.se_envio_wsp = 'SI' THEN 1 ELSE 0 END), 0) as wsp_enviados,
+        COALESCE(SUM(CASE WHEN r.se_envio_wsp = 'NO' THEN 1 ELSE 0 END), 0) as wsp_no_enviados,
+        COALESCE(SUM(CASE WHEN LOWER(r.estado_wsp) = 'read' THEN 1 ELSE 0 END), 0) as read_total,
+        COALESCE(SUM(CASE WHEN LOWER(r.estado_wsp) = 'delivered' THEN 1 ELSE 0 END), 0) as delivered_total,
+        COALESCE(SUM(CASE WHEN LOWER(r.estado_wsp) = 'sent' THEN 1 ELSE 0 END), 0) as sent_total,
+        COALESCE(SUM(CASE WHEN LOWER(r.estado_wsp) = 'failed' THEN 1 ELSE 0 END), 0) as failed_total,
+        COALESCE(SUM(CASE WHEN r.ingreso_tracking = 'SI' THEN 1 ELSE 0 END), 0) as tracking_ingresados,
+        COALESCE(SUM(r.vistas_mapa_seguimiento), 0) as total_vistas_mapa,
+        COALESCE(SUM(CASE WHEN r.reprogramo = 'SI' THEN 1 ELSE 0 END), 0) as reprogramados,
+        COALESCE(SUM(CASE WHEN r.respondio_encuesta = 'SI' THEN 1 ELSE 0 END), 0) as encuestas_respondidas,
+        COALESCE(SUM(CASE WHEN r.pulso_soporte = 'SI' THEN 1 ELSE 0 END), 0) as pulso_soporte
+      FROM vw_reporte_funnel_casos_360 r
+      WHERE ${whereSql}
+      GROUP BY DATE_FORMAT(r.fecha_visita, '%Y-%m-%d')
+      ORDER BY fecha DESC
+      LIMIT 60
+    `;
+
+    const [[kpiRows], [estadosRows], [sectoresRows], [operacionesRows], [diarioRows]]: any = await Promise.all([
       pool.query(kpiQuery, params),
       pool.query(estadosWspQuery, params),
       pool.query(sectoresQuery, params),
-      pool.query(operacionesQuery, params)
+      pool.query(operacionesQuery, params),
+      pool.query(diarioQuery, params)
     ]);
 
     res.json({
@@ -1752,7 +1776,8 @@ app.get('/api/4dm1n_/dashboard-stats', async (req, res) => {
       kpis: kpiRows[0] || {},
       estadosWsp: estadosRows || [],
       sectores: sectoresRows || [],
-      operaciones: operacionesRows || []
+      operaciones: operacionesRows || [],
+      avanceDiario: diarioRows || []
     });
   } catch (error: any) {
     console.error('Error en /api/4dm1n_/dashboard-stats:', error);
