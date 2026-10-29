@@ -376,9 +376,21 @@ const Seguimiento = ({ customToken, renderServiceSelector }: SeguimientoProps = 
      const res = await fetch(`${API_BASE_URL}/api/cupos/${token}`);
      const dataRes = await res.json();
      if (res.ok && dataRes.success && Array.isArray(dataRes.cupos)) {
-        const primeros7 = dataRes.cupos.slice(0, 7);
+        // Filtrar estrictamente días con disponibilidad real y tramos disponibles (excluyendo hoy/días con disponible=false)
+        const now = new Date();
+        const todayIso = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+
+        const cuposDisponibles = dataRes.cupos.filter((d: any) => {
+          if (!d || d.disponible !== true) return false;
+          const norm = normalizeDateStr(d.fecha);
+          if (norm < todayIso) return false;
+          const hasTramos = Array.isArray(d.tramos) && d.tramos.some((t: any) => t.disponible === true);
+          return hasTramos;
+        });
+
+        const primeros7 = cuposDisponibles.slice(0, 7);
         setCuposApi(primeros7);
-        const primerDisponible = primeros7.find((d: any) => d.disponible);
+        const primerDisponible = primeros7[0];
         if (primerDisponible) {
           setReprogramData(prev => {
             const matchesExisting = prev.fecha && primeros7.some((d: any) => normalizeDateStr(d.fecha) === normalizeDateStr(prev.fecha));

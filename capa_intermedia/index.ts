@@ -830,6 +830,21 @@ function getKongHeaders() {
   };
 }
 
+function formatTimeSlotForCrm(turno: string, isTicket: boolean): string {
+  const clean = String(turno || '').replace(/\s+/g, '');
+  if (isTicket) {
+    if (clean === '08:00-12:00' || clean === '08:00-11:59') return '08:00-11:59';
+    if (clean === '12:00-16:00' || clean === '12:00-15:59') return '12:00-15:59';
+    if (clean === '16:00-20:00' || clean === '16:00-19:59') return '16:00-20:00';
+    return clean;
+  } else {
+    if (clean === '08:00-12:00' || clean === '08:00-11:59') return '08:00-12:00';
+    if (clean === '12:00-16:00' || clean === '12:00-15:59') return '12:00-16:00';
+    if (clean === '16:00-20:00' || clean === '16:00-19:59') return '16:00-20:00';
+    return clean;
+  }
+}
+
 function formatToDdMmYyyy(dateStr: string): string {
   if (!dateStr) return '';
   const clean = dateStr.trim();
@@ -958,12 +973,14 @@ app.post('/api/v1/terceros/reprogramar', verificarTercero, async (req, res) => {
       return res.status(400).json({ success: false, message: 'La orden no cuenta con código CRM registrado para reprogramar' });
     }
 
+    const crmTimeSlot = formatTimeSlotForCrm(turno, orden.isTicket);
+
     if (orden.isTicket) {
       targetUrl = `${UBERIZACION_API_URL}/api/v1/scheduling/visits/reschedule`;
       reschedulePayload = {
         ticketNumber: crmCode,
         newDate: formattedDate,
-        newTimeSlot: turno.trim(),
+        newTimeSlot: crmTimeSlot,
         reason: reasonText
       };
     } else {
@@ -971,7 +988,7 @@ app.post('/api/v1/terceros/reprogramar', verificarTercero, async (req, res) => {
       reschedulePayload = {
         orderCode: crmCode,
         newDate: formattedDate,
-        newTimeSlot: turno.trim(),
+        newTimeSlot: crmTimeSlot,
         reason: reasonText
       };
     }
