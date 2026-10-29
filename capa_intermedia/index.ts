@@ -720,6 +720,254 @@ app.get('/api/encuesta/verificar/:token', verificarTercero, async (req, res) => 
   }
 });
 
+// Helper para consultar datos base de una orden por token
+async function resolveOrdenInfo(token: string) {
+  let [prodRows] = await pool.query(
+    `SELECT 
+       w.OrdenId AS idoperacion, 
+       w.Estado, 
+       w.\`Estado OT\` AS SubEstado,
+       w.Pin_token AS pin_token,
+       w.CodiSegui AS codisegui,
+       w.CodiSeguiClien AS codiseguiclien,
+       w.Producto AS producto,
+       w.TipoTraba AS tipo_trabajo,
+       ts.Tipo AS tipo_servicio
+     FROM VW_WinORdeTraba w
+     LEFT JOIN tiposervicio ts ON UPPER(TRIM(w.Producto)) = UPPER(TRIM(ts.Servicio))
+     WHERE w.token = ? 
+     ORDER BY w.\`F.Soli\` DESC LIMIT 1`, 
+    [token]
+  );
+
+  let rows = prodRows as any[];
+  if (rows.length === 0) {
+    const [testRows] = await pool.query(
+      `SELECT 
+         w.OrdenId AS idoperacion, 
+         w.Estado, 
+         w.\`Estado OT\` AS SubEstado,
+         w.Pin_token AS pin_token,
+         w.CodiSegui AS codisegui,
+         w.CodiSeguiClien AS codiseguiclien,
+         w.Producto AS producto,
+         w.TipoTraba AS tipo_trabajo,
+         ts.Tipo AS tipo_servicio
+       FROM Testmantra w
+       LEFT JOIN tiposervicio ts ON UPPER(TRIM(w.Producto)) = UPPER(TRIM(ts.Servicio))
+       WHERE w.token = ? 
+       ORDER BY w.\`F.Soli\` DESC LIMIT 1`, 
+      [token]
+    );
+    rows = testRows as any[];
+  }
+
+  if (rows.length === 0) return null;
+  const op = rows[0];
+
+  const tipoServicioUpper = (op.tipo_servicio || '').toUpperCase().trim();
+  const productoUpper = (op.producto || '').toUpperCase().trim();
+  const isTicket = tipoServicioUpper === 'AVERIAS' || productoUpper.includes('AVERIA') || productoUpper === 'MOTOWIN';
+
+  return {
+    idoperacion: op.idoperacion,
+    codisegui: op.codisegui,
+    codiseguiclien: op.codiseguiclien,
+    producto: op.producto,
+    tipo_servicio: op.tipo_servicio,
+    isTicket,
+    pin_token: op.pin_token
+  };
+}
+
+// Configuración de integración con API Gateway Kong (Uberización)
+const UBERIZACION_API_URL = (process.env.UBERIZACION_API_URL || 'https://uberizacion.win.pe/cloud').replace(/\/$/, '');
+
+function getKongHeaders() {
+  const kongApiKey = process.env.KONG_APIKEY || '';
+  const now = new Date();
+  const dateStr = now.toISOString().slice(0, 10).replace(/-/g, '');
+  const rand = Math.floor(1000 + Math.random() * 9000);
+  const operationId = `OP-${dateStr}-${rand}`;
+
+  return {
+    'apikey': kongApiKey,
+    'Content-Type': 'application/json',
+    'X-Application-Id': 'UBERIZACION-WEB',
+    'X-Operation-Id': operationId,
+    'X-Service-Id': 'SCHEDULING',
+    'X-Channel-Id': 'WEB',
+    'X-User-Name': 'svc_uberizacion',
+    'X-Marca-Win': 'WIN'
+  };
+}
+
+function formatToDdMmYyyy(dateStr: string): string {
+  if (!dateStr) return '';
+  const clean = dateStr.trim();
+  if (/^\d{2}-\d{2}-\d{4}$/.test(clean)) return clean;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(clean)) {
+    const [y, m, d] = clean.split('-');
+    return `${d}-${m}-${y}`;
+  }
+  return clean;
+}
+
+// Endpoint interno: Consulta de disponibilidad de cupos en tiempo real
+app.get('/api/v1/terceros/cupos/:token', verificarTercero, async (req, res) => {
+  const { token } = req.params;
+
+  try {
+    const orden = await resolveOrdenInfo(token);
+    if (!orden) {
+      return res.status(404).json({ success: false, message: 'Orden o servicio no encontrado para este token' });
+    }
+
+    const kongHeaders = getKongHeaders();
+    let targetUrl = '';
+    let requestPayload: any = {};
+
+    if (orden.isTicket) {
+      targetUrl = `${UBERIZACION_API_URL}/api/v1/scheduling/visits/availability`;
+      requestPayload = {
+        ticketNumber: orden.codisegui || String(orden.idoperacion)
+      };
+    } else {
+      targetUrl = `${UBERIZACION_API_URL}/api/v1/scheduling/installations/availability`;
+      requestPayload = {
+        orderCode: String(orden.idoperacion || orden.codisegui)
+      };
+    }
+
+    const kongResponse = await fetch(targetUrl, {
+      method: 'POST',
+      headers: kongHeaders,
+      body: JSON.stringify(requestPayload)
+    });
+
+    const kongData = await kongResponse.json();
+
+    if (!kongResponse.ok) {
+      console.error(`[CUPOS API] Error de Kong (${kongResponse.status}):`, kongData);
+      return res.status(kongResponse.status).json({
+        success: false,
+        message: kongData?.detail || kongData?.error?.message || 'Error al consultar disponibilidad en CRM',
+        error: kongData
+      });
+    }
+
+    res.json({
+      success: true,
+      tipo: orden.isTicket ? 'ticket' : 'instalacion',
+      orderIdentifier: orden.isTicket ? (orden.codisegui || orden.idoperacion) : (orden.idoperacion || orden.codisegui),
+      ...kongData
+    });
+  } catch (error: any) {
+    console.error('[CUPOS API] Error interno:', error);
+    res.status(500).json({ success: false, message: 'Error interno al consultar cupos', error: error?.message });
+  }
+});
+
+// Endpoint interno: Escritura de reprogramación en CRM Experiencia y persistencia local
+app.post('/api/v1/terceros/reprogramar', verificarTercero, async (req, res) => {
+  const { token, fecha, turno, motivo, pin } = req.body;
+
+  if (!token || !fecha || !turno) {
+    return res.status(400).json({ success: false, message: 'Faltan parámetros obligatorios (token, fecha, turno)' });
+  }
+
+  try {
+    const orden = await resolveOrdenInfo(token);
+    if (!orden) {
+      return res.status(404).json({ success: false, message: 'Orden no encontrada para este token' });
+    }
+
+    // Validación de PIN de identidad si fue enviado
+    if (pin !== undefined && pin !== null) {
+      const pinStr = String(pin).trim();
+      const expectedPin = orden.pin_token ? String(orden.pin_token).trim() : null;
+      if (expectedPin && pinStr !== expectedPin) {
+        return res.status(401).json({ success: false, message: 'El PIN de confirmación es incorrecto' });
+      }
+    }
+
+    const formattedDate = formatToDdMmYyyy(fecha);
+    const kongHeaders = getKongHeaders();
+    let targetUrl = '';
+    let reschedulePayload: any = {};
+
+    const reasonText = (motivo && String(motivo).trim()) || 'Reprogramación - Solicitud del Cliente';
+
+    if (orden.isTicket) {
+      targetUrl = `${UBERIZACION_API_URL}/api/v1/scheduling/visits/reschedule`;
+      reschedulePayload = {
+        ticketNumber: orden.codisegui || String(orden.idoperacion),
+        newDate: formattedDate,
+        newTimeSlot: turno.trim(),
+        reason: reasonText
+      };
+    } else {
+      targetUrl = `${UBERIZACION_API_URL}/api/v1/scheduling/installations/reschedule`;
+      reschedulePayload = {
+        orderCode: String(orden.idoperacion || orden.codisegui),
+        newDate: formattedDate,
+        newTimeSlot: turno.trim(),
+        reason: reasonText
+      };
+    }
+
+    console.log(`[REPROGRAMACION API] Enviando solicitud a ${targetUrl}:`, reschedulePayload);
+
+    const kongResponse = await fetch(targetUrl, {
+      method: 'POST',
+      headers: kongHeaders,
+      body: JSON.stringify(reschedulePayload)
+    });
+
+    const kongData = await kongResponse.json();
+
+    if (!kongResponse.ok) {
+      console.warn(`[REPROGRAMACION API] Kong rechazó la solicitud (${kongResponse.status}):`, kongData);
+      return res.status(kongResponse.status).json({
+        success: false,
+        statusCode: kongResponse.status,
+        message: kongData?.detail || kongData?.message || 'No fue posible completar la reprogramación en CRM',
+        error: kongData
+      });
+    }
+
+    // Persistencia local en BD y archivo de contingencia para trazabilidad
+    try {
+      const insertQuery = `INSERT INTO REPROGRAMACIONES (token, fecha_solicitada, turno, motivo) VALUES (?, ?, ?, ?)`;
+      await pool.query(insertQuery, [token, formattedDate, turno.trim(), reasonText]);
+    } catch (dbErr) {
+      console.error('[REPROGRAMACION API] Error insertando en REPROGRAMACIONES local:', dbErr);
+    }
+
+    try {
+      const csvPath = path.join(__dirname, '../server/reprogramaciones.csv');
+      const timestamp = new Date().toISOString();
+      const cleanMotivo = reasonText.replace(/,/g, ' ');
+      if (!fs.existsSync(csvPath)) {
+        await fs.promises.writeFile(csvPath, 'FECHA_REGISTRO,TOKEN,NUEVA_FECHA_SOLICITADA,TURNO,MOTIVO\n', 'utf8');
+      }
+      await fs.promises.appendFile(csvPath, `${timestamp},${token},${formattedDate},${turno.trim()},${cleanMotivo}\n`, 'utf8');
+    } catch (csvErr) {
+      console.error('[REPROGRAMACION API] Error escribiendo en CSV contingencia:', csvErr);
+    }
+
+    res.json({
+      success: true,
+      message: 'Reprogramación confirmada y registrada exitosamente en CRM',
+      data: kongData
+    });
+  } catch (error: any) {
+    console.error('[REPROGRAMACION API] Error no controlado:', error);
+    res.status(500).json({ success: false, message: 'Error interno al procesar la reprogramación', error: error?.message });
+  }
+});
+
+
 // Endpoint para guardar reprogramaciones (Oculto al mundo exterior)
 app.post('/api/reprogramar', verificarTercero, async (req, res) => {
   const { token, fecha, turno, motivo } = req.body;
