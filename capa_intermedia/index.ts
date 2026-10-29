@@ -889,10 +889,32 @@ app.get('/api/v1/terceros/cupos/:token', verificarTercero, async (req, res) => {
       });
     }
 
+    // Si el CRM devuelve tramos duplicados por cuadrilla (comportamiento nativo de VT/Averias en CRM), deduplicar
+    if (kongData && Array.isArray(kongData.cupos)) {
+      kongData.cupos = kongData.cupos.map((dia: any) => {
+        if (!dia || !Array.isArray(dia.tramos)) return dia;
+        const tramosMap = new Map<string, any>();
+        for (const t of dia.tramos) {
+          const rawTramo = String(t.tramo || '').trim();
+          if (!rawTramo) continue;
+          if (!tramosMap.has(rawTramo)) {
+            tramosMap.set(rawTramo, { ...t });
+          } else {
+            // Si al menos una cuadrilla tiene disponibilidad, el tramo queda disponible
+            if (t.disponible) tramosMap.get(rawTramo).disponible = true;
+          }
+        }
+        return {
+          ...dia,
+          tramos: Array.from(tramosMap.values())
+        };
+      });
+    }
+
     res.json({
       success: true,
       tipo: orden.isTicket ? 'ticket' : 'instalacion',
-      orderIdentifier: orden.isTicket ? (orden.codisegui || orden.idoperacion) : (orden.idoperacion || orden.codisegui),
+      orderIdentifier: orden.idoperacion,
       ...kongData
     });
   } catch (error: any) {
