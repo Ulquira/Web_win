@@ -51,47 +51,66 @@ app.use(express.json());
 // Registrar rutas de replicación en tiempo real (puede actuar como receptor)
 app.use(replicationRouter);
 
-// Endpoint para guardar reprogramaciones en BD
-const reprogramarSchema = z.object({
-  token: z.string().min(5).max(150),
-  fecha: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-  turno: z.string().min(1).max(100),
-  motivo: z.string().max(500).optional().default(''),
-  motivoSeleccionado: z.string().max(200).optional().default('')
+// Endpoint para consultar disponibilidad de cupos en tiempo real
+app.get('/api/cupos/:token', async (req, res) => {
+  const { token } = req.params;
+  try {
+    const response = await fetch(`${CAPA_INTERMEDIA_URL}/api/v1/terceros/cupos/${token}`, {
+      headers: { 'Authorization': `Bearer ${SECRET_API_KEY}` }
+    });
+    const data = await response.json();
+    return res.status(response.status).json(data);
+  } catch (error: any) {
+    console.error('Error consultando cupos en capa intermedia:', error);
+    return res.status(500).json({ success: false, message: 'Error interno consultando cupos', error: error?.message });
+  }
 });
 
+// Endpoint para guardar reprogramaciones delegando a la capa intermedia y CRM
 app.post('/api/reprogramar', async (req, res) => {
-  const parseResult = reprogramarSchema.safeParse(req.body);
-
-  if (!parseResult.success) {
-    return res.status(400).json({ success: false, message: 'Datos inválidos', errors: parseResult.error.format() });
+  const { token, fecha, turno, motivo, motivoSeleccionado, pin } = req.body;
+  if (!token || !fecha || !turno) {
+    return res.status(400).json({ success: false, message: 'Faltan datos obligatorios' });
   }
 
-  const { token, fecha, turno, motivo, motivoSeleccionado } = parseResult.data;
-  const motivoDetalle = [motivoSeleccionado, motivo].filter(Boolean).join(' - ') || 'Sin motivo';
+  const motivoDetalle = [motivoSeleccionado, motivo].filter(Boolean).join(' - ') || 'Reprogramación - Solicitud del Cliente';
 
   try {
-    const query = `
-      INSERT INTO REPROGRAMACIONES (token, fecha_solicitada, turno, motivo)
-      VALUES (?, ?, ?, ?)
-    `;
-    await pool.query(query, [token, fecha, turno, motivoDetalle]);
-
-    // Invalidar caché inmediato para que el cliente vea el cambio sin espera
-    apiCache.delete(`inst_${token}`);
-
-    // Replicar cambio a la base de datos secundaria en tiempo real
-    replicateChange('REPROGRAMACIONES', 'INSERT', {
-      token,
-      fecha_solicitada: fecha,
-      turno,
-      motivo: motivoDetalle
+    const response = await fetch(`${CAPA_INTERMEDIA_URL}/api/v1/terceros/reprogramar`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${SECRET_API_KEY}`
+      },
+      body: JSON.stringify({
+        token,
+        fecha,
+        turno,
+        motivo: motivoDetalle,
+        pin
+      })
     });
 
-    res.json({ success: true, message: 'Reprogramación guardada con éxito' });
-  } catch (error) {
-    console.error('Error guardando en BD:', error);
-    res.status(500).json({ success: false, message: 'Error interno guardando la solicitud' });
+    const data = await response.json();
+
+    if (response.ok && data.success) {
+      apiCache.delete(`inst_${token}`);
+      try {
+        replicateChange('REPROGRAMACIONES', 'INSERT', {
+          token,
+          fecha_solicitada: fecha,
+          turno,
+          motivo: motivoDetalle
+        });
+      } catch (repErr) {
+        console.warn('Advertencia en replicateChange:', repErr);
+      }
+    }
+
+    return res.status(response.status).json(data);
+  } catch (error: any) {
+    console.error('Error comunicando con capa intermedia para reprogramar:', error);
+    return res.status(500).json({ success: false, message: 'Error interno guardando la solicitud', error: error?.message });
   }
 });
 
