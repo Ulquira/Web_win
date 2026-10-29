@@ -552,8 +552,19 @@ app.get('/api/instalaciones/:token', async (req, res) => {
       const op = rows[0];
       const tipoServicioUpper = (op.tipo_servicio || '').toUpperCase().trim();
       const productoUpper = (op.producto || '').toUpperCase().trim();
+      const tipoTrabajoUpper = (op.tipo_trabajo || '').toUpperCase().trim();
+      const codiSeguiUpper = String(op.codisegui || '').toUpperCase().trim();
+      const codiSeguiClienUpper = String(op.codiseguiclien || '').toUpperCase().trim();
       const isPostventa = tipoServicioUpper === 'POSTVENTA' || productoUpper.includes('POSTVENTA');
-      const isTicket = tipoServicioUpper === 'AVERIAS' || productoUpper.includes('AVERIA') || productoUpper === 'MOTOWIN';
+      const isTicket = 
+        tipoServicioUpper === 'AVERIAS' || 
+        tipoServicioUpper.includes('POST') ||
+        productoUpper.includes('AVERIA') || 
+        productoUpper.includes('POST') ||
+        productoUpper === 'MOTOWIN' ||
+        /^[A-Z]/.test(codiSeguiUpper) ||
+        /^[A-Z]/.test(codiSeguiClienUpper) ||
+        (tipoTrabajoUpper !== '' && tipoTrabajoUpper !== 'INSTALACION' && !tipoTrabajoUpper.includes('INSTALA'));
 
       let statusFront = 'programada';
       const estadoDB = (op.Estado || '').toUpperCase().trim();

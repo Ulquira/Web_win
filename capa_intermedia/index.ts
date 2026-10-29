@@ -192,8 +192,19 @@ app.get('/api/v1/terceros/instalaciones/:token', verificarTercero, async (req, r
     }
     const tipoServicioUpper = (op.tipo_servicio || '').toUpperCase().trim();
     const productoUpper = (op.producto || '').toUpperCase().trim();
+    const tipoTrabajoUpper = (op.tipo_trabajo || '').toUpperCase().trim();
+    const codiSeguiUpper = String(op.codisegui || '').toUpperCase().trim();
+    const codiSeguiClienUpper = String(op.codiseguiclien || '').toUpperCase().trim();
     const isPostventa = tipoServicioUpper === 'POSTVENTA' || productoUpper.includes('POSTVENTA');
-    const isTicket = tipoServicioUpper === 'AVERIAS' || productoUpper.includes('AVERIA') || productoUpper === 'MOTOWIN';
+    const isTicket = 
+      tipoServicioUpper === 'AVERIAS' || 
+      tipoServicioUpper.includes('POST') ||
+      productoUpper.includes('AVERIA') || 
+      productoUpper.includes('POST') ||
+      productoUpper === 'MOTOWIN' ||
+      /^[A-Z]/.test(codiSeguiUpper) ||
+      /^[A-Z]/.test(codiSeguiClienUpper) ||
+      (tipoTrabajoUpper !== '' && tipoTrabajoUpper !== 'INSTALACION' && !tipoTrabajoUpper.includes('INSTALA'));
 
     // Mapeamos el estado real de tu BBDD a los estados que entiende el frontend del tercero
     let statusFront = 'programada';
@@ -767,12 +778,29 @@ async function resolveOrdenInfo(token: string) {
 
   const tipoServicioUpper = (op.tipo_servicio || '').toUpperCase().trim();
   const productoUpper = (op.producto || '').toUpperCase().trim();
-  const isTicket = tipoServicioUpper === 'AVERIAS' || productoUpper.includes('AVERIA') || productoUpper === 'MOTOWIN';
+  const tipoTrabajoUpper = (op.tipo_trabajo || '').toUpperCase().trim();
+  const codiSeguiUpper = String(op.codisegui || '').toUpperCase().trim();
+  const codiSeguiClienUpper = String(op.codiseguiclien || '').toUpperCase().trim();
+
+  const isTicket = 
+    tipoServicioUpper === 'AVERIAS' || 
+    tipoServicioUpper.includes('POST') ||
+    productoUpper.includes('AVERIA') || 
+    productoUpper.includes('POST') ||
+    productoUpper === 'MOTOWIN' ||
+    /^[A-Z]/.test(codiSeguiUpper) ||
+    /^[A-Z]/.test(codiSeguiClienUpper) ||
+    (tipoTrabajoUpper !== '' && tipoTrabajoUpper !== 'INSTALACION' && !tipoTrabajoUpper.includes('INSTALA'));
+
+  const crmCode = isTicket 
+    ? (op.codisegui || op.codiseguiclien || '')
+    : (op.codiseguiclien || op.codisegui || '');
 
   return {
     idoperacion: op.idoperacion,
     codisegui: op.codisegui,
     codiseguiclien: op.codiseguiclien,
+    crmCode: String(crmCode).trim(),
     producto: op.producto,
     tipo_servicio: op.tipo_servicio,
     isTicket,
@@ -827,9 +855,9 @@ app.get('/api/v1/terceros/cupos/:token', verificarTercero, async (req, res) => {
     let targetUrl = '';
     let requestPayload: any = {};
 
-    const crmCode = String(orden.codisegui || '').trim();
+    const crmCode = orden.crmCode;
     if (!crmCode) {
-      return res.status(400).json({ success: false, message: 'La orden no cuenta con CodiSegui registrado para consultar en CRM' });
+      return res.status(400).json({ success: false, message: 'La orden no cuenta con código CRM registrado para consultar cupos' });
     }
 
     if (orden.isTicket) {
@@ -903,9 +931,9 @@ app.post('/api/v1/terceros/reprogramar', verificarTercero, async (req, res) => {
 
     const reasonText = (motivo && String(motivo).trim()) || 'Reprogramación - Solicitud del Cliente';
 
-    const crmCode = String(orden.codisegui || '').trim();
+    const crmCode = orden.crmCode;
     if (!crmCode) {
-      return res.status(400).json({ success: false, message: 'La orden no cuenta con CodiSegui registrado para reprogramar en CRM' });
+      return res.status(400).json({ success: false, message: 'La orden no cuenta con código CRM registrado para reprogramar' });
     }
 
     if (orden.isTicket) {
