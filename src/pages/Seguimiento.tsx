@@ -2011,73 +2011,72 @@ return (
      </div>
 
      {/* Time Slot Box */}
-     <div className="bg-white p-4 rounded-[22px] shadow-sm border border-[#E4E7E9]">
-     <h3 className="font-semibold text-[15px] text-[#26292E] mb-3">Selecciona el tramo horario</h3>
-     <div className="flex flex-col gap-2.5">
-     {(() => {
-       const selectedDayCupo = cuposApi.find(c => normalizeDateStr(c.fecha) === normalizeDateStr(reprogramData.fecha));
-       
-       let tramosList: Array<{ tramo: string; displayTramo: string; disponible: boolean }> = [];
-       
-       if (selectedDayCupo && Array.isArray(selectedDayCupo.tramos) && selectedDayCupo.tramos.length > 0) {
-         const map = new Map<string, { rawTramo: string; disponible: boolean }>();
-         selectedDayCupo.tramos.forEach((item: any) => {
-           const display = normalizeTramo(item.tramo);
-           const current = map.get(display);
-           map.set(display, {
-             rawTramo: item.tramo,
-             disponible: current ? (current.disponible || item.disponible) : item.disponible
-           });
-         });
-         
-         tramosList = Array.from(map.entries()).map(([displayTramo, val]) => ({
-           tramo: displayTramo,
-           displayTramo,
-           disponible: val.disponible
-         }));
-       } else if (cuposApi.length === 0 && !isLoadingCupos) {
-         tramosList = ['08:00 - 12:00', '12:00 - 16:00', '16:00 - 20:00'].map(t => ({
-           tramo: t,
-           displayTramo: t,
-           disponible: true
-         }));
-       }
+      <div className="bg-white p-4 rounded-[22px] shadow-sm border border-[#E4E7E9]">
+      <h3 className="font-semibold text-[15px] text-[#26292E] mb-3">Selecciona el tramo horario</h3>
+      <div className="flex flex-col gap-2.5">
+      {isLoadingCupos ? (
+        <div className="flex flex-col items-center justify-center p-6 text-[13px] text-gray-500 gap-2">
+          <div className="w-5 h-5 border-2 border-[#FF5A0A] border-t-transparent rounded-full animate-spin" />
+          <span>Consultando disponibilidad de tramos...</span>
+        </div>
+      ) : (() => {
+        const selectedDayCupo = cuposApi.find(c => normalizeDateStr(c.fecha) === normalizeDateStr(reprogramData.fecha));
+        
+        let tramosList: Array<{ tramo: string; displayTramo: string; disponible: boolean }> = [];
+        
+        if (selectedDayCupo && Array.isArray(selectedDayCupo.tramos) && selectedDayCupo.tramos.length > 0) {
+          const map = new Map<string, { rawTramo: string; disponible: boolean }>();
+          selectedDayCupo.tramos.forEach((item: any) => {
+            const display = normalizeTramo(item.tramo);
+            const current = map.get(display);
+            map.set(display, {
+              rawTramo: item.tramo,
+              disponible: current ? (current.disponible || item.disponible) : item.disponible
+            });
+          });
+          
+          tramosList = Array.from(map.entries()).map(([displayTramo, val]) => ({
+            tramo: displayTramo,
+            displayTramo,
+            disponible: val.disponible
+          }));
+        }
 
-       if (tramosList.length === 0) {
-         return (
-           <p className="text-[13px] text-gray-500 text-center py-4">
-             No hay tramos horarios disponibles para esta fecha.
-           </p>
-         );
-       }
+        if (tramosList.length === 0) {
+          return (
+            <p className="text-[13px] text-gray-400 text-center py-4 font-normal">
+              No hay tramos horarios disponibles para la fecha seleccionada.
+            </p>
+          );
+        }
 
-       return tramosList.map((item) => {
-         const isSelected = reprogramData.turno === item.tramo;
-         const isAvailable = item.disponible;
-         return (
-           <button
-             key={item.tramo}
-             type="button"
-             disabled={!isAvailable}
-             onClick={() => isAvailable && setReprogramData({ ...reprogramData, turno: item.tramo })}
-             className={`w-full h-[46px] rounded-[14px] flex items-center justify-between px-4 font-semibold text-[13px] transition-all ${
-               !isAvailable
-                 ? 'border border-gray-200 bg-gray-50 text-gray-300 cursor-not-allowed opacity-60'
-                 : isSelected
-                   ? 'border border-[#FF5A0A] bg-[#FFEDE0] text-[#FF5903] cursor-pointer'
-                   : 'border border-[#D1D5DC] bg-white text-[#26292E] hover:border-[#FF5A0A]/50 cursor-pointer'
-             }`}
-           >
-             <span>{item.displayTramo}</span>
-             {!isAvailable && <span className="text-[11px] font-normal text-gray-400">Sin cupo</span>}
-           </button>
-         );
-       });
-     })()}
-     </div>
-     </div>
+        return tramosList.map((item) => {
+          const isSelected = reprogramData.turno === item.tramo;
+          const isAvailable = item.disponible;
+          return (
+            <button
+              key={item.tramo}
+              type="button"
+              disabled={!isAvailable}
+              onClick={() => isAvailable && setReprogramData({ ...reprogramData, turno: item.tramo })}
+              className={`w-full h-[46px] rounded-[14px] flex items-center justify-between px-4 font-semibold text-[13px] transition-all ${
+                !isAvailable
+                  ? 'border border-gray-200 bg-gray-50 text-gray-300 cursor-not-allowed opacity-60'
+                  : isSelected
+                    ? 'border border-[#FF5A0A] bg-[#FFEDE0] text-[#FF5903] cursor-pointer'
+                    : 'border border-[#D1D5DC] bg-white text-[#26292E] hover:border-[#FF5A0A]/50 cursor-pointer'
+              }`}
+            >
+              <span>{item.displayTramo}</span>
+              {!isAvailable && <span className="text-[11px] font-normal text-gray-400">Sin cupo</span>}
+            </button>
+          );
+        });
+      })()}
+      </div>
+      </div>
 
-     {/* Motivo Box */}
+      {/* Motivo Box */}
      <div className="bg-white p-4 rounded-[22px] shadow-sm border border-[#E4E7E9]">
      <h3 className="font-semibold text-[15px] text-[#26292E] mb-3">Motivo de reprogramación</h3>
      
