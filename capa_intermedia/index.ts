@@ -827,15 +827,20 @@ app.get('/api/v1/terceros/cupos/:token', verificarTercero, async (req, res) => {
     let targetUrl = '';
     let requestPayload: any = {};
 
+    const crmCode = String(orden.codisegui || '').trim();
+    if (!crmCode) {
+      return res.status(400).json({ success: false, message: 'La orden no cuenta con CodiSegui registrado para consultar en CRM' });
+    }
+
     if (orden.isTicket) {
       targetUrl = `${UBERIZACION_API_URL}/api/v1/scheduling/visits/availability`;
       requestPayload = {
-        ticketNumber: orden.codisegui || String(orden.idoperacion)
+        ticketNumber: crmCode
       };
     } else {
       targetUrl = `${UBERIZACION_API_URL}/api/v1/scheduling/installations/availability`;
       requestPayload = {
-        orderCode: String(orden.idoperacion || orden.codisegui)
+        orderCode: crmCode
       };
     }
 
@@ -898,10 +903,15 @@ app.post('/api/v1/terceros/reprogramar', verificarTercero, async (req, res) => {
 
     const reasonText = (motivo && String(motivo).trim()) || 'Reprogramación - Solicitud del Cliente';
 
+    const crmCode = String(orden.codisegui || '').trim();
+    if (!crmCode) {
+      return res.status(400).json({ success: false, message: 'La orden no cuenta con CodiSegui registrado para reprogramar en CRM' });
+    }
+
     if (orden.isTicket) {
       targetUrl = `${UBERIZACION_API_URL}/api/v1/scheduling/visits/reschedule`;
       reschedulePayload = {
-        ticketNumber: orden.codisegui || String(orden.idoperacion),
+        ticketNumber: crmCode,
         newDate: formattedDate,
         newTimeSlot: turno.trim(),
         reason: reasonText
@@ -909,7 +919,7 @@ app.post('/api/v1/terceros/reprogramar', verificarTercero, async (req, res) => {
     } else {
       targetUrl = `${UBERIZACION_API_URL}/api/v1/scheduling/installations/reschedule`;
       reschedulePayload = {
-        orderCode: String(orden.idoperacion || orden.codisegui),
+        orderCode: crmCode,
         newDate: formattedDate,
         newTimeSlot: turno.trim(),
         reason: reasonText
