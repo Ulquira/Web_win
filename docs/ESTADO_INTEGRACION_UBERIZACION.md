@@ -1,8 +1,8 @@
 # Estado de Integración: Uberización Sprint 2 (Cupos y Reprogramación)
 
-Fecha de corte: 2026-10-29 11:00 (UTC-5)
+Fecha de corte: 2026-10-29 12:40 (UTC-5)
 Rama activa: `preview` (sincronizada con `origin/preview`)
-Último commit: `1daf6ef` (`fix(reprogramacion): deduplicar tramos de cupos, normalizar rangos y soportar consulta por ticket`)
+Último commit: `94ca123` (`feat(crm): clasificador senior averias vs instalaciones y mapeo crmCode dinamico`)
 
 ---
 
@@ -12,7 +12,7 @@ Rama activa: `preview` (sincronizada con `origin/preview`)
 | :--- | :--- | :--- | :--- |
 | **Frontend** | Azure Static Web App (`webwin-frontend`) | Build Vite React (`preview` branch) | `https://lively-moss-05a36f910-preview.centralus.7.azurestaticapps.net` |
 | **Backend API** | Azure App Service (`webwin-api-service-eus`) | `phxwinacr.azurecr.io/webwin-api:v18` | `https://webwin-api-service-eus.azurewebsites.net` |
-| **Capa Intermedia** | Azure App Service (`webwin-capa-service-eus`) | `webwinacr.azurecr.io/webwin-capa:v4` | Interno en RG `traking-win` |
+| **Capa Intermedia** | Azure App Service (`webwin-capa-service-eus`) | `webwinacr.azurecr.io/webwin-capa:v6` | Interno en RG `traking-win` |
 | **Base de Datos** | Azure Database for MySQL Flexible | `phx-win-mysql-9508` | BD `BD_Phoenix` (`VW_WinORdeTraba`, `Testmantra`) |
 | **Kong API Gateway** | API externa CRM Experiencia | `https://uberizacion.win.pe/cloud` | Headers: `X-Application-Id: UBERIZACION-WEB`, apikey inyectada vía Key Vault |
 
@@ -22,14 +22,21 @@ Rama activa: `preview` (sincronizada con `origin/preview`)
 
 ### A. Consulta de Cupos (Tiempo Real)
 - **Frontend / Cliente**: `GET https://webwin-api-service-eus.azurewebsites.net/api/cupos/:token`
-- **Soporte de identificadores**:
-  - Token de orden (hex 32 caracteres): ej. `289764bbf041c03350c5709c163871`
-  - Código de Ticket / Avería directo: ej. `VTEXT-49233233`
-  - CodiSeguiClien / OrdenId
-- **Enrutamiento dinámico en Capa Intermedia**:
-  - Si es Avería (`tipo_servicio = 'AVERIAS'` o `Producto LIKE '%AVERIA%'`): Enruta a `/api/v1/scheduling/visits/availability` con payload `{ "ticketNumber": "..." }`.
-  - Si es Instalación: Enruta a `/api/v1/scheduling/installations/availability` con payload `{ "orderCode": "..." }`.
-- **Estado de prueba**: Probado con éxito HTTP 200 OK en `VTEXT-49233233` devolviendo cupos de 16 días.
+- **Soporte polimórfico de identificadores**:
+  - `OrdenId` (ej. `3446646` o `3561769`)
+  - `Token` de inicio (hex 32 caracteres, ej. `289764bbf041c03350c5709c163871`)
+  - `CodiSegui` / Ticket (ej. `VTEXT-49233233`)
+  - `CodiSeguiClien` / Pedido CRM (ej. `3164556`)
+- **Clasificador Senior Averías vs Instalaciones**:
+  - **Averías / Tickets**: Si `tipo_servicio = 'AVERIAS'`, `Producto` contiene `AVERIA`/`POSTVENTA`/`MOTOWIN`, `CodiSegui` o `CodiSeguiClien` inician con letras (`/^[A-Z]/` ej. `VTEXT-`, `AT-`, `POS-`), o `TipoTraba` no es `INSTALACION`.
+    - Kong Endpoint: `/api/v1/scheduling/visits/availability`
+    - Payload enviado: `{ "ticketNumber": crmCode }` (donde `crmCode` prioriza `CodiSegui`).
+  - **Instalaciones**: `TipoTraba = 'INSTALACION'` y código numérico.
+    - Kong Endpoint: `/api/v1/scheduling/installations/availability`
+    - Payload enviado: `{ "orderCode": crmCode }` (donde `crmCode` prioriza `CodiSeguiClien` que contiene el número de pedido de CRM de 7 dígitos).
+- **Pruebas en vivo (HTTP 200 OK)**:
+  - Instalación `orderCode: 3164556` / `OrdenId: 3446646` -> 200 OK con cupos dinámicos.
+  - Avería `ticketNumber: VTEXT-49233233` / `token: 289764bbf041c03350c5709c163871` -> 200 OK con cupos dinámicos.
 
 ### B. Escritura de Reprogramación (Pendiente de Autorización / Casos de Prueba)
 - **Endpoint**: `POST https://webwin-api-service-eus.azurewebsites.net/api/reprogramar`
@@ -49,32 +56,7 @@ Rama activa: `preview` (sincronizada con `origin/preview`)
 
 ## 3. Casos y Datos de Prueba Registrados
 
-- **Ticket de prueba**: `VTEXT-49233233`
-  - `OrdenId`: `3561769`
-  - `token`: `289764bbf041c03350c5709c163871`
-  - `Pin_token`: `4221`
-  - `Producto`: `AVERIAS PREFERENTE`
-  - `TipoTraba`: `LOS ROJO`
-  - `CodiSeguiClien`: `1826122`
-  - URL directa de seguimiento en preview: `https://lively-moss-05a36f910-preview.centralus.7.azurestaticapps.net/seguimiento/289764bbf041c03350c5709c163871`
-
----
-
-## 4. Cambios Recientes en Frontend (`src/pages/Seguimiento.tsx`)
-
-1. **Deduplicación de franjas horarias**:
-   - La API de CRM devuelve múltiples slots por cuadrilla (`12:00-15:59` duplicado).
-   - En la UI se unifican bajo tramos únicos normalizados (`08:00 - 12:00`, `12:00 - 16:00`, `16:00 - 20:00`).
-2. **Normalización bidireccional de fechas**:
-   - `normalizeDateStr` para compatibilizar `DD-MM-YYYY` y `YYYY-MM-DD`.
-3. **Manejo de estados de error**:
-   - Solo muestra cupos reales de la API; en caso de sin disponibilidad o error se notifica al usuario sin inyectar datos simulados aleatorios.
-
----
-
-## 5. Próximos Pasos Inmediatos al Reanudar
-
-1. Recibir confirmación de los casos de prueba creados en CRM Experiencia por el usuario.
-2. Realizar prueba de escritura síncrona en `/api/reprogramar` con validación de PIN cliente.
-3. Verificar la actualización en tiempo real del registro en `VW_WinORdeTraba` / CRM y respuesta HTTP 200 / 409 (en caso de conflicto de cupo).
-4. Preparar merge controlado de `preview` hacia `main` una vez validado todo el flujo E2E.
+| Tipo | OrdenId | CodiSegui | CodiSeguiClien / CRM Code | Token | PIN | Estado CRM |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| **Avería** | `3561769` | `VTEXT-49233233` | - | `289764bbf041c03350c5709c163871` | `4221` | HTTP 200 OK probado |
+| **Instalación** | `3446646` | `22860475` | `3164556` | `d2d22fce47e31bdbbb1ed980441390` | `4204` | HTTP 200 OK probado |
