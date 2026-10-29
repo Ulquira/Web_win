@@ -190,6 +190,9 @@ const Seguimiento = ({ customToken, renderServiceSelector }: SeguimientoProps = 
  const [reprogramStep, setReprogramStep] = useState<'form' | 'confirm_popup' | 'confirm_identity' | 'success'>('form');
  const [reprogramData, setReprogramData] = useState({ fecha: '', turno: '', motivo: '', motivoSeleccionado: '' });
  const [isSubmittingReprogram, setIsSubmittingReprogram] = useState(false);
+ const [cuposApi, setCuposApi] = useState<Array<{ fecha: string; disponible: boolean; tramos: Array<{ tramo: string; disponible: boolean }> }>>([]);
+ const [isLoadingCupos, setIsLoadingCupos] = useState(false);
+ const [cuposError, setCuposError] = useState<string | null>(null);
  const [pin, setPin] = useState<string[]>(['', '', '', '']);
  const [pinError, setPinError] = useState(false);
  const pinRefs = [
@@ -341,19 +344,6 @@ const Seguimiento = ({ customToken, renderServiceSelector }: SeguimientoProps = 
    }
  };
 
- const getTomorrowLocal = () => {
-   const tomorrow = new Date();
-   tomorrow.setDate(tomorrow.getDate() + 1);
-   const localDate = new Date(tomorrow.getTime() - (tomorrow.getTimezoneOffset() * 60000));
-   return localDate.toISOString().split('T')[0];
- };
-
- const getMaxDateLocal = () => {
-   const maxDate = new Date();
-   maxDate.setDate(maxDate.getDate() + 7);
-   const localDate = new Date(maxDate.getTime() - (maxDate.getTimezoneOffset() * 60000));
-   return localDate.toISOString().split('T')[0];
- };
 
  const getAvailableDays = () => {
    const days = [];
@@ -378,6 +368,56 @@ const Seguimiento = ({ customToken, renderServiceSelector }: SeguimientoProps = 
      });
    }
    return days;
+ }; const fetchCupos = async () => {
+   if (!token) return;
+   setIsLoadingCupos(true);
+   setCuposError(null);
+   try {
+     const res = await fetch(`${API_BASE_URL}/api/cupos/${token}`);
+     const dataRes = await res.json();
+     if (res.ok && dataRes.success && Array.isArray(dataRes.cupos)) {
+       const primeros7 = dataRes.cupos.slice(0, 7);
+       setCuposApi(primeros7);
+       const primerDisponible = primeros7.find((d: any) => d.disponible);
+       if (primerDisponible) {
+         setReprogramData(prev => prev.fecha ? prev : { ...prev, fecha: primerDisponible.fecha });
+       }
+     } else {
+       setCuposError(dataRes.message || 'No se pudo obtener disponibilidad');
+     }
+   } catch {
+     setCuposError('Error de conexión al consultar cupos');
+   } finally {
+     setIsLoadingCupos(false);
+   }
+ };
+
+ useEffect(() => {
+   if (isReprogramModalOpen && token) {
+     fetchCupos();
+   }
+ }, [isReprogramModalOpen, token]);
+
+ const parseApiDate = (fechaStr: string, index: number) => {
+   const diasSemana = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
+   const meses = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+   let d = 1, m = 1, y = 2026;
+   if (fechaStr.includes('-')) {
+     const parts = fechaStr.split('-').map(Number);
+     if (parts[0] > 1000) {
+       y = parts[0]; m = parts[1]; d = parts[2];
+     } else {
+       d = parts[0]; m = parts[1]; y = parts[2];
+     }
+   }
+   const dateObj = new Date(y, m - 1, d);
+   return {
+     iso: fechaStr,
+     dayOfWeek: diasSemana[dateObj.getDay()] || '',
+     dayNum: d,
+     monthName: meses[m - 1] || '',
+     isTomorrow: index === 0
+   };
  };
 
  const formatSelectedDate = (isoStr: string) => {
@@ -385,9 +425,16 @@ const Seguimiento = ({ customToken, renderServiceSelector }: SeguimientoProps = 
    const parts = isoStr.split('-');
    if (parts.length < 3) return isoStr;
    const mesesFull = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
-   const mesIdx = parseInt(parts[1], 10) - 1;
-   const dia = parseInt(parts[2], 10);
-   const y = parseInt(parts[0], 10);
+   let dia: number, mesIdx: number, y: number;
+   if (parts[0].length === 4) {
+     y = parseInt(parts[0], 10);
+     mesIdx = parseInt(parts[1], 10) - 1;
+     dia = parseInt(parts[2], 10);
+   } else {
+     dia = parseInt(parts[0], 10);
+     mesIdx = parseInt(parts[1], 10) - 1;
+     y = parseInt(parts[2], 10);
+   }
    try {
      const dObj = new Date(y, mesIdx, dia);
      const dayName = format(dObj, 'EEEE', { locale: es });
@@ -507,13 +554,9 @@ const Seguimiento = ({ customToken, renderServiceSelector }: SeguimientoProps = 
 
    setPinError(false);
    handleReprogramSubmit();
- };
-
- const handleReprogramSubmit = async () => {
-   const minDate = getTomorrowLocal();
-   const maxDate = getMaxDateLocal();
-   if (!reprogramData.fecha || reprogramData.fecha < minDate || reprogramData.fecha > maxDate) {
-     alert("Por favor selecciona una fecha válida dentro de los próximos 7 días.");
+ }; const handleReprogramSubmit = async () => {
+   if (!reprogramData.fecha || !reprogramData.turno) {
+     alert("Por favor selecciona una fecha y un tramo horario disponible.");
      return;
    }
 
@@ -524,17 +567,24 @@ const Seguimiento = ({ customToken, renderServiceSelector }: SeguimientoProps = 
        headers: { 'Content-Type': 'application/json' },
        body: JSON.stringify({
          token,
-         ...reprogramData
+         fecha: reprogramData.fecha,
+         turno: reprogramData.turno,
+         motivo: reprogramData.motivo || reprogramData.motivoSeleccionado,
+         pin: pin.join('')
        })
      });
 
      const result = await response.json();
-     if (result.success) {
+     if (response.ok && result.success) {
        trackEvent('reprogramar_solicitud_completada', { token, motivo: reprogramData.motivoSeleccionado });
        localStorage.setItem(`reprogramacion_completada_${token}`, 'true');
        setReprogramStep('success');
+     } else if (response.status === 409) {
+       alert("La fecha y tramo horario seleccionados ya no cuentan con capacidad disponible. Actualizando disponibilidad...");
+       await fetchCupos();
+       setReprogramStep('form');
      } else {
-       alert("Ocurrió un error. Por favor intenta de nuevo más tarde.");
+       alert(result.message || "Ocurrió un error al procesar la reprogramación.");
      }
    } catch {
      alert("Error de conexión al guardar la solicitud.");
@@ -1863,57 +1913,88 @@ return (
        </p>
      </div>
 
-     {/* Selector interactivo de los 7 días (4 en primera fila, 3 en segunda fila) */}
-     <div className="grid grid-cols-4 gap-2.5">
-       {getAvailableDays().map((day) => {
-         const isSelected = reprogramData.fecha === day.iso;
-         return (
-           <button
-             key={day.iso}
-             type="button"
-             onClick={() => setReprogramData({ ...reprogramData, fecha: day.iso })}
-             className={`flex flex-col items-center justify-center h-[69px] rounded-[12px] border transition-all cursor-pointer ${
-               isSelected
-                 ? 'border-[#FF5A0A] bg-[#FFEDE0] text-[#FF5A0A]'
-                 : 'border-[#D9D9D9] bg-white text-[#9CA5AB] hover:border-[#FF5A0A]/40'
-             }`}
-           >
-             <span className={`text-[11px] ${isSelected ? 'text-[#FF5A0A] font-semibold' : 'text-[#9CA5AB] font-normal'}`}>
-               {day.isTomorrow ? 'Mañana' : day.dayOfWeek}
-             </span>
-             <span className={`text-[17px] font-bold my-0.5 ${isSelected ? 'text-[#FF5A0A]' : 'text-[#26292E]'}`}>
-               {day.dayNum}
-             </span>
-             <span className={`text-[11px] ${isSelected ? 'text-[#FF5A0A] font-semibold' : 'text-[#9CA5AB] font-normal'}`}>
-               {day.monthName}
-             </span>
-           </button>
-         );
-       })}
-     </div>
+     {/* Selector interactivo de los 7 días */}
+     {isLoadingCupos ? (
+       <div className="flex items-center justify-center p-6 text-[13px] text-gray-500 gap-2">
+         <div className="w-4 h-4 border-2 border-[#FF5A0A] border-t-transparent rounded-full animate-spin" />
+         <span>Consultando cupos en tiempo real...</span>
+       </div>
+     ) : (
+       <div className="grid grid-cols-4 gap-2.5">
+         {(cuposApi.length > 0 
+           ? cuposApi.map((c, idx) => ({ ...parseApiDate(c.fecha, idx), disponible: c.disponible }))
+           : getAvailableDays().map(d => ({ ...d, disponible: true }))
+         ).map((day) => {
+           const isSelected = reprogramData.fecha === day.iso;
+           const isAvailable = day.disponible;
+           return (
+             <button
+               key={day.iso}
+               type="button"
+               disabled={!isAvailable}
+               onClick={() => {
+                 if (isAvailable) {
+                   setReprogramData({ ...reprogramData, fecha: day.iso, turno: '' });
+                 }
+               }}
+               className={`flex flex-col items-center justify-center h-[69px] rounded-[12px] border transition-all ${
+                 !isAvailable
+                   ? 'border-gray-200 bg-gray-50 text-gray-300 cursor-not-allowed opacity-50'
+                   : isSelected
+                     ? 'border-[#FF5A0A] bg-[#FFEDE0] text-[#FF5A0A] cursor-pointer'
+                     : 'border-[#D9D9D9] bg-white text-[#9CA5AB] hover:border-[#FF5A0A]/40 cursor-pointer'
+               }`}
+             >
+               <span className={`text-[11px] ${!isAvailable ? 'text-gray-300' : isSelected ? 'text-[#FF5A0A] font-semibold' : 'text-[#9CA5AB] font-normal'}`}>
+                 {day.isTomorrow ? 'Mañana' : day.dayOfWeek}
+               </span>
+               <span className={`text-[17px] font-bold my-0.5 ${!isAvailable ? 'text-gray-300' : isSelected ? 'text-[#FF5A0A]' : 'text-[#26292E]'}`}>
+                 {day.dayNum}
+               </span>
+               <span className={`text-[11px] ${!isAvailable ? 'text-gray-300' : isSelected ? 'text-[#FF5A0A] font-semibold' : 'text-[#9CA5AB] font-normal'}`}>
+                 {day.monthName}
+               </span>
+             </button>
+           );
+         })}
+     {cuposError && <p className="text-[11px] text-amber-600 mt-2 text-center">{cuposError}</p>}
+       </div>
+     )}
      </div>
 
      {/* Time Slot Box */}
      <div className="bg-white p-4 rounded-[22px] shadow-sm border border-[#E4E7E9]">
      <h3 className="font-semibold text-[15px] text-[#26292E] mb-3">Selecciona el tramo horario</h3>
      <div className="flex flex-col gap-2.5">
-     {['08:00 a.m. - 12:00 p.m.', '12:00 p.m. - 4:00 p.m.', '04:00 p.m. - 8:00 p.m.'].map((turno) => {
-       const isSelected = reprogramData.turno === turno;
-       return (
-         <button
-           key={turno}
-           type="button"
-           onClick={() => setReprogramData({ ...reprogramData, turno })}
-           className={`w-full h-[46px] rounded-[14px] flex items-center justify-center font-semibold text-[13px] transition-all cursor-pointer ${
-             isSelected
-               ? 'border border-[#FF5A0A] bg-[#FFEDE0] text-[#FF5903]'
-               : 'border border-[#D1D5DC] bg-white text-[#26292E] hover:border-[#FF5A0A]/50'
-           }`}
-         >
-           {turno}
-         </button>
-       );
-     })}
+     {(() => {
+       const selectedDayCupo = cuposApi.find(c => c.fecha === reprogramData.fecha);
+       const tramosDisponibles = selectedDayCupo && selectedDayCupo.tramos && selectedDayCupo.tramos.length > 0
+         ? selectedDayCupo.tramos
+         : ['08:00 - 12:00', '12:00 - 16:00', '16:00 - 20:00'].map(t => ({ tramo: t, disponible: true }));
+
+       return tramosDisponibles.map((item) => {
+         const isSelected = reprogramData.turno === item.tramo;
+         const isAvailable = item.disponible;
+         return (
+           <button
+             key={item.tramo}
+             type="button"
+             disabled={!isAvailable}
+             onClick={() => isAvailable && setReprogramData({ ...reprogramData, turno: item.tramo })}
+             className={`w-full h-[46px] rounded-[14px] flex items-center justify-between px-4 font-semibold text-[13px] transition-all ${
+               !isAvailable
+                 ? 'border border-gray-200 bg-gray-50 text-gray-300 cursor-not-allowed opacity-60'
+                 : isSelected
+                   ? 'border border-[#FF5A0A] bg-[#FFEDE0] text-[#FF5903] cursor-pointer'
+                   : 'border border-[#D1D5DC] bg-white text-[#26292E] hover:border-[#FF5A0A]/50 cursor-pointer'
+             }`}
+           >
+             <span>{item.tramo}</span>
+             {!isAvailable && <span className="text-[11px] font-normal text-gray-400">Sin cupo</span>}
+           </button>
+         );
+       });
+     })()}
      </div>
      </div>
 
