@@ -376,51 +376,99 @@ const Seguimiento = ({ customToken, renderServiceSelector }: SeguimientoProps = 
      const res = await fetch(`${API_BASE_URL}/api/cupos/${token}`);
      const dataRes = await res.json();
      if (res.ok && dataRes.success && Array.isArray(dataRes.cupos)) {
-       const primeros7 = dataRes.cupos.slice(0, 7);
-       setCuposApi(primeros7);
-       const primerDisponible = primeros7.find((d: any) => d.disponible);
-       if (primerDisponible) {
-         setReprogramData(prev => prev.fecha ? prev : { ...prev, fecha: primerDisponible.fecha });
-       }
-     } else {
-       setCuposError(dataRes.message || 'No se pudo obtener disponibilidad');
-     }
-   } catch {
-     setCuposError('Error de conexión al consultar cupos');
-   } finally {
-     setIsLoadingCupos(false);
-   }
- };
+        const primeros7 = dataRes.cupos.slice(0, 7);
+        setCuposApi(primeros7);
+        const primerDisponible = primeros7.find((d: any) => d.disponible);
+        if (primerDisponible) {
+          setReprogramData(prev => {
+            const matchesExisting = prev.fecha && primeros7.some((d: any) => normalizeDateStr(d.fecha) === normalizeDateStr(prev.fecha));
+            return {
+              ...prev,
+              fecha: matchesExisting ? prev.fecha : primerDisponible.fecha,
+              turno: ''
+            };
+          });
+        }
+      } else {
+        setCuposError(dataRes.message || 'No se pudo obtener disponibilidad');
+      }
+    } catch {
+      setCuposError('Error de conexión al consultar cupos');
+    } finally {
+      setIsLoadingCupos(false);
+    }
+  };
 
- useEffect(() => {
-   if (isReprogramModalOpen && token) {
-     fetchCupos();
-   }
- }, [isReprogramModalOpen, token]);
+  useEffect(() => {
+    if (isReprogramModalOpen && token) {
+      fetchCupos();
+    }
+  }, [isReprogramModalOpen, token]);
 
- const parseApiDate = (fechaStr: string, index: number) => {
-   const diasSemana = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
-   const meses = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
-   let d = 1, m = 1, y = 2026;
-   if (fechaStr.includes('-')) {
-     const parts = fechaStr.split('-').map(Number);
-     if (parts[0] > 1000) {
-       y = parts[0]; m = parts[1]; d = parts[2];
-     } else {
-       d = parts[0]; m = parts[1]; y = parts[2];
-     }
-   }
-   const dateObj = new Date(y, m - 1, d);
-   return {
-     iso: fechaStr,
-     dayOfWeek: diasSemana[dateObj.getDay()] || '',
-     dayNum: d,
-     monthName: meses[m - 1] || '',
-     isTomorrow: index === 0
-   };
- };
+  const normalizeDateStr = (dateStr?: string) => {
+    if (!dateStr) return '';
+    const clean = dateStr.trim();
+    if (/^\d{2}-\d{2}-\d{4}$/.test(clean)) {
+      const [d, m, y] = clean.split('-');
+      return `${y}-${m}-${d}`;
+    }
+    return clean;
+  };
 
- const formatSelectedDate = (isoStr: string) => {
+  const normalizeTramo = (tramoStr?: string) => {
+    if (!tramoStr) return '';
+    const clean = tramoStr.replace(/\s+/g, '');
+    if (clean === '08:00-11:59' || clean === '08:00-12:00') return '08:00 - 12:00';
+    if (clean === '12:00-15:59' || clean === '12:00-16:00') return '12:00 - 16:00';
+    if (clean === '16:00-20:00' || clean === '16:00-19:59') return '16:00 - 20:00';
+    
+    const m = tramoStr.match(/(\d{1,2}):(\d{2})\s*[-–]\s*(\d{1,2}):(\d{2})/);
+    if (m) {
+      const [_, h1, m1, h2, m2] = m;
+      let endH = parseInt(h2, 10);
+      let endM = parseInt(m2, 10);
+      if (endM === 59) {
+        endH = (endH + 1) % 24;
+        endM = 0;
+      }
+      const pad = (n: number) => n.toString().padStart(2, '0');
+      return `${pad(parseInt(h1, 10))}:${m1} - ${pad(endH)}:${pad(endM)}`;
+    }
+    return tramoStr.trim();
+  };
+
+  const parseApiDate = (fechaStr: string) => {
+    const diasSemana = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
+    const meses = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+    let d = 1, m = 1, y = 2026;
+    if (fechaStr.includes('-')) {
+      const parts = fechaStr.split('-').map(Number);
+      if (parts[0] > 1000) {
+        y = parts[0]; m = parts[1]; d = parts[2];
+      } else {
+        d = parts[0]; m = parts[1]; y = parts[2];
+      }
+    }
+    const dateObj = new Date(y, m - 1, d);
+    const now = new Date();
+    const todayDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const targetDate = new Date(y, m - 1, d);
+    const diffDays = Math.round((targetDate.getTime() - todayDate.getTime()) / (1000 * 60 * 60 * 24));
+
+    let headerLabel = diasSemana[dateObj.getDay()] || '';
+    if (diffDays === 0) headerLabel = 'Hoy';
+    else if (diffDays === 1) headerLabel = 'Mañana';
+
+    return {
+      iso: fechaStr,
+      dayOfWeek: diasSemana[dateObj.getDay()] || '',
+      headerLabel,
+      dayNum: d,
+      monthName: meses[m - 1] || ''
+    };
+  };
+
+  const formatSelectedDate = (isoStr: string) => {
    if (!isoStr) return '';
    const parts = isoStr.split('-');
    if (parts.length < 3) return isoStr;
@@ -1922,10 +1970,10 @@ return (
      ) : (
        <div className="grid grid-cols-4 gap-2.5">
          {(cuposApi.length > 0 
-           ? cuposApi.map((c, idx) => ({ ...parseApiDate(c.fecha, idx), disponible: c.disponible }))
-           : getAvailableDays().map(d => ({ ...d, disponible: true }))
+           ? cuposApi.map((c) => ({ ...parseApiDate(c.fecha), disponible: c.disponible }))
+           : getAvailableDays().map(d => ({ ...d, headerLabel: d.isTomorrow ? 'Mañana' : d.dayOfWeek, disponible: true }))
          ).map((day) => {
-           const isSelected = reprogramData.fecha === day.iso;
+           const isSelected = normalizeDateStr(reprogramData.fecha) === normalizeDateStr(day.iso);
            const isAvailable = day.disponible;
            return (
              <button
@@ -1934,7 +1982,7 @@ return (
                disabled={!isAvailable}
                onClick={() => {
                  if (isAvailable) {
-                   setReprogramData({ ...reprogramData, fecha: day.iso, turno: '' });
+                   setReprogramData(prev => ({ ...prev, fecha: day.iso, turno: '' }));
                  }
                }}
                className={`flex flex-col items-center justify-center h-[69px] rounded-[12px] border transition-all ${
@@ -1946,7 +1994,7 @@ return (
                }`}
              >
                <span className={`text-[11px] ${!isAvailable ? 'text-gray-300' : isSelected ? 'text-[#FF5A0A] font-semibold' : 'text-[#9CA5AB] font-normal'}`}>
-                 {day.isTomorrow ? 'Mañana' : day.dayOfWeek}
+                 {day.headerLabel}
                </span>
                <span className={`text-[17px] font-bold my-0.5 ${!isAvailable ? 'text-gray-300' : isSelected ? 'text-[#FF5A0A]' : 'text-[#26292E]'}`}>
                  {day.dayNum}
@@ -1957,9 +2005,9 @@ return (
              </button>
            );
          })}
-     {cuposError && <p className="text-[11px] text-amber-600 mt-2 text-center">{cuposError}</p>}
        </div>
      )}
+     {cuposError && <p className="text-[11px] text-amber-600 mt-2 text-center">{cuposError}</p>}
      </div>
 
      {/* Time Slot Box */}
@@ -1967,12 +2015,43 @@ return (
      <h3 className="font-semibold text-[15px] text-[#26292E] mb-3">Selecciona el tramo horario</h3>
      <div className="flex flex-col gap-2.5">
      {(() => {
-       const selectedDayCupo = cuposApi.find(c => c.fecha === reprogramData.fecha);
-       const tramosDisponibles = selectedDayCupo && selectedDayCupo.tramos && selectedDayCupo.tramos.length > 0
-         ? selectedDayCupo.tramos
-         : ['08:00 - 12:00', '12:00 - 16:00', '16:00 - 20:00'].map(t => ({ tramo: t, disponible: true }));
+       const selectedDayCupo = cuposApi.find(c => normalizeDateStr(c.fecha) === normalizeDateStr(reprogramData.fecha));
+       
+       let tramosList: Array<{ tramo: string; displayTramo: string; disponible: boolean }> = [];
+       
+       if (selectedDayCupo && Array.isArray(selectedDayCupo.tramos) && selectedDayCupo.tramos.length > 0) {
+         const map = new Map<string, { rawTramo: string; disponible: boolean }>();
+         selectedDayCupo.tramos.forEach((item: any) => {
+           const display = normalizeTramo(item.tramo);
+           const current = map.get(display);
+           map.set(display, {
+             rawTramo: item.tramo,
+             disponible: current ? (current.disponible || item.disponible) : item.disponible
+           });
+         });
+         
+         tramosList = Array.from(map.entries()).map(([displayTramo, val]) => ({
+           tramo: displayTramo,
+           displayTramo,
+           disponible: val.disponible
+         }));
+       } else if (cuposApi.length === 0 && !isLoadingCupos) {
+         tramosList = ['08:00 - 12:00', '12:00 - 16:00', '16:00 - 20:00'].map(t => ({
+           tramo: t,
+           displayTramo: t,
+           disponible: true
+         }));
+       }
 
-       return tramosDisponibles.map((item) => {
+       if (tramosList.length === 0) {
+         return (
+           <p className="text-[13px] text-gray-500 text-center py-4">
+             No hay tramos horarios disponibles para esta fecha.
+           </p>
+         );
+       }
+
+       return tramosList.map((item) => {
          const isSelected = reprogramData.turno === item.tramo;
          const isAvailable = item.disponible;
          return (
@@ -1989,7 +2068,7 @@ return (
                    : 'border border-[#D1D5DC] bg-white text-[#26292E] hover:border-[#FF5A0A]/50 cursor-pointer'
              }`}
            >
-             <span>{item.tramo}</span>
+             <span>{item.displayTramo}</span>
              {!isAvailable && <span className="text-[11px] font-normal text-gray-400">Sin cupo</span>}
            </button>
          );

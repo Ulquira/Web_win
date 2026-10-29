@@ -87,9 +87,9 @@ app.get('/api/v1/terceros/instalaciones/:token', verificarTercero, async (req, r
        FROM VW_WinORdeTraba w
        LEFT JOIN vw_info_cuadrillas vc ON w.Cuadrilla = vc.Cuadrilla
        LEFT JOIN tiposervicio ts ON UPPER(TRIM(w.Producto)) = UPPER(TRIM(ts.Servicio))
-       WHERE w.token = ? 
+       WHERE (w.token = ? OR w.CodiSegui = ? OR w.CodiSeguiClien = ? OR CAST(w.OrdenId AS CHAR) = ?) 
        ORDER BY w.\`F.Soli\` DESC LIMIT 1`, 
-      [token]
+      [token, token, token, token]
     );
 
     let instalaciones = prodRows as any[];
@@ -735,9 +735,9 @@ async function resolveOrdenInfo(token: string) {
        ts.Tipo AS tipo_servicio
      FROM VW_WinORdeTraba w
      LEFT JOIN tiposervicio ts ON UPPER(TRIM(w.Producto)) = UPPER(TRIM(ts.Servicio))
-     WHERE w.token = ? 
+     WHERE (w.token = ? OR w.CodiSegui = ? OR w.CodiSeguiClien = ? OR CAST(w.OrdenId AS CHAR) = ?) 
      ORDER BY w.\`F.Soli\` DESC LIMIT 1`, 
-    [token]
+    [token, token, token, token]
   );
 
   let rows = prodRows as any[];
@@ -755,9 +755,9 @@ async function resolveOrdenInfo(token: string) {
          ts.Tipo AS tipo_servicio
        FROM Testmantra w
        LEFT JOIN tiposervicio ts ON UPPER(TRIM(w.Producto)) = UPPER(TRIM(ts.Servicio))
-       WHERE w.token = ? 
+       WHERE (w.token = ? OR w.CodiSegui = ? OR w.CodiSeguiClien = ? OR CAST(w.OrdenId AS CHAR) = ?) 
        ORDER BY w.\`F.Soli\` DESC LIMIT 1`, 
-      [token]
+      [token, token, token, token]
     );
     rows = testRows as any[];
   }
