@@ -46,7 +46,7 @@ import {
   AtSign
 } from 'lucide-react';
 
-type TabType = 'principal' | 'reporte' | 'dashboard' | 'encuestas' | 'reprogramaciones' | 'chats_mantra' | 'usuarios';
+type TabType = 'principal' | 'reporte' | 'dashboard' | 'dashboard_chats' | 'encuestas' | 'reprogramaciones' | 'chats_mantra' | 'usuarios';
 
 const getTodayPeruString = () => {
   try {
@@ -289,6 +289,8 @@ export default function AdminDashboard() {
   const [chatLimit, setChatLimit] = useState<number>(15);
   const [dashboardStats, setDashboardStats] = useState<any | null>(null);
   const [loadingStats, setLoadingStats] = useState<boolean>(false);
+  const [chatsDashboardStats, setChatsDashboardStats] = useState<any | null>(null);
+  const [loadingChatsStats, setLoadingChatsStats] = useState<boolean>(false);
 
   // Endpoint en línea (Azure App Service con soporte para variable de entorno)
   const apiUrl = (import.meta as any).env?.VITE_API_URL || 'https://webwin-api-service-eus.azurewebsites.net';
@@ -459,6 +461,17 @@ export default function AdminDashboard() {
       });
 
       if (currentSearch) params.append('search', currentSearch);
+
+      const currentColFilters = customFilters?.columnFilters ?? columnFilters;
+      const activeCols: Record<string, any> = {};
+      for (const [k, v] of Object.entries(currentColFilters)) {
+        if (v && ((v as any).search || ((v as any).selected && (v as any).selected.length > 0))) {
+          activeCols[k] = v;
+        }
+      }
+      if (Object.keys(activeCols).length > 0) {
+        params.append('colFilters', JSON.stringify(activeCols));
+      }
       if (currentFInicio) params.append('fechaInicio', currentFInicio);
       if (currentFFin) params.append('fechaFin', currentFFin);
       if (currentTipo.length > 0 && (currentTab === 'principal' || currentTab === 'reporte')) {
@@ -501,6 +514,53 @@ export default function AdminDashboard() {
     }
   };
 
+  // Cargar métricas especializadas para Dashboard de Chats Mantra
+  const fetchChatsStats = async (customFilters?: any, retryCount = 1) => {
+    setLoadingChatsStats(true);
+    setErrorMsg(null);
+    try {
+      const currentSearch = customFilters?.search ?? search;
+      const currentFInicio = customFilters?.fechaInicio ?? fechaInicio;
+      const currentFFin = customFilters?.fechaFin ?? fechaFin;
+      const currentGrupo = customFilters?.grupoServicio ?? grupoServicio;
+
+      const params = new URLSearchParams();
+      if (currentSearch) params.append('search', currentSearch);
+
+      const currentColFilters = customFilters?.columnFilters ?? columnFilters;
+      const activeCols: Record<string, any> = {};
+      for (const [k, v] of Object.entries(currentColFilters)) {
+        if (v && ((v as any).search || ((v as any).selected && (v as any).selected.length > 0))) {
+          activeCols[k] = v;
+        }
+      }
+      if (Object.keys(activeCols).length > 0) {
+        params.append('colFilters', JSON.stringify(activeCols));
+      }
+      if (currentFInicio) params.append('fechaInicio', currentFInicio);
+      if (currentFFin) params.append('fechaFin', currentFFin);
+      if (currentGrupo) params.append('grupoServicio', currentGrupo);
+
+      const res = await fetch(`${apiUrl}/api/4dm1n_/chats-dashboard-stats?${params.toString()}`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const json = await res.json();
+      if (json.success) {
+        setChatsDashboardStats(json);
+      } else {
+        throw new Error(json.message || 'Error cargando dashboard de chats');
+      }
+    } catch (err: any) {
+      if (retryCount > 0) {
+        await new Promise(r => setTimeout(r, 1000));
+        return fetchChatsStats(customFilters, retryCount - 1);
+      }
+      console.error('Error cargando estadísticas de chats:', err);
+      setChatsDashboardStats(null);
+    } finally {
+      setLoadingChatsStats(false);
+    }
+  };
+
   // Cargar métricas ejecutivas del Dashboard
   const fetchDashboardStats = async (customFilters?: any, retryCount = 1) => {
     setLoadingStats(true);
@@ -518,6 +578,17 @@ export default function AdminDashboard() {
 
       const params = new URLSearchParams();
       if (currentSearch) params.append('search', currentSearch);
+
+      const currentColFilters = customFilters?.columnFilters ?? columnFilters;
+      const activeCols: Record<string, any> = {};
+      for (const [k, v] of Object.entries(currentColFilters)) {
+        if (v && ((v as any).search || ((v as any).selected && (v as any).selected.length > 0))) {
+          activeCols[k] = v;
+        }
+      }
+      if (Object.keys(activeCols).length > 0) {
+        params.append('colFilters', JSON.stringify(activeCols));
+      }
       if (currentFInicio) params.append('fechaInicio', currentFInicio);
       if (currentFFin) params.append('fechaFin', currentFFin);
       if (currentTipo.length > 0) params.append('tipoServicio', currentTipo.join(','));
@@ -549,6 +620,8 @@ export default function AdminDashboard() {
   useEffect(() => {
     if (activeTab === 'dashboard') {
       fetchDashboardStats();
+    } else if (activeTab === 'dashboard_chats') {
+      fetchChatsStats();
     } else {
       setPage(1);
       fetchData(1);
@@ -559,6 +632,8 @@ export default function AdminDashboard() {
     e.preventDefault();
     if (activeTab === 'dashboard') {
       fetchDashboardStats();
+    } else if (activeTab === 'dashboard_chats') {
+      fetchChatsStats();
     } else {
       setPage(1);
       fetchData(1);
@@ -589,6 +664,8 @@ export default function AdminDashboard() {
     };
     if (activeTab === 'dashboard') {
       fetchDashboardStats(resetObj);
+    } else if (activeTab === 'dashboard_chats') {
+      fetchChatsStats(resetObj);
     } else {
       fetchData(1, resetObj);
     }
@@ -708,49 +785,22 @@ export default function AdminDashboard() {
   };
 
   const handleColumnFilterChange = (field: string, filter: ColumnFilterState | null) => {
-    setColumnFilters(prev => {
-      const next = { ...prev };
-      if (!filter) {
-        delete next[field];
-      } else {
-        next[field] = filter;
-      }
-      return next;
-    });
+    const updated = { ...columnFilters };
+    if (!filter) {
+      delete updated[field];
+    } else {
+      updated[field] = filter;
+    }
+    setColumnFilters(updated);
+    setPage(1);
+    fetchData(1, { columnFilters: updated });
   };
 
   // Filtrado local y ordenamiento sobre las filas visibles con soporte Excel
   const displayData = useMemo(() => {
-    let filtered = data;
+    if (!sortField || data.length === 0) return data;
 
-    const activeCols = Object.keys(columnFilters);
-    if (activeCols.length > 0) {
-      filtered = filtered.filter(row => {
-        for (const col of activeCols) {
-          const f = columnFilters[col];
-          if (!f) continue;
-          const val = getCellValue(row, col).trim();
-
-          // 1. Búsqueda de palabra en la columna
-          if (f.search && !val.toLowerCase().includes(f.search.toLowerCase())) {
-            return false;
-          }
-
-          // 2. Selección de valores con checkboxes
-          if (f.selected && f.selected.length > 0) {
-            const displayVal = val || '(Vacío)';
-            if (!f.selected.includes(displayVal)) {
-              return false;
-            }
-          }
-        }
-        return true;
-      });
-    }
-
-    if (!sortField || filtered.length === 0) return filtered;
-
-    return [...filtered].sort((a, b) => {
+    return [...data].sort((a, b) => {
       let valA = a[sortField];
       let valB = b[sortField];
       if (valA === null || valA === undefined) return 1;
@@ -775,7 +825,7 @@ export default function AdminDashboard() {
       const strB = String(valB).toLowerCase();
       return sortOrder === 'asc' ? strA.localeCompare(strB) : strB.localeCompare(strA);
     });
-  }, [data, columnFilters, sortField, sortOrder]);
+  }, [data, sortField, sortOrder]);
 
   // Mensajes parseados para la vista amigable de chat (prioriza mensajes en vivo de Mantra si existen)
   const parsedChatMessages = useMemo(() => {
@@ -881,6 +931,7 @@ export default function AdminDashboard() {
             { id: 'principal', label: 'Órdenes', icon: Layers },
             { id: 'reporte', label: 'Reporte', icon: BarChart3 },
             { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+            { id: 'dashboard_chats', label: 'Dashboard Chats', icon: MessageCircle },
             { id: 'encuestas', label: 'Encuestas', icon: CheckCircle2 },
             { id: 'reprogramaciones', label: 'Reprogramaciones', icon: CalendarClock },
             { id: 'chats_mantra', label: 'Chats', icon: MessageSquare },
@@ -1004,7 +1055,7 @@ export default function AdminDashboard() {
               </button>
               <button
                 type="button"
-                onClick={() => activeTab === 'dashboard' ? fetchDashboardStats() : fetchData(1)}
+                onClick={() => activeTab === 'dashboard' ? fetchDashboardStats() : activeTab === 'dashboard_chats' ? fetchChatsStats() : fetchData(1)}
                 title="Refrescar datos"
                 className="p-1.5 bg-slate-800/90 hover:bg-slate-700 text-slate-300 rounded-lg border border-slate-700 transition-all active:scale-95 cursor-pointer"
               >
@@ -1033,6 +1084,7 @@ export default function AdminDashboard() {
               {activeTab === 'principal' ? 'Órdenes de Trabajo' :
                activeTab === 'reporte' ? 'Reporte Funnel' :
                activeTab === 'dashboard' ? 'Dashboard Ejecutivo' :
+               activeTab === 'dashboard_chats' ? 'Dashboard Analítico de Chats' :
                activeTab === 'encuestas' ? 'Encuestas de Satisfacción' :
                activeTab === 'reprogramaciones' ? 'Reprogramaciones' :
                activeTab === 'chats_mantra' ? 'Historial de Chats' : 'Usuarios'}
@@ -1167,7 +1219,7 @@ export default function AdminDashboard() {
             ))}
             <button
               type="button"
-              onClick={() => setColumnFilters({})}
+              onClick={() => { setColumnFilters({}); setPage(1); fetchData(1, { columnFilters: {} }); }}
               className="text-[11px] text-slate-400 hover:text-white underline ml-auto cursor-pointer"
             >
               Limpiar filtros de columna
@@ -1176,7 +1228,7 @@ export default function AdminDashboard() {
         )}
 
         {/* Resumen y paginación superior */}
-        {activeTab !== 'dashboard' && activeTab !== 'usuarios' ? (
+        {activeTab !== 'dashboard' && activeTab !== 'dashboard_chats' && activeTab !== 'usuarios' ? (
           <div className="flex flex-wrap items-center justify-between gap-4 text-xs text-slate-400 px-1 relative z-10">
             <div className="flex items-center gap-3">
               <div>
@@ -1730,6 +1782,237 @@ export default function AdminDashboard() {
                             );
                           })}
                         </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()
+            )}
+          </div>
+        ) : activeTab === 'dashboard_chats' ? (
+          /* Vista: Dashboard Analítico de Chats Mantra */
+          <div className="space-y-5">
+            {loadingChatsStats ? (
+              <div className="py-20 flex flex-col items-center justify-center gap-3">
+                <RefreshCw className="w-8 h-8 text-orange-500 animate-spin" />
+                <p className="text-xs text-slate-400 font-medium">Calculando métricas analíticas de chats...</p>
+              </div>
+            ) : !chatsDashboardStats?.kpis ? (
+              <div className="py-16 text-center text-slate-500 text-xs">
+                No hay datos disponibles para el rango y filtros seleccionados
+              </div>
+            ) : (
+              (() => {
+                const kpis = chatsDashboardStats.kpis || {};
+                const totalChats = Number(kpis.totalChats || 0);
+                const confirmados = Number(kpis.totalConfirmados || 0);
+                const abiertos = Number(kpis.chatsAbiertos || 0);
+                const slaVerde = Number(kpis.slaVerde || 0);
+                const slaRojo = Number(kpis.slaRojo || 0);
+                const pctConfirmados = totalChats > 0 ? Math.round((confirmados / totalChats) * 100) : 0;
+                const pctSlaVerde = totalChats > 0 ? Math.round((slaVerde / totalChats) * 100) : 0;
+
+                return (
+                  <div className="space-y-5">
+                    {/* Tarjetas KPI Superiores */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                      {/* Total Chats */}
+                      <div className="bg-slate-900/70 border border-slate-800 rounded-2xl p-4 shadow-sm backdrop-blur relative overflow-hidden">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-xs font-semibold text-slate-400">Total Chats Gest.</span>
+                          <div className="p-2 bg-orange-500/10 text-orange-400 rounded-xl">
+                            <MessageSquare className="w-4 h-4" />
+                          </div>
+                        </div>
+                        <div className="text-2xl font-black text-white font-mono">{totalChats.toLocaleString()}</div>
+                        <div className="text-[11px] text-slate-500 mt-1">Conversaciones registradas</div>
+                      </div>
+
+                      {/* Confirmaciones por Botón */}
+                      <div className="bg-slate-900/70 border border-slate-800 rounded-2xl p-4 shadow-sm backdrop-blur relative overflow-hidden">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-xs font-semibold text-slate-400">Confirmadas (Botón)</span>
+                          <div className="p-2 bg-emerald-500/10 text-emerald-400 rounded-xl">
+                            <CheckCircle2 className="w-4 h-4" />
+                          </div>
+                        </div>
+                        <div className="text-2xl font-black text-emerald-400 font-mono">{confirmados.toLocaleString()}</div>
+                        <div className="text-[11px] text-slate-400 mt-1 flex items-center justify-between">
+                          <span>"Si, confirmo" / Auto</span>
+                          <span className="font-bold text-emerald-400 font-mono">{pctConfirmados}%</span>
+                        </div>
+                      </div>
+
+                      {/* Chats Abiertos (Requieren Asesor) */}
+                      <div className="bg-slate-900/70 border border-slate-800 rounded-2xl p-4 shadow-sm backdrop-blur relative overflow-hidden">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-xs font-semibold text-slate-400">Abiertos (Esperando Asesor)</span>
+                          <div className="p-2 bg-rose-500/10 text-rose-400 rounded-xl">
+                            <Activity className="w-4 h-4" />
+                          </div>
+                        </div>
+                        <div className="text-2xl font-black text-rose-400 font-mono">{abiertos.toLocaleString()}</div>
+                        <div className="text-[11px] text-rose-300/80 mt-1">Consultas reales de clientes</div>
+                      </div>
+
+                      {/* Cumplimiento SLA */}
+                      <div className="bg-slate-900/70 border border-slate-800 rounded-2xl p-4 shadow-sm backdrop-blur relative overflow-hidden">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-xs font-semibold text-slate-400">Cumplimiento SLA</span>
+                          <div className="p-2 bg-cyan-500/10 text-cyan-400 rounded-xl">
+                            <TrendingUp className="w-4 h-4" />
+                          </div>
+                        </div>
+                        <div className="text-2xl font-black text-cyan-400 font-mono">{pctSlaVerde}%</div>
+                        <div className="text-[11px] text-slate-400 mt-1 flex items-center justify-between">
+                          <span>Verde: <strong className="text-emerald-400 font-mono">{slaVerde}</strong></span>
+                          <span>Rojo: <strong className="text-rose-400 font-mono">{slaRojo}</strong></span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Fila Media: Distribución Quién Tiene la Palabra & Estados */}
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+                      {/* Quién Tiene la Palabra */}
+                      <div className="bg-slate-900/70 border border-slate-800 rounded-2xl p-5 shadow-sm backdrop-blur">
+                        <div className="flex items-center justify-between border-b border-slate-800 pb-3 mb-4">
+                          <h4 className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-2">
+                            <User className="w-4 h-4 text-orange-400" />
+                            Distribución de Último Mensaje (Quién tiene la palabra)
+                          </h4>
+                        </div>
+                        <div className="space-y-3.5">
+                          {(chatsDashboardStats.palabra || []).map((p: any) => {
+                            const pTotal = Number(p.total || 0);
+                            const pPct = totalChats > 0 ? ((pTotal / totalChats) * 100).toFixed(1) : '0';
+                            const badgeColor = 
+                              p.palabra === 'CONFIRMADO' ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/30' :
+                              p.palabra === 'CLIENTE' ? 'text-blue-400 bg-blue-500/10 border-blue-500/30' :
+                              p.palabra === 'PLANTILLA' ? 'text-purple-400 bg-purple-500/10 border-purple-500/30' :
+                              'text-orange-400 bg-orange-500/10 border-orange-500/30';
+
+                            return (
+                              <div key={p.palabra} className="space-y-1.5">
+                                <div className="flex items-center justify-between text-xs">
+                                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${badgeColor}`}>
+                                    {p.palabra}
+                                  </span>
+                                  <span className="font-mono text-slate-300 font-semibold">{pTotal.toLocaleString()} ({pPct}%)</span>
+                                </div>
+                                <div className="h-2 w-full bg-slate-950 rounded-full overflow-hidden border border-slate-800">
+                                  <div 
+                                    className={`h-full rounded-full transition-all duration-500 ${
+                                      p.palabra === 'CONFIRMADO' ? 'bg-emerald-500' :
+                                      p.palabra === 'CLIENTE' ? 'bg-blue-500' :
+                                      p.palabra === 'PLANTILLA' ? 'bg-purple-500' : 'bg-orange-500'
+                                    }`}
+                                    style={{ width: `${pPct}%` }}
+                                  />
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      {/* Grupos de Servicio / Operaciones */}
+                      <div className="bg-slate-900/70 border border-slate-800 rounded-2xl p-5 shadow-sm backdrop-blur">
+                        <div className="flex items-center justify-between border-b border-slate-800 pb-3 mb-4">
+                          <h4 className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-2">
+                            <Layers className="w-4 h-4 text-orange-400" />
+                            Volumen por Grupo de Servicio / Trabajo
+                          </h4>
+                        </div>
+                        <div className="space-y-3.5">
+                          {(chatsDashboardStats.grupos || []).map((g: any) => {
+                            const gTotal = Number(g.total || 0);
+                            const gPct = totalChats > 0 ? ((gTotal / totalChats) * 100).toFixed(1) : '0';
+                            return (
+                              <div key={g.grupo} className="space-y-1.5">
+                                <div className="flex items-center justify-between text-xs">
+                                  <span className="font-semibold text-slate-300">{g.grupo}</span>
+                                  <span className="font-mono text-slate-300 font-bold">{gTotal.toLocaleString()} ({gPct}%)</span>
+                                </div>
+                                <div className="h-2 w-full bg-slate-950 rounded-full overflow-hidden border border-slate-800">
+                                  <div className="h-full bg-gradient-to-r from-orange-500 to-amber-500 rounded-full" style={{ width: `${gPct}%` }} />
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Fila Inferior: Tabla de Rendimiento por Asesor */}
+                    <div className="bg-slate-900/70 border border-slate-800 rounded-2xl overflow-hidden shadow-sm backdrop-blur">
+                      <div className="p-4 border-b border-slate-800 flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <Headset className="w-4 h-4 text-orange-400" />
+                          <h4 className="text-xs font-bold text-white uppercase tracking-wider">
+                            Rendimiento y Productividad por Asesor
+                          </h4>
+                        </div>
+                        <span className="text-[11px] text-slate-400 font-mono">
+                          {chatsDashboardStats.asesores?.length || 0} asesores activos
+                        </span>
+                      </div>
+
+                      <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-slate-700">
+                        <table className="w-full text-left text-xs text-slate-300 border-collapse">
+                          <thead className="bg-slate-950/80 border-b border-slate-800 text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
+                            <tr>
+                              <th className="py-2.5 px-4">Asesor</th>
+                              <th className="py-2.5 px-4 text-right">Total Chats</th>
+                              <th className="py-2.5 px-4 text-right">Atendidos / Cerrados</th>
+                              <th className="py-2.5 px-4 text-right">Abiertos (Pendientes)</th>
+                              <th className="py-2.5 px-4 text-right">SLA Verde</th>
+                              <th className="py-2.5 px-4 text-right">SLA Rojo</th>
+                              <th className="py-2.5 px-4 text-right">% Cumplimiento</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-800/60 font-mono text-[11px]">
+                            {(chatsDashboardStats.asesores || []).map((a: any, aIdx: number) => {
+                              const aTotal = Number(a.total || 0);
+                              const aAtend = Number(a.atendidos || 0);
+                              const aAbiert = Number(a.abiertos || 0);
+                              const aVerd = Number(a.verdes || 0);
+                              const aRoj = Number(a.rojos || 0);
+                              const aCumpl = aTotal > 0 ? Math.round((aVerd / aTotal) * 100) : 100;
+
+                              return (
+                                <tr key={aIdx} className="hover:bg-slate-800/40 transition-colors">
+                                  <td className="py-2.5 px-4 font-sans font-semibold text-white">
+                                    {a.asesor}
+                                  </td>
+                                  <td className="py-2.5 px-4 text-right font-bold text-white">
+                                    {aTotal.toLocaleString()}
+                                  </td>
+                                  <td className="py-2.5 px-4 text-right text-emerald-400">
+                                    {aAtend.toLocaleString()}
+                                  </td>
+                                  <td className="py-2.5 px-4 text-right text-rose-400">
+                                    {aAbiert.toLocaleString()}
+                                  </td>
+                                  <td className="py-2.5 px-4 text-right text-cyan-400">
+                                    {aVerd.toLocaleString()}
+                                  </td>
+                                  <td className="py-2.5 px-4 text-right text-rose-400">
+                                    {aRoj.toLocaleString()}
+                                  </td>
+                                  <td className="py-2.5 px-4 text-right font-bold">
+                                    <span className={`px-2 py-0.5 rounded-full text-[10px] ${
+                                      aCumpl >= 80 ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30' :
+                                      aCumpl >= 60 ? 'bg-amber-500/15 text-amber-300 border border-amber-500/30' :
+                                      'bg-rose-500/15 text-rose-300 border border-rose-500/30'
+                                    }`}>
+                                      {aCumpl}%
+                                    </span>
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
                       </div>
                     </div>
                   </div>
@@ -2561,15 +2844,16 @@ export default function AdminDashboard() {
                         </td>
                         <td className="py-2.5 px-4">
                           <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold inline-flex items-center gap-1 ${
-                            row.quien_tiene_la_palabra === 'CLIENTE'
+                            row.quien_tiene_la_palabra === 'CONFIRMADO'
+                              ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30'
+                              : row.quien_tiene_la_palabra === 'CLIENTE'
                               ? 'bg-blue-500/15 text-blue-300 border border-blue-500/30'
-                              : row.quien_tiene_la_palabra === 'PLANTILLA' || row.quien_tiene_la_palabra === 'BOT'
+                              : (row.quien_tiene_la_palabra === 'PLANTILLA' || row.quien_tiene_la_palabra === 'BOT')
                               ? 'bg-purple-500/15 text-purple-300 border border-purple-500/30'
                               : 'bg-orange-500/15 text-orange-300 border border-orange-500/30'
                           }`}>
-                            {row.quien_tiene_la_palabra === 'CLIENTE' ? 'CLIENTE' :
-                             (row.quien_tiene_la_palabra === 'PLANTILLA' || row.quien_tiene_la_palabra === 'BOT') ? 'PLANTILLA' :
-                             'ASESOR'}
+                            {row.quien_tiene_la_palabra === 'CONFIRMADO' && <Check className="w-3 h-3 text-emerald-400" />}
+                            {row.quien_tiene_la_palabra || 'ASESOR'}
                           </span>
                         </td>
                         <td className="py-2.5 px-4">
