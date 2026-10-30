@@ -915,26 +915,44 @@ app.get('/api/v1/terceros/cupos/:token', verificarTercero, async (req, res) => {
       });
     }
 
-    // Si el CRM devuelve tramos duplicados por cuadrilla (comportamiento nativo de VT/Averias en CRM), deduplicar
+    // Deduplicar tramos y filtrar: reprogramaciones estrictamente desde mañana (+1 día) y ocultar sin cupo
     if (kongData && Array.isArray(kongData.cupos)) {
-      kongData.cupos = kongData.cupos.map((dia: any) => {
-        if (!dia || !Array.isArray(dia.tramos)) return dia;
-        const tramosMap = new Map<string, any>();
-        for (const t of dia.tramos) {
-          const rawTramo = String(t.tramo || '').trim();
-          if (!rawTramo) continue;
-          if (!tramosMap.has(rawTramo)) {
-            tramosMap.set(rawTramo, { ...t });
-          } else {
-            // Si al menos una cuadrilla tiene disponibilidad, el tramo queda disponible
-            if (t.disponible) tramosMap.get(rawTramo).disponible = true;
+      const nowPeru = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Lima' }));
+      const yyyy = nowPeru.getFullYear();
+      const mm = String(nowPeru.getMonth() + 1).padStart(2, '0');
+      const dd = String(nowPeru.getDate()).padStart(2, '0');
+      const todayIso = `${yyyy}-${mm}-${dd}`;
+
+      kongData.cupos = kongData.cupos
+        .map((dia: any) => {
+          if (!dia || !Array.isArray(dia.tramos)) return null;
+          const normDia = formatToYyyyMmDd(dia.fecha);
+          // Regla: no permitir reprogramar para el mismo día ni días pasados (+1 día estricto)
+          if (normDia <= todayIso) return null;
+
+          const tramosMap = new Map<string, any>();
+          for (const t of dia.tramos) {
+            const rawTramo = String(t.tramo || '').trim();
+            if (!rawTramo) continue;
+            if (!tramosMap.has(rawTramo)) {
+              tramosMap.set(rawTramo, { ...t });
+            } else {
+              // Si al menos una cuadrilla tiene disponibilidad, el tramo queda disponible
+              if (t.disponible) tramosMap.get(rawTramo).disponible = true;
+            }
           }
-        }
-        return {
-          ...dia,
-          tramos: Array.from(tramosMap.values())
-        };
-      });
+
+          // Regla: si no hay cupo en el tramo, no mostrarlo
+          const tramosDisponibles = Array.from(tramosMap.values()).filter((t: any) => t.disponible === true);
+          if (tramosDisponibles.length === 0) return null;
+
+          return {
+            ...dia,
+            disponible: true,
+            tramos: tramosDisponibles
+          };
+        })
+        .filter(Boolean);
     }
 
     res.json({

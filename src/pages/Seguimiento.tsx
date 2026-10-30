@@ -378,12 +378,14 @@ const Seguimiento = ({ customToken, renderServiceSelector }: SeguimientoProps = 
      if (res.ok && dataRes.success && Array.isArray(dataRes.cupos)) {
         // Filtrar estrictamente días con disponibilidad real y tramos disponibles (excluyendo hoy/días con disponible=false)
         const now = new Date();
-        const todayIso = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+        const tomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+        const tomorrowIso = `${tomorrow.getFullYear()}-${String(tomorrow.getMonth() + 1).padStart(2, '0')}-${String(tomorrow.getDate()).padStart(2, '0')}`;
 
-        const cuposDisponibles = dataRes.cupos.filter((d: any) => {
+        const cuposDisponibles = (dataRes.cupos || []).filter((d: any) => {
           if (!d || d.disponible !== true) return false;
           const norm = normalizeDateStr(d.fecha);
-          if (norm < todayIso) return false;
+          // Regla de negocio: Reprogramacion estrictamente a partir de manana (+1 dia)
+          if (norm < tomorrowIso) return false;
           const hasTramos = Array.isArray(d.tramos) && d.tramos.some((t: any) => t.disponible === true);
           return hasTramos;
         });
@@ -2047,11 +2049,14 @@ return (
             });
           });
           
-          tramosList = Array.from(map.entries()).map(([displayTramo, val]) => ({
-            tramo: displayTramo,
-            displayTramo,
-            disponible: val.disponible
-          }));
+          // Solo mostrar tramos con cupo disponible
+          tramosList = Array.from(map.entries())
+            .filter(([_, val]) => val.disponible === true)
+            .map(([displayTramo]) => ({
+              tramo: displayTramo,
+              displayTramo,
+              disponible: true
+            }));
         }
 
         if (tramosList.length === 0) {
@@ -2064,23 +2069,18 @@ return (
 
         return tramosList.map((item) => {
           const isSelected = reprogramData.turno === item.tramo;
-          const isAvailable = item.disponible;
           return (
             <button
               key={item.tramo}
               type="button"
-              disabled={!isAvailable}
-              onClick={() => isAvailable && setReprogramData({ ...reprogramData, turno: item.tramo })}
+              onClick={() => setReprogramData({ ...reprogramData, turno: item.tramo })}
               className={`w-full h-[46px] rounded-[14px] flex items-center justify-between px-4 font-semibold text-[13px] transition-all ${
-                !isAvailable
-                  ? 'border border-gray-200 bg-gray-50 text-gray-300 cursor-not-allowed opacity-60'
-                  : isSelected
-                    ? 'border border-[#FF5A0A] bg-[#FFEDE0] text-[#FF5903] cursor-pointer'
-                    : 'border border-[#D1D5DC] bg-white text-[#26292E] hover:border-[#FF5A0A]/50 cursor-pointer'
+                isSelected
+                  ? 'border border-[#FF5A0A] bg-[#FFEDE0] text-[#FF5903] cursor-pointer'
+                  : 'border border-[#D1D5DC] bg-white text-[#26292E] hover:border-[#FF5A0A]/50 cursor-pointer'
               }`}
             >
               <span>{item.displayTramo}</span>
-              {!isAvailable && <span className="text-[11px] font-normal text-gray-400">Sin cupo</span>}
             </button>
           );
         });
