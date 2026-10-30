@@ -1841,16 +1841,12 @@ app.get('/api/4dm1n_/dashboard-stats', async (req, res) => {
     const search = String(req.query.search || '').trim();
     const fechaInicio = String(req.query.fechaInicio || '').trim();
     const fechaFin = String(req.query.fechaFin || '').trim();
+    const grupoServicio = String(req.query.grupoServicio || '').trim();
     const serviceFilters = parseAdminServiceFilters(req.query.tipoServicio);
 
     const whereClauses: string[] = ['1=1'];
     const params: any[] = [];
 
-    if (grupoServicio) {
-      whereClauses.push('(r.tipo_operacion LIKE ? OR r.tipo_trabajo LIKE ? OR r.producto LIKE ?)');
-      const gs = '%' + grupoServicio + '%';
-      params.push(gs, gs, gs);
-    }
     if (fechaInicio) {
       whereClauses.push('r.fecha_visita >= ?');
       params.push(`${fechaInicio} 00:00:00`);
@@ -1859,13 +1855,12 @@ app.get('/api/4dm1n_/dashboard-stats', async (req, res) => {
       whereClauses.push('r.fecha_visita <= ?');
       params.push(`${fechaFin} 23:59:59`);
     }
+    if (grupoServicio) {
+      whereClauses.push('(r.tipo_operacion LIKE ? OR r.tipo_trabajo LIKE ? OR r.producto LIKE ?)');
+      const gs = '%' + grupoServicio + '%';
+      params.push(gs, gs, gs);
+    }
     const serviceCond = buildServiceFilterSql(serviceFilters, 'reporte');
-      if (grupoServicio) {
-        whereClauses.push('(r.tipo_operacion LIKE ? OR r.tipo_trabajo LIKE ? OR r.producto LIKE ?)');
-        const gs = '%' + grupoServicio + '%';
-        params.push(gs, gs, gs);
-        countParams.push(gs, gs, gs);
-      }
     if (serviceCond) {
       whereClauses.push(serviceCond.sql);
       params.push(...serviceCond.values);
