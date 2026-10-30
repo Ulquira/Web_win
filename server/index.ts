@@ -95,10 +95,33 @@ app.post('/api/reprogramar', async (req, res) => {
 
     if (response.ok && data.success) {
       apiCache.delete(`inst_${token}`);
+
+      // Inserción directa redundante en BD local con formato YYYY-MM-DD
+      const formatYmd = (dStr: string) => {
+        if (!dStr) return dStr;
+        const c = dStr.trim();
+        if (/^\d{4}-\d{2}-\d{2}$/.test(c)) return c;
+        if (/^\d{2}-\d{2}-\d{4}$/.test(c)) {
+          const [d, m, y] = c.split('-');
+          return `${y}-${m}-${d}`;
+        }
+        return c;
+      };
+      const mysqlDate = formatYmd(fecha);
+
+      try {
+        await pool.query(
+          `INSERT INTO REPROGRAMACIONES (token, fecha_solicitada, turno, motivo) VALUES (?, ?, ?, ?)`,
+          [token, mysqlDate, turno.trim(), motivoDetalle]
+        );
+      } catch (dbInsertErr) {
+        console.warn('Advertencia insertando en REPROGRAMACIONES desde server:', dbInsertErr);
+      }
+
       try {
         replicateChange('REPROGRAMACIONES', 'INSERT', {
           token,
-          fecha_solicitada: fecha,
+          fecha_solicitada: mysqlDate,
           turno,
           motivo: motivoDetalle
         });
@@ -655,6 +678,23 @@ app.get('/api/instalaciones/:token', async (req, res) => {
     }
 
     if (data && data.data) {
+      // Si la consulta inicial por token arrojó false, pero la orden tiene token_inicio distinto o caso vinculado,
+      // verificar si alguna orden de la misma cadena ya fue reprogramada en BD
+      if (!reprogramadaBD) {
+        try {
+          const alternateTokens = [data.data.token_inicio, token].filter(Boolean);
+          const [altReprog]: any = await pool.query(
+            `SELECT id FROM REPROGRAMACIONES WHERE token IN (?) LIMIT 1`,
+            [alternateTokens]
+          );
+          if (altReprog && altReprog.length > 0) {
+            reprogramadaBD = true;
+          }
+        } catch (e) {
+          console.warn('Error verificando reprogramacion alterna:', e);
+        }
+      }
+
       data.data.reprogramada = reprogramadaBD;
       data.data.encuesta_completada = encuestaCompletadaBD;
 

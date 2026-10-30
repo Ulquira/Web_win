@@ -845,6 +845,17 @@ function formatTimeSlotForCrm(turno: string, isTicket: boolean): string {
   }
 }
 
+function formatToYyyyMmDd(dateStr: string): string {
+  if (!dateStr) return '';
+  const clean = dateStr.trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(clean)) return clean;
+  if (/^\d{2}-\d{2}-\d{4}$/.test(clean)) {
+    const [d, m, y] = clean.split('-');
+    return `${y}-${m}-${d}`;
+  }
+  return clean;
+}
+
 function formatToDdMmYyyy(dateStr: string): string {
   if (!dateStr) return '';
   const clean = dateStr.trim();
@@ -1013,10 +1024,11 @@ app.post('/api/v1/terceros/reprogramar', verificarTercero, async (req, res) => {
       });
     }
 
-    // Persistencia local en BD y archivo de contingencia para trazabilidad
+    // Persistencia local en BD (formato MySQL YYYY-MM-DD) y archivo de contingencia para trazabilidad
+    const mysqlDate = formatToYyyyMmDd(fecha);
     try {
       const insertQuery = `INSERT INTO REPROGRAMACIONES (token, fecha_solicitada, turno, motivo) VALUES (?, ?, ?, ?)`;
-      await pool.query(insertQuery, [token, formattedDate, turno.trim(), reasonText]);
+      await pool.query(insertQuery, [token, mysqlDate, turno.trim(), reasonText]);
     } catch (dbErr) {
       console.error('[REPROGRAMACION API] Error insertando en REPROGRAMACIONES local:', dbErr);
     }
