@@ -35,10 +35,13 @@ import {
   Activity,
   CheckCheck,
   TrendingUp,
-  MapPin
+  MapPin,
+  Users,
+  UserPlus,
+  Shield
 } from 'lucide-react';
 
-type TabType = 'principal' | 'reporte' | 'dashboard' | 'encuestas' | 'reprogramaciones' | 'chats_mantra';
+type TabType = 'principal' | 'reporte' | 'dashboard' | 'encuestas' | 'reprogramaciones' | 'chats_mantra' | 'usuarios';
 
 const getTodayPeruString = () => {
   try {
@@ -158,6 +161,111 @@ export default function AdminDashboard() {
   const [liveChatMessages, setLiveChatMessages] = useState<any[] | null>(null);
   const [liveChatTotal, setLiveChatTotal] = useState<number | null>(null);
   const [loadingChat, setLoadingChat] = useState<boolean>(false);
+
+  // Estados para pestaña de Control de Roles & Usuarios
+  interface UserItem {
+    IDuser: number;
+    Nombre: string;
+    Documento: string;
+    Telefono?: string | null;
+    Email: string;
+    Usuario: string;
+    Area: 'INSTALACION' | 'PROVINCIA' | 'AVERIAS' | 'ADMIN';
+    Rol: 'ADMIN' | 'SUPERVISOR' | 'COORDINADOR' | 'ASESOR';
+    Activo: number;
+    created_at?: string;
+  }
+  const [usersList, setUsersList] = useState<UserItem[]>([]);
+  const [isLoadingUsers, setIsLoadingUsers] = useState(false);
+  const [userSearch, setUserSearch] = useState('');
+  const [isUserModalOpen, setIsUserModalOpen] = useState(false);
+  const [isSavingUser, setIsSavingUser] = useState(false);
+  const [userFormError, setUserFormError] = useState<string | null>(null);
+  const [userFormSuccess, setUserFormSuccess] = useState<string | null>(null);
+  const [userFormData, setUserFormData] = useState({
+    Nombre: '',
+    Documento: '',
+    Telefono: '',
+    Email: '',
+    Usuario: '',
+    Password: '',
+    Area: 'INSTALACION' as 'INSTALACION' | 'PROVINCIA' | 'AVERIAS' | 'ADMIN',
+    Rol: 'ASESOR' as 'ADMIN' | 'SUPERVISOR' | 'COORDINADOR' | 'ASESOR'
+  });
+
+  const fetchUsers = async () => {
+    setIsLoadingUsers(true);
+    try {
+      const res = await fetch(`${apiUrl}/api/4dm1n_/users`);
+      const dataRes = await res.json();
+      if (dataRes.success && Array.isArray(dataRes.users)) {
+        setUsersList(dataRes.users);
+      }
+    } catch (err) {
+      console.error('Error cargando usuarios:', err);
+    } finally {
+      setIsLoadingUsers(false);
+    }
+  };
+
+  const handleCreateUser = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setUserFormError(null);
+    setUserFormSuccess(null);
+    setIsSavingUser(true);
+
+    try {
+      const res = await fetch(`${apiUrl}/api/4dm1n_/users`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(userFormData)
+      });
+      const dataRes = await res.json();
+      if (!res.ok || !dataRes.success) {
+        throw new Error(dataRes.message || 'Error al registrar usuario');
+      }
+      setUserFormSuccess('¡Usuario creado exitosamente!');
+      setTimeout(() => {
+        setIsUserModalOpen(false);
+        setUserFormSuccess(null);
+        fetchUsers();
+      }, 1000);
+    } catch (err: any) {
+      setUserFormError(err.message || 'Error al guardar el usuario');
+    } finally {
+      setIsSavingUser(false);
+    }
+  };
+
+  const handleToggleUserActivo = async (id: number, currentActivo: number) => {
+    try {
+      const newActivo = currentActivo ? 0 : 1;
+      const res = await fetch(`${apiUrl}/api/4dm1n_/users/${id}/estado`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ activo: newActivo })
+      });
+      if (res.ok) {
+        setUsersList(prev => prev.map(u => u.IDuser === id ? { ...u, Activo: newActivo } : u));
+      }
+    } catch (err) {
+      console.error('Error alternando estado:', err);
+    }
+  };
+
+  const filteredUsers = useMemo(() => {
+    if (!userSearch) return usersList;
+    const term = userSearch.toLowerCase().trim();
+    return usersList.filter(u => 
+      u.Nombre.toLowerCase().includes(term) ||
+      u.Documento.toLowerCase().includes(term) ||
+      u.Usuario.toLowerCase().includes(term) ||
+      u.Email.toLowerCase().includes(term) ||
+      u.Area.toLowerCase().includes(term) ||
+      u.Rol.toLowerCase().includes(term)
+    );
+  }, [usersList, userSearch]);
+
   const [chatLimit, setChatLimit] = useState<number>(15);
   const [dashboardStats, setDashboardStats] = useState<any | null>(null);
   const [loadingStats, setLoadingStats] = useState<boolean>(false);
@@ -730,9 +838,84 @@ export default function AdminDashboard() {
             <MessageSquare className="w-4 h-4" />
             <span>Historial Chats Mantra</span>
           </button>
+
+          <button
+            onClick={() => setActiveTab('usuarios')}
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-medium text-sm transition-all ${
+              activeTab === 'usuarios'
+                ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/20'
+                : 'bg-slate-900 text-slate-400 hover:text-slate-200 hover:bg-slate-800 border border-slate-800'
+            }`}
+          >
+            <Users className="w-4 h-4" />
+            <span>Usuarios & Roles</span>
+          </button>
         </div>
 
-        {/* Barra de Filtros */}
+        {/* Barra de Filtros / Barra de Usuarios */}
+        {activeTab === 'usuarios' ? (
+          <div className="bg-slate-900/70 border border-slate-800 rounded-2xl p-4 shadow-sm backdrop-blur flex flex-col md:flex-row items-center justify-between gap-4 z-30">
+            <div className="flex items-center gap-3 w-full md:w-auto">
+              <div className="p-2.5 bg-orange-500/10 border border-orange-500/20 text-orange-400 rounded-xl">
+                <Users className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                  Gestión de Usuarios y Control por Roles
+                  <span className="text-xs px-2 py-0.5 rounded-full bg-slate-800 text-orange-400 border border-slate-700 font-mono">
+                    {usersList.length} registrados
+                  </span>
+                </h3>
+                <p className="text-xs text-slate-400">Segmentación por Área (INSTALACION, PROVINCIA, AVERIAS, ADMIN) y Rol (ADMIN, SUPERVISOR, COORDINADOR, ASESOR)</p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3 w-full md:w-auto">
+              <div className="relative flex-1 md:w-64">
+                <Search className="w-4 h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  placeholder="Buscar usuario, área, rol..."
+                  value={userSearch}
+                  onChange={(e) => setUserSearch(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-9 pr-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-orange-500 transition-colors"
+                />
+              </div>
+
+              <button
+                type="button"
+                onClick={() => fetchUsers()}
+                className="p-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl border border-slate-700 transition-all active:scale-95"
+                title="Refrescar usuarios"
+              >
+                <RefreshCw className={`w-4 h-4 ${isLoadingUsers ? 'animate-spin text-orange-400' : ''}`} />
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setUserFormData({
+                    Nombre: '',
+                    Documento: '',
+                    Telefono: '',
+                    Email: '',
+                    Usuario: '',
+                    Password: '',
+                    Area: 'INSTALACION',
+                    Rol: 'ASESOR'
+                  });
+                  setUserFormError(null);
+                  setUserFormSuccess(null);
+                  setIsUserModalOpen(true);
+                }}
+                className="flex items-center gap-2 px-4 py-2 bg-orange-500 hover:bg-orange-600 active:scale-95 text-white rounded-xl text-xs font-bold transition-all shadow-lg shadow-orange-500/25 shrink-0"
+              >
+                <UserPlus className="w-4 h-4" />
+                <span>+ Registrar Usuario</span>
+              </button>
+            </div>
+          </div>
+        ) : (
         <div className="bg-slate-900/70 border border-slate-800 rounded-2xl p-4 shadow-sm backdrop-blur relative z-30">
           <form onSubmit={handleSearchSubmit} className={`grid grid-cols-1 md:grid-cols-2 ${activeTab === 'chats_mantra' ? 'lg:grid-cols-6' : 'lg:grid-cols-5'} gap-3 relative z-30`}>
             {/* Buscador general */}
@@ -1013,9 +1196,10 @@ export default function AdminDashboard() {
             </div>
           </form>
         </div>
+        )}
 
         {/* Resumen y paginación superior */}
-        {activeTab !== 'dashboard' ? (
+        {activeTab !== 'dashboard' && activeTab !== 'usuarios' ? (
           <div className="flex flex-wrap items-center justify-between gap-4 text-xs text-slate-400 px-1 relative z-10">
             <div className="flex items-center gap-3">
               <div>
@@ -1079,7 +1263,7 @@ export default function AdminDashboard() {
           </div>
         )}
 
-        {/* 1. Vista Dashboard Ejecutivo vs 2. Tablas de Resultados */}
+        {/* 1. Vista Dashboard Ejecutivo vs 2. Control de Usuarios vs 3. Tablas de Resultados */}
         {activeTab === 'dashboard' ? (
           <div className="space-y-4">
             {loadingStats ? (
@@ -1579,6 +1763,96 @@ export default function AdminDashboard() {
                 );
               })()
             )}
+          </div>
+        ) : activeTab === 'usuarios' ? (
+          /* Vista de Usuarios y Roles */
+          <div className="bg-slate-900/60 border border-slate-800 rounded-2xl overflow-hidden shadow-xl backdrop-blur relative min-h-[400px]">
+            <div className="overflow-x-auto max-h-[650px] scrollbar-thin scrollbar-thumb-slate-700">
+              <table className="w-full text-left text-xs text-slate-300 border-collapse">
+                <thead className="bg-slate-950/80 sticky top-0 z-10 border-b border-slate-800 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
+                  <tr>
+                    <th className="py-3 px-4">ID</th>
+                    <th className="py-3 px-4">Nombre Completo</th>
+                    <th className="py-3 px-4">Documento</th>
+                    <th className="py-3 px-4">Usuario</th>
+                    <th className="py-3 px-4">Email Corporativo</th>
+                    <th className="py-3 px-4">Teléfono</th>
+                    <th className="py-3 px-4">Área Operativa</th>
+                    <th className="py-3 px-4">Rol Asignado</th>
+                    <th className="py-3 px-4">Estado</th>
+                    <th className="py-3 px-4">Fecha Creación</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-800/60 font-medium">
+                  {isLoadingUsers ? (
+                    <tr>
+                      <td colSpan={10} className="py-16 text-center text-slate-400">
+                        <RefreshCw className="w-7 h-7 animate-spin mx-auto text-orange-500 mb-2" />
+                        <span>Cargando directorio de usuarios de BD_Phoenix...</span>
+                      </td>
+                    </tr>
+                  ) : filteredUsers.length === 0 ? (
+                    <tr>
+                      <td colSpan={10} className="py-16 text-center text-slate-400">
+                        No se encontraron usuarios registrados en la tabla user. Haz clic en "+ Registrar Usuario" para añadir uno.
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredUsers.map((u) => {
+                      const areaColor = 
+                        u.Area === 'ADMIN' ? 'bg-orange-500/10 text-orange-400 border-orange-500/30' :
+                        u.Area === 'AVERIAS' ? 'bg-rose-500/10 text-rose-400 border-rose-500/30' :
+                        u.Area === 'PROVINCIA' ? 'bg-purple-500/10 text-purple-400 border-purple-500/30' :
+                        'bg-sky-500/10 text-sky-400 border-sky-500/30';
+
+                      const rolColor = 
+                        u.Rol === 'ADMIN' ? 'bg-amber-500/15 text-amber-300 border-amber-500/40' :
+                        u.Rol === 'SUPERVISOR' ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/40' :
+                        u.Rol === 'COORDINADOR' ? 'bg-blue-500/15 text-blue-300 border-blue-500/40' :
+                        'bg-slate-700/50 text-slate-300 border-slate-600';
+
+                      return (
+                        <tr key={u.IDuser} className="hover:bg-slate-800/40 transition-colors">
+                          <td className="py-3 px-4 font-mono text-[11px] text-slate-400">#{u.IDuser}</td>
+                          <td className="py-3 px-4 font-semibold text-white">{u.Nombre}</td>
+                          <td className="py-3 px-4 font-mono text-slate-300">{u.Documento}</td>
+                          <td className="py-3 px-4 font-mono text-orange-300">{u.Usuario}</td>
+                          <td className="py-3 px-4 text-slate-400">{u.Email}</td>
+                          <td className="py-3 px-4 text-slate-400">{u.Telefono || '-'}</td>
+                          <td className="py-3 px-4">
+                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${areaColor}`}>
+                              {u.Area}
+                            </span>
+                          </td>
+                          <td className="py-3 px-4">
+                            <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${rolColor}`}>
+                              {u.Rol === 'ADMIN' && <Shield className="w-3 h-3 text-amber-400" />}
+                              {u.Rol}
+                            </span>
+                          </td>
+                          <td className="py-3 px-4">
+                            <button
+                              type="button"
+                              onClick={() => handleToggleUserActivo(u.IDuser, u.Activo)}
+                              className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border transition-colors cursor-pointer ${
+                                u.Activo 
+                                  ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/30' 
+                                  : 'bg-rose-500/15 text-rose-400 border-rose-500/30 hover:bg-rose-500/30'
+                              }`}
+                            >
+                              {u.Activo ? '● Activo' : '○ Inactivo'}
+                            </button>
+                          </td>
+                          <td className="py-3 px-4 text-slate-500 text-[11px]">
+                            {u.created_at ? new Date(u.created_at).toLocaleDateString('es-PE') : '-'}
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
         ) : (
           /* Tabla de Resultados */
@@ -2197,7 +2471,175 @@ export default function AdminDashboard() {
         )}
       </main>
 
-      {/* Modal para ver registro completo + Visor Amigable de Chat (Campos a la izquierda, Chat más grande a la derecha) */}
+
+      {/* Modal para Registrar Nuevo Usuario */}
+      {isUserModalOpen && (
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-between border-b border-slate-800 px-6 py-4 bg-slate-900/90">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-orange-500/10 border border-orange-500/20 text-orange-400 rounded-xl">
+                  <UserPlus className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-white">Registrar Nuevo Usuario</h3>
+                  <p className="text-xs text-slate-400">Asigna credenciales, área operativa y rol de acceso</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsUserModalOpen(false)}
+                className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateUser} className="p-6 space-y-4">
+              {userFormError && (
+                <div className="p-3 bg-rose-500/10 border border-rose-500/30 rounded-xl text-rose-400 text-xs flex items-center gap-2">
+                  <span>⚠️</span>
+                  <span>{userFormError}</span>
+                </div>
+              )}
+
+              {userFormSuccess && (
+                <div className="p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-xl text-emerald-400 text-xs flex items-center gap-2">
+                  <span>✅</span>
+                  <span>{userFormSuccess}</span>
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-400 uppercase mb-1">Nombre Completo *</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="Ej. Juan Pérez"
+                    value={userFormData.Nombre}
+                    onChange={(e) => setUserFormData({ ...userFormData, Nombre: e.target.value })}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-orange-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-400 uppercase mb-1">Documento (DNI/CE) *</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="Ej. 72345678"
+                    value={userFormData.Documento}
+                    onChange={(e) => setUserFormData({ ...userFormData, Documento: e.target.value })}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-orange-500 font-mono"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-400 uppercase mb-1">Usuario (Login) *</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="Ej. jperez"
+                    value={userFormData.Usuario}
+                    onChange={(e) => setUserFormData({ ...userFormData, Usuario: e.target.value })}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-orange-500 font-mono"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-400 uppercase mb-1">Contraseña *</label>
+                  <input
+                    type="password"
+                    required
+                    placeholder="Contraseña segura"
+                    value={userFormData.Password}
+                    onChange={(e) => setUserFormData({ ...userFormData, Password: e.target.value })}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-orange-500"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-400 uppercase mb-1">Email Corporativo *</label>
+                  <input
+                    type="email"
+                    required
+                    placeholder="jperez@win.pe"
+                    value={userFormData.Email}
+                    onChange={(e) => setUserFormData({ ...userFormData, Email: e.target.value })}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-orange-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-400 uppercase mb-1">Teléfono</label>
+                  <input
+                    type="text"
+                    placeholder="Ej. 987654321"
+                    value={userFormData.Telefono}
+                    onChange={(e) => setUserFormData({ ...userFormData, Telefono: e.target.value })}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-orange-500"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-400 uppercase mb-1">Área Operativa *</label>
+                  <select
+                    value={userFormData.Area}
+                    onChange={(e: any) => setUserFormData({ ...userFormData, Area: e.target.value })}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-orange-500 font-semibold"
+                  >
+                    <option value="INSTALACION">INSTALACION</option>
+                    <option value="PROVINCIA">PROVINCIA</option>
+                    <option value="AVERIAS">AVERIAS</option>
+                    <option value="ADMIN">ADMIN</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-400 uppercase mb-1">Rol *</label>
+                  <select
+                    value={userFormData.Rol}
+                    onChange={(e: any) => setUserFormData({ ...userFormData, Rol: e.target.value })}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-orange-500 font-semibold"
+                  >
+                    <option value="ADMIN">ADMIN</option>
+                    <option value="SUPERVISOR">SUPERVISOR</option>
+                    <option value="COORDINADOR">COORDINADOR</option>
+                    <option value="ASESOR">ASESOR</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setIsUserModalOpen(false)}
+                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-semibold transition-colors cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSavingUser}
+                  className="flex items-center gap-2 px-5 py-2 bg-orange-500 hover:bg-orange-600 disabled:opacity-50 text-white rounded-xl text-xs font-bold transition-all shadow-lg shadow-orange-500/25 cursor-pointer"
+                >
+                  {isSavingUser && <RefreshCw className="w-3.5 h-3.5 animate-spin" />}
+                  <span>Guardar Usuario</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+            {/* Modal para ver registro completo + Visor Amigable de Chat (Campos a la izquierda, Chat más grande a la derecha) */}
       {selectedRow && (
         <div className="fixed inset-0 bg-slate-950/85 backdrop-blur-md z-50 flex items-center justify-center p-2 sm:p-4">
           <div className="bg-slate-900 border border-slate-800 rounded-2xl w-[98vw] max-w-[1720px] h-[94vh] shadow-2xl relative flex flex-col overflow-hidden">

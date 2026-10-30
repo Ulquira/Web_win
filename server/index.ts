@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import { createOpaqueToken, decodeOpaqueToken } from './opaqueToken.js';
 import express from 'express';
 import cors from 'cors';
@@ -2419,6 +2420,127 @@ app.get('/api/4dm1n_/export', async (req, res) => {
   } catch (error: any) {
     console.error('Error exportando datos admin:', error);
     res.status(500).json({ success: false, message: 'Error interno generando exportación' });
+  }
+});
+
+
+// ==========================================
+// 8. GESTIÓN DE USUARIOS Y ROLES (/api/4dm1n_/users)
+// ==========================================
+app.get('/api/4dm1n_/users', async (_req, res) => {
+  try {
+    const [rows]: any = await pool.query(
+      'SELECT IDuser, Nombre, Documento, Telefono, Email, Usuario, Area, Rol, Activo, created_at, updated_at FROM user ORDER BY IDuser DESC'
+    );
+    return res.json({ success: true, users: rows });
+  } catch (error: any) {
+    console.error('Error obteniendo usuarios:', error);
+    return res.status(500).json({ success: false, message: 'Error al consultar usuarios', error: error?.message });
+  }
+});
+
+app.post('/api/4dm1n_/users', async (req, res) => {
+  const { Nombre, Documento, Telefono, Email, Usuario, Password, Area, Rol } = req.body;
+  if (!Nombre || !Documento || !Email || !Usuario || !Password || !Area || !Rol) {
+    return res.status(400).json({ success: false, message: 'Faltan campos obligatorios para registrar el usuario' });
+  }
+
+  const validAreas = ['INSTALACION', 'PROVINCIA', 'AVERIAS', 'ADMIN'];
+  const validRoles = ['ADMIN', 'SUPERVISOR', 'COORDINADOR', 'ASESOR'];
+
+  if (!validAreas.includes(Area)) {
+    return res.status(400).json({ success: false, message: `Área inválida. Debe ser una de: ${validAreas.join(', ')}` });
+  }
+
+  if (!validRoles.includes(Rol)) {
+    return res.status(400).json({ success: false, message: `Rol inválido. Debe ser uno de: ${validRoles.join(', ')}` });
+  }
+
+  try {
+    const salt = crypto.randomBytes(16).toString('hex');
+    const hash = crypto.pbkdf2Sync(String(Password).trim(), salt, 10000, 64, 'sha512').toString('hex');
+    const passwordHash = `${salt}:${hash}`;
+
+    const [result]: any = await pool.query(
+      `INSERT INTO user (Nombre, Documento, Telefono, Email, Usuario, Password, Area, Rol, Activo)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)`,
+      [Nombre.trim(), Documento.trim(), Telefono ? Telefono.trim() : null, Email.trim(), Usuario.trim(), passwordHash, Area, Rol]
+    );
+
+    return res.json({
+      success: true,
+      message: 'Usuario registrado exitosamente',
+      userId: result.insertId
+    });
+  } catch (error: any) {
+    console.error('Error creando usuario:', error);
+    if (error.code === 'ER_DUP_ENTRY') {
+      return res.status(409).json({ success: false, message: 'El Documento, Email o Usuario ya se encuentra registrado' });
+    }
+    return res.status(500).json({ success: false, message: 'Error interno al registrar usuario', error: error?.message });
+  }
+});
+
+app.put('/api/4dm1n_/users/:id', async (req, res) => {
+  const { id } = req.params;
+  const { Nombre, Documento, Telefono, Email, Usuario, Password, Area, Rol, Activo } = req.body;
+
+  const validAreas = ['INSTALACION', 'PROVINCIA', 'AVERIAS', 'ADMIN'];
+  const validRoles = ['ADMIN', 'SUPERVISOR', 'COORDINADOR', 'ASESOR'];
+
+  if (Area && !validAreas.includes(Area)) {
+    return res.status(400).json({ success: false, message: 'Área inválida' });
+  }
+
+  if (Rol && !validRoles.includes(Rol)) {
+    return res.status(400).json({ success: false, message: 'Rol inválido' });
+  }
+
+  try {
+    const updates: string[] = [];
+    const params: any[] = [];
+
+    if (Nombre) { updates.push('Nombre = ?'); params.push(Nombre.trim()); }
+    if (Documento) { updates.push('Documento = ?'); params.push(Documento.trim()); }
+    if (Telefono !== undefined) { updates.push('Telefono = ?'); params.push(Telefono ? Telefono.trim() : null); }
+    if (Email) { updates.push('Email = ?'); params.push(Email.trim()); }
+    if (Usuario) { updates.push('Usuario = ?'); params.push(Usuario.trim()); }
+    if (Area) { updates.push('Area = ?'); params.push(Area); }
+    if (Rol) { updates.push('Rol = ?'); params.push(Rol); }
+    if (Activo !== undefined) { updates.push('Activo = ?'); params.push(Activo ? 1 : 0); }
+
+    if (Password && String(Password).trim()) {
+      const salt = crypto.randomBytes(16).toString('hex');
+      const hash = crypto.pbkdf2Sync(String(Password).trim(), salt, 10000, 64, 'sha512').toString('hex');
+      updates.push('Password = ?');
+      params.push(`${salt}:${hash}`);
+    }
+
+    if (updates.length === 0) {
+      return res.status(400).json({ success: false, message: 'No hay campos para actualizar' });
+    }
+
+    params.push(id);
+    await pool.query(`UPDATE user SET ${updates.join(', ')} WHERE IDuser = ?`, params);
+
+    return res.json({ success: true, message: 'Usuario actualizado correctamente' });
+  } catch (error: any) {
+    console.error('Error actualizando usuario:', error);
+    if (error.code === 'ER_DUP_ENTRY') {
+      return res.status(409).json({ success: false, message: 'El Documento, Email o Usuario ya se encuentra registrado' });
+    }
+    return res.status(500).json({ success: false, message: 'Error interno al actualizar usuario', error: error?.message });
+  }
+});
+
+app.put('/api/4dm1n_/users/:id/estado', async (req, res) => {
+  const { id } = req.params;
+  const { activo } = req.body;
+  try {
+    await pool.query('UPDATE user SET Activo = ? WHERE IDuser = ?', [activo ? 1 : 0, id]);
+    return res.json({ success: true, message: 'Estado de usuario actualizado con éxito' });
+  } catch (error: any) {
+    return res.status(500).json({ success: false, message: 'Error al actualizar estado', error: error?.message });
   }
 });
 
