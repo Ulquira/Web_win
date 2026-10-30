@@ -6,7 +6,8 @@ import {
   Filter, 
   RefreshCw, 
   ChevronLeft, 
-  ChevronRight, 
+  ChevronRight,
+  ChevronDown, 
   FileSpreadsheet, 
   FileCode, 
   Eye, 
@@ -290,6 +291,7 @@ export default function AdminDashboard() {
   const [dashboardStats, setDashboardStats] = useState<any | null>(null);
   const [loadingStats, setLoadingStats] = useState<boolean>(false);
   const [chatsDashboardStats, setChatsDashboardStats] = useState<any | null>(null);
+  const [dashboardMenuOpen, setDashboardMenuOpen] = useState<boolean>(true);
   const [loadingChatsStats, setLoadingChatsStats] = useState<boolean>(false);
 
   // Endpoint en línea (Azure App Service con soporte para variable de entorno)
@@ -1102,43 +1104,178 @@ export default function AdminDashboard() {
         </div>
 
         {/* Sección 1 (Superior): Menú de Navegación */}
-        <nav className="p-2.5 space-y-1 overflow-y-auto max-h-[38vh] scrollbar-thin scrollbar-thumb-slate-800 shrink-0">
+        <nav className="p-2.5 space-y-1 overflow-y-auto max-h-[42vh] scrollbar-thin scrollbar-thumb-slate-800 shrink-0">
           <div className="px-2 pb-1 text-[10px] font-bold uppercase tracking-wider text-slate-500">
             Vistas
           </div>
-          {[
-            { id: 'principal', label: 'Órdenes', icon: Layers },
-            { id: 'reporte', label: 'Reporte', icon: BarChart3 },
-            { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-            { id: 'dashboard_chats', label: 'Dashboard Chats', icon: MessageCircle },
-            { id: 'encuestas', label: 'Encuestas', icon: CheckCircle2 },
-            { id: 'reprogramaciones', label: 'Reprogramaciones', icon: CalendarClock },
-            { id: 'chats_mantra', label: 'Chats', icon: MessageSquare },
-            { id: 'usuarios', label: 'Usuarios', icon: Users },
-          ].map((item) => {
-            const isActive = activeTab === item.id;
-            const IconComp = item.icon;
-            return (
-              <button
-                key={item.id}
-                type="button"
-                onClick={() => {
-                  setActiveTab(item.id as TabType);
-                  setColumnFilters({});
-                  setActiveFilterDropdown(null);
-                  if (item.id === 'reporte' && sortField === 'id') setSortField('fecha_visita');
-                }}
-                className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
-                  isActive
-                    ? 'bg-[#FF5A0A] text-white shadow-lg shadow-orange-500/25 font-bold'
-                    : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
-                }`}
-              >
-                <IconComp className={`w-4 h-4 shrink-0 ${isActive ? 'text-white' : 'text-slate-400'}`} />
-                <span>{item.label}</span>
-              </button>
-            );
-          })}
+
+          {/* Órdenes */}
+          <button
+            type="button"
+            onClick={() => {
+              setActiveTab('principal');
+              setColumnFilters({});
+              setActiveFilterDropdown(null);
+            }}
+            className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+              activeTab === 'principal'
+                ? 'bg-[#FF5A0A] text-white shadow-lg shadow-orange-500/25 font-bold'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
+            }`}
+          >
+            <Layers className={`w-4 h-4 shrink-0 ${activeTab === 'principal' ? 'text-white' : 'text-slate-400'}`} />
+            <span>Órdenes</span>
+          </button>
+
+          {/* Reporte */}
+          <button
+            type="button"
+            onClick={() => {
+              setActiveTab('reporte');
+              setColumnFilters({});
+              setActiveFilterDropdown(null);
+              if (sortField === 'id') setSortField('fecha_visita');
+            }}
+            className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+              activeTab === 'reporte'
+                ? 'bg-[#FF5A0A] text-white shadow-lg shadow-orange-500/25 font-bold'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
+            }`}
+          >
+            <BarChart3 className={`w-4 h-4 shrink-0 ${activeTab === 'reporte' ? 'text-white' : 'text-slate-400'}`} />
+            <span>Reporte</span>
+          </button>
+
+          {/* Menú Desglosable Dashboard */}
+          <div className="space-y-0.5">
+            <button
+              type="button"
+              onClick={() => setDashboardMenuOpen(!dashboardMenuOpen)}
+              className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+                activeTab === 'dashboard' || activeTab === 'dashboard_chats'
+                  ? 'bg-slate-800/80 text-orange-400 border border-orange-500/30'
+                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <LayoutDashboard className={`w-4 h-4 shrink-0 ${activeTab === 'dashboard' || activeTab === 'dashboard_chats' ? 'text-[#FF5A0A]' : 'text-slate-400'}`} />
+                <span>Dashboard</span>
+              </div>
+              <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${dashboardMenuOpen ? 'rotate-180 text-orange-400' : 'text-slate-500'}`} />
+            </button>
+
+            {dashboardMenuOpen && (
+              <div className="pl-6 pr-1 py-1 space-y-1">
+                {/* WinENRUTA */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveTab('dashboard');
+                    setColumnFilters({});
+                    setActiveFilterDropdown(null);
+                  }}
+                  className={`w-full flex items-center gap-2.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer ${
+                    activeTab === 'dashboard'
+                      ? 'bg-[#FF5A0A] text-white shadow-md shadow-orange-500/20 font-bold'
+                      : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+                  }`}
+                >
+                  <TrendingUp className={`w-3.5 h-3.5 shrink-0 ${activeTab === 'dashboard' ? 'text-white' : 'text-slate-400'}`} />
+                  <span>WinENRUTA</span>
+                </button>
+
+                {/* Chat */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveTab('dashboard_chats');
+                    setColumnFilters({});
+                    setActiveFilterDropdown(null);
+                  }}
+                  className={`w-full flex items-center gap-2.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer ${
+                    activeTab === 'dashboard_chats'
+                      ? 'bg-[#FF5A0A] text-white shadow-md shadow-orange-500/20 font-bold'
+                      : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+                  }`}
+                >
+                  <MessageCircle className={`w-3.5 h-3.5 shrink-0 ${activeTab === 'dashboard_chats' ? 'text-white' : 'text-slate-400'}`} />
+                  <span>Chat</span>
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Encuestas */}
+          <button
+            type="button"
+            onClick={() => {
+              setActiveTab('encuestas');
+              setColumnFilters({});
+              setActiveFilterDropdown(null);
+            }}
+            className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+              activeTab === 'encuestas'
+                ? 'bg-[#FF5A0A] text-white shadow-lg shadow-orange-500/25 font-bold'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
+            }`}
+          >
+            <CheckCircle2 className={`w-4 h-4 shrink-0 ${activeTab === 'encuestas' ? 'text-white' : 'text-slate-400'}`} />
+            <span>Encuestas</span>
+          </button>
+
+          {/* Reprogramaciones */}
+          <button
+            type="button"
+            onClick={() => {
+              setActiveTab('reprogramaciones');
+              setColumnFilters({});
+              setActiveFilterDropdown(null);
+            }}
+            className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+              activeTab === 'reprogramaciones'
+                ? 'bg-[#FF5A0A] text-white shadow-lg shadow-orange-500/25 font-bold'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
+            }`}
+          >
+            <CalendarClock className={`w-4 h-4 shrink-0 ${activeTab === 'reprogramaciones' ? 'text-white' : 'text-slate-400'}`} />
+            <span>Reprogramaciones</span>
+          </button>
+
+          {/* Chats */}
+          <button
+            type="button"
+            onClick={() => {
+              setActiveTab('chats_mantra');
+              setColumnFilters({});
+              setActiveFilterDropdown(null);
+            }}
+            className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+              activeTab === 'chats_mantra'
+                ? 'bg-[#FF5A0A] text-white shadow-lg shadow-orange-500/25 font-bold'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
+            }`}
+          >
+            <MessageSquare className={`w-4 h-4 shrink-0 ${activeTab === 'chats_mantra' ? 'text-white' : 'text-slate-400'}`} />
+            <span>Chats</span>
+          </button>
+
+          {/* Usuarios */}
+          <button
+            type="button"
+            onClick={() => {
+              setActiveTab('usuarios');
+              setColumnFilters({});
+              setActiveFilterDropdown(null);
+            }}
+            className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+              activeTab === 'usuarios'
+                ? 'bg-[#FF5A0A] text-white shadow-lg shadow-orange-500/25 font-bold'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
+            }`}
+          >
+            <Users className={`w-4 h-4 shrink-0 ${activeTab === 'usuarios' ? 'text-white' : 'text-slate-400'}`} />
+            <span>Usuarios</span>
+          </button>
         </nav>
 
         {/* Sección 2 (Inferior): Filtros Generales */}
@@ -1262,8 +1399,8 @@ export default function AdminDashboard() {
             <h1 className="text-base font-bold text-white tracking-tight">
               {activeTab === 'principal' ? 'Órdenes de Trabajo' :
                activeTab === 'reporte' ? 'Reporte Funnel' :
-               activeTab === 'dashboard' ? 'Dashboard Ejecutivo' :
-               activeTab === 'dashboard_chats' ? 'Dashboard Analítico de Chats' :
+               activeTab === 'dashboard' ? 'Dashboard WinENRUTA' :
+               activeTab === 'dashboard_chats' ? 'Dashboard Chat' :
                activeTab === 'encuestas' ? 'Encuestas de Satisfacción' :
                activeTab === 'reprogramaciones' ? 'Reprogramaciones' :
                activeTab === 'chats_mantra' ? 'Historial de Chats' : 'Usuarios'}
@@ -1969,7 +2106,7 @@ export default function AdminDashboard() {
             )}
           </div>
         ) : activeTab === 'dashboard_chats' ? (
-          /* Vista: Dashboard Analítico de Chats Mantra */
+          /* Vista: Dashboard Chat */
           <div className="space-y-5">
             {loadingChatsStats ? (
               <div className="py-20 flex flex-col items-center justify-center gap-3">
