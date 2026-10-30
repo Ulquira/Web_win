@@ -1575,6 +1575,12 @@ app.get('/api/4dm1n_/data', async (req, res) => {
         countParams.push(`${fechaFin} 23:59:59`);
       }
       const serviceCond = buildServiceFilterSql(serviceFilters, 'reporte');
+      if (grupoServicio) {
+        whereClauses.push('(r.tipo_operacion LIKE ? OR r.tipo_trabajo LIKE ? OR r.producto LIKE ?)');
+        const gs = '%' + grupoServicio + '%';
+        params.push(gs, gs, gs);
+        countParams.push(gs, gs, gs);
+      }
       if (serviceCond) {
         whereClauses.push(serviceCond.sql);
         params.push(...serviceCond.values);
@@ -1696,6 +1702,12 @@ app.get('/api/4dm1n_/data', async (req, res) => {
         params.push(s, s, s, s, s, s);
         countParams.push(s, s, s, s, s, s);
       }
+      if (grupoServicio) {
+        whereClauses.push('(w.TipoTraba LIKE ? OR ts.Tipo LIKE ? OR w.Producto LIKE ?)');
+        const gs = '%' + grupoServicio + '%';
+        params.push(gs, gs, gs);
+        countParams.push(gs, gs, gs);
+      }
       const allowedColsPrincipal: Record<string, string> = {
         orden_id: 'w.OrdenId',
         cliente: 'w.Cliente',
@@ -1773,6 +1785,11 @@ app.get('/api/4dm1n_/dashboard-stats', async (req, res) => {
     const whereClauses: string[] = ['1=1'];
     const params: any[] = [];
 
+    if (grupoServicio) {
+      whereClauses.push('(r.tipo_operacion LIKE ? OR r.tipo_trabajo LIKE ? OR r.producto LIKE ?)');
+      const gs = '%' + grupoServicio + '%';
+      params.push(gs, gs, gs);
+    }
     if (fechaInicio) {
       whereClauses.push('r.fecha_visita >= ?');
       params.push(`${fechaInicio} 00:00:00`);
@@ -1782,6 +1799,12 @@ app.get('/api/4dm1n_/dashboard-stats', async (req, res) => {
       params.push(`${fechaFin} 23:59:59`);
     }
     const serviceCond = buildServiceFilterSql(serviceFilters, 'reporte');
+      if (grupoServicio) {
+        whereClauses.push('(r.tipo_operacion LIKE ? OR r.tipo_trabajo LIKE ? OR r.producto LIKE ?)');
+        const gs = '%' + grupoServicio + '%';
+        params.push(gs, gs, gs);
+        countParams.push(gs, gs, gs);
+      }
     if (serviceCond) {
       whereClauses.push(serviceCond.sql);
       params.push(...serviceCond.values);
@@ -2260,6 +2283,12 @@ app.get('/api/4dm1n_/export', async (req, res) => {
         params.push(`${fechaFin} 23:59:59`);
       }
       const serviceCond = buildServiceFilterSql(serviceFilters, 'reporte');
+      if (grupoServicio) {
+        whereClauses.push('(r.tipo_operacion LIKE ? OR r.tipo_trabajo LIKE ? OR r.producto LIKE ?)');
+        const gs = '%' + grupoServicio + '%';
+        params.push(gs, gs, gs);
+        countParams.push(gs, gs, gs);
+      }
       if (serviceCond) {
         whereClauses.push(serviceCond.sql);
         params.push(...serviceCond.values);
@@ -2351,20 +2380,25 @@ app.get('/api/4dm1n_/export', async (req, res) => {
         const s = `%${search}%`;
         params.push(s, s, s, s, s, s);
       }
+      if (grupoServicio) {
+        whereClauses.push('(w.TipoTraba LIKE ? OR ts.Tipo LIKE ? OR w.Producto LIKE ?)');
+        const gs = '%' + grupoServicio + '%';
+        params.push(gs, gs, gs);
+      }
+      const allowedColsPrincipal: Record<string, string> = {
+        orden_id: 'w.OrdenId',
+        cliente: 'w.Cliente',
+        documento: 'w.`Número Documento`',
+        tipo_traba: 'w.TipoTraba',
+        producto: 'w.Producto',
+        estado: 'w.Estado',
+        direccion: 'w.Direccion',
+        distrito: 'w.Localidad',
+        cuadrilla: 'w.Cuadrilla',
+        pin: 'w.Pin_token',
+        token: 'w.token'
+      };
       for (const [colKey, colVal] of Object.entries(colFilters)) {
-        const allowedColsPrincipal: Record<string, string> = {
-          orden_id: 'w.OrdenId',
-          cliente: 'w.Cliente',
-          documento: 'w.`Número Documento`',
-          tipo_traba: 'w.TipoTraba',
-          producto: 'w.Producto',
-          estado: 'w.Estado',
-          direccion: 'w.Direccion',
-          distrito: 'w.Localidad',
-          cuadrilla: 'w.Cuadrilla',
-          pin: 'w.Pin_token',
-          token: 'w.token'
-        };
         const sqlField = allowedColsPrincipal[colKey];
         const valStr = String(colVal || '').trim();
         if (sqlField && valStr) {

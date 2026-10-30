@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { ExcelFilterHeader, ColumnFilterState } from '../components/ExcelFilterHeader';
 import { 
   Database, 
   Search, 
@@ -6,7 +7,6 @@ import {
   RefreshCw, 
   ChevronLeft, 
   ChevronRight, 
-  ChevronDown,
   FileSpreadsheet, 
   FileCode, 
   Eye, 
@@ -140,11 +140,26 @@ export default function AdminDashboard() {
   const [fechaInicio, setFechaInicio] = useState(getTodayPeruString());
   const [fechaFin, setFechaFin] = useState(getTodayPeruString());
   const [tipoServicio, setTipoServicio] = useState<string[]>([]);
-  const [tipoServicioOpen, setTipoServicioOpen] = useState(false);
-  const tipoServicioDropdownRef = useRef<HTMLDivElement>(null);
   const [grupoServicio, setGrupoServicio] = useState('');
   const [estadoChatFiltro, setEstadoChatFiltro] = useState('');
   const [updatingChatId, setUpdatingChatId] = useState<number | null>(null);
+
+  // Filtros interactivos tipo Excel por columna
+  const [columnFilters, setColumnFilters] = useState<Record<string, ColumnFilterState>>({});
+  const [activeFilterDropdown, setActiveFilterDropdown] = useState<string | null>(null);
+
+  // Cerrar popover de filtro Excel al hacer clic fuera
+  useEffect(() => {
+    if (!activeFilterDropdown) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (!target.closest('.excel-filter-popover') && !target.closest('.excel-filter-trigger')) {
+        setActiveFilterDropdown(null);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [activeFilterDropdown]);
 
   // Ordenamiento de columnas (ascendente / descendente)
   const [sortField, setSortField] = useState<string>('id');
@@ -407,18 +422,7 @@ export default function AdminDashboard() {
       });
   }, [apiUrl]);
 
-  // Cerrar dropdown de Tipo de Servicio al hacer clic fuera
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (tipoServicioDropdownRef.current && !tipoServicioDropdownRef.current.contains(event.target as Node)) {
-        setTipoServicioOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, []);
+
 
   // Cargar datos al cambiar tab, paginación, ordenamiento o filtros
   const fetchData = async (targetPage = page, customFilters?: any, retryCount = 1) => {
@@ -460,7 +464,7 @@ export default function AdminDashboard() {
       if (currentTipo.length > 0 && (currentTab === 'principal' || currentTab === 'reporte')) {
         params.append('tipoServicio', currentTipo.join(','));
       }
-      if (currentGrupo && currentTab === 'chats_mantra') params.append('grupoServicio', currentGrupo);
+      if (currentGrupo) params.append('grupoServicio', currentGrupo);
       if (currentEstado && currentTab === 'chats_mantra') params.append('estadoChat', currentEstado);
 
       const res = await fetch(`${apiUrl}/api/4dm1n_/data?${params.toString()}`, {
@@ -600,10 +604,153 @@ export default function AdminDashboard() {
     }
   };
 
-  // Ordenamiento local instantáneo sobre las filas visibles
+  // Obtener valor de celda homogéneo para filtros y ordenamientos
+  const getCellValue = (row: any, field: string): string => {
+    if (!row) return '';
+    if (row[field] !== undefined && row[field] !== null) {
+      return String(row[field]);
+    }
+    switch (field) {
+      case 'id':
+        return String(row.id ?? row.IDuser ?? '');
+      case 'orden_id':
+      case 'OrdenId':
+        return String(row.orden_id ?? row.OrdenId ?? row.id ?? '');
+      case 'ticket':
+      case 'Ticket':
+        return String(row.ticket ?? row.Ticket ?? row.CodiSegui ?? '');
+      case 'cliente':
+      case 'cliente_nombre':
+      case 'Cliente':
+        return String(row.cliente_nombre ?? row.cliente ?? row.Cliente ?? '');
+      case 'phone':
+      case 'telefono':
+      case 'Telefono':
+        return String(row.phone ?? row.telefono ?? row.Telefono ?? row.TeleMovilNume ?? '');
+      case 'asesor_asignado':
+      case 'usuario':
+      case 'Usuario':
+        return String(row.asesor_asignado ?? row.Usuario ?? '');
+      case 'grupo_servicio':
+      case 'tipo_trabajo':
+      case 'TipoTraba':
+      case 'TipoServicioCalculado':
+        return String(row.tipo_trabajo ?? row.grupo_servicio ?? row.TipoServicioCalculado ?? row.TipoTraba ?? '');
+      case 'distrito':
+      case 'provincia':
+      case 'Localidad':
+        return String(row.distrito ?? row.provincia ?? row.Localidad ?? '');
+      case 'quien_tiene_la_palabra':
+        return String(row.quien_tiene_la_palabra ?? '');
+      case 'estado_chat':
+        return String(row.estado_chat ?? '');
+      case 'semaforo_sla':
+        return String(row.semaforo_sla ?? '');
+      case 'ultimo_mensaje_texto':
+        return String(row.ultimo_mensaje_texto ?? '');
+      case 'ultimo_mensaje_fecha':
+        return String(row.ultimo_mensaje_fecha ?? row.cliente_ultima_fecha ?? '');
+      case 'estado_ot':
+      case 'Estado':
+        return String(row.estado_ot ?? row.Estado ?? row['Estado OT'] ?? '');
+      case 'tipo_operacion':
+        return String(row.tipo_operacion ?? row.TipoServicioCalculado ?? row.tipo_trabajo ?? row.TipoTraba ?? '');
+      case 'se_envio_wsp':
+        return String(row.se_envio_wsp ?? '');
+      case 'ingreso_tracking':
+        return String(row.ingreso_tracking ?? '');
+      case 'reprogramo':
+        return String(row.reprogramo ?? '');
+      case 'respondio_encuesta':
+        return String(row.respondio_encuesta ?? '');
+      case 'pulso_soporte':
+        return String(row.pulso_soporte ?? '');
+      case 'NumeroDocumento':
+        return String(row.NumeroDocumento ?? row['Número Documento'] ?? '');
+      case 'Producto':
+        return String(row.Producto ?? '');
+      case 'FechaVisita':
+        return String(row.FechaVisita ?? row['F.Visita'] ?? '');
+      case 'Direccion':
+        return String(row.Direccion ?? '');
+      case 'Cuadrilla':
+        return String(row.Cuadrilla ?? '');
+      case 'instalacion_concretada':
+        return String(row.instalacion_concretada ?? '');
+      case 'satisfaccion_general':
+        return String(row.satisfaccion_general ?? '');
+      case 'tecnico_trato':
+        return String(row.tecnico_trato ?? '');
+      case 'fecha_solicitada':
+        return String(row.fecha_solicitada ?? '');
+      case 'turno':
+        return String(row.turno ?? '');
+      case 'motivo':
+        return String(row.motivo ?? '');
+      case 'token':
+        return String(row.token ?? '');
+      default:
+        return '';
+    }
+  };
+
+  const getUniqueValuesForField = (field: string): string[] => {
+    const set = new Set<string>();
+    for (let i = 0; i < data.length; i++) {
+      const val = getCellValue(data[i], field).trim();
+      set.add(val || '(Vacío)');
+    }
+    return Array.from(set).sort((a, b) => {
+      if (a === '(Vacío)') return 1;
+      if (b === '(Vacío)') return -1;
+      return a.localeCompare(b);
+    });
+  };
+
+  const handleColumnFilterChange = (field: string, filter: ColumnFilterState | null) => {
+    setColumnFilters(prev => {
+      const next = { ...prev };
+      if (!filter) {
+        delete next[field];
+      } else {
+        next[field] = filter;
+      }
+      return next;
+    });
+  };
+
+  // Filtrado local y ordenamiento sobre las filas visibles con soporte Excel
   const displayData = useMemo(() => {
-    if (!sortField || data.length === 0) return data;
-    return [...data].sort((a, b) => {
+    let filtered = data;
+
+    const activeCols = Object.keys(columnFilters);
+    if (activeCols.length > 0) {
+      filtered = filtered.filter(row => {
+        for (const col of activeCols) {
+          const f = columnFilters[col];
+          if (!f) continue;
+          const val = getCellValue(row, col).trim();
+
+          // 1. Búsqueda de palabra en la columna
+          if (f.search && !val.toLowerCase().includes(f.search.toLowerCase())) {
+            return false;
+          }
+
+          // 2. Selección de valores con checkboxes
+          if (f.selected && f.selected.length > 0) {
+            const displayVal = val || '(Vacío)';
+            if (!f.selected.includes(displayVal)) {
+              return false;
+            }
+          }
+        }
+        return true;
+      });
+    }
+
+    if (!sortField || filtered.length === 0) return filtered;
+
+    return [...filtered].sort((a, b) => {
       let valA = a[sortField];
       let valB = b[sortField];
       if (valA === null || valA === undefined) return 1;
@@ -628,7 +775,7 @@ export default function AdminDashboard() {
       const strB = String(valB).toLowerCase();
       return sortOrder === 'asc' ? strA.localeCompare(strB) : strB.localeCompare(strA);
     });
-  }, [data, sortField, sortOrder]);
+  }, [data, columnFilters, sortField, sortOrder]);
 
   // Mensajes parseados para la vista amigable de chat (prioriza mensajes en vivo de Mantra si existen)
   const parsedChatMessages = useMemo(() => {
@@ -712,10 +859,10 @@ export default function AdminDashboard() {
 
   return (
     <div className="min-h-screen bg-[#0B0F17] text-slate-100 flex font-sans antialiased">
-      {/* Barra Lateral Izquierda (Sidebar) */}
-      <aside className="w-60 bg-[#0F141F] border-r border-slate-800/80 flex flex-col shrink-0 sticky top-0 h-screen z-40 select-none">
-        {/* Brand */}
-        <div className="h-16 px-5 border-b border-slate-800/80 flex items-center gap-3">
+            {/* Barra Lateral Izquierda (Sidebar Dividida en 2) */}
+      <aside className="w-64 bg-[#0F141F] border-r border-slate-800/80 flex flex-col shrink-0 sticky top-0 h-screen z-40 select-none">
+        {/* Brand Header */}
+        <div className="h-14 px-4 border-b border-slate-800/80 flex items-center gap-3 shrink-0">
           <div className="w-8 h-8 rounded-xl bg-[#FF5A0A] flex items-center justify-center shadow-lg shadow-orange-500/20 text-white font-black text-sm">
             W
           </div>
@@ -725,8 +872,11 @@ export default function AdminDashboard() {
           </div>
         </div>
 
-        {/* Menú de Navegación Vertical */}
-        <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
+        {/* Sección 1 (Superior): Menú de Navegación */}
+        <nav className="p-2.5 space-y-1 overflow-y-auto max-h-[38vh] scrollbar-thin scrollbar-thumb-slate-800 shrink-0">
+          <div className="px-2 pb-1 text-[10px] font-bold uppercase tracking-wider text-slate-500">
+            Vistas
+          </div>
           {[
             { id: 'principal', label: 'Órdenes', icon: Layers },
             { id: 'reporte', label: 'Reporte', icon: BarChart3 },
@@ -744,9 +894,11 @@ export default function AdminDashboard() {
                 type="button"
                 onClick={() => {
                   setActiveTab(item.id as TabType);
+                  setColumnFilters({});
+                  setActiveFilterDropdown(null);
                   if (item.id === 'reporte' && sortField === 'id') setSortField('fecha_visita');
                 }}
-                className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+                className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
                   isActive
                     ? 'bg-[#FF5A0A] text-white shadow-lg shadow-orange-500/25 font-bold'
                     : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
@@ -759,13 +911,116 @@ export default function AdminDashboard() {
           })}
         </nav>
 
-        {/* Footer Sidebar */}
-        <div className="p-4 border-t border-slate-800/80 text-[11px] text-slate-500 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-            <span className="font-mono text-[10px] text-slate-400">BD_Phoenix</span>
+        {/* Sección 2 (Inferior): Filtros Generales */}
+        <div className="flex-1 border-t border-slate-800/80 p-3 flex flex-col justify-between overflow-y-auto scrollbar-thin scrollbar-thumb-slate-800 bg-[#0C101A]">
+          <form onSubmit={handleSearchSubmit} className="space-y-2.5">
+            <div className="flex items-center justify-between pb-1">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                <Filter className="w-3 h-3 text-[#FF5A0A]" /> Filtros Globales
+              </span>
+              {(search || grupoServicio || fechaInicio !== getTodayPeruString() || fechaFin !== getTodayPeruString()) && (
+                <button
+                  type="button"
+                  onClick={handleResetFilters}
+                  className="text-[10px] text-orange-400 hover:text-orange-300 font-semibold cursor-pointer"
+                >
+                  Limpiar
+                </button>
+              )}
+            </div>
+
+            {/* Búsqueda rápida */}
+            <div>
+              <label className="text-[10px] font-semibold text-slate-400 block mb-1">Búsqueda rápida</label>
+              <div className="relative">
+                <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500" />
+                <input
+                  type="text"
+                  value={search}
+                  onChange={e => setSearch(e.target.value)}
+                  placeholder="OT, Ticket, Cliente..."
+                  className="w-full bg-slate-950/90 border border-slate-800 rounded-lg pl-8 pr-2.5 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-orange-500 transition-colors"
+                />
+              </div>
+            </div>
+
+            {/* Fecha Inicio y Fecha Fin en 2 columnas */}
+            <div className="grid grid-cols-2 gap-1.5">
+              <div>
+                <label className="text-[10px] font-semibold text-slate-400 block mb-1">Fecha Inicio</label>
+                <input
+                  type="date"
+                  value={fechaInicio}
+                  onChange={e => setFechaInicio(e.target.value)}
+                  className="w-full bg-slate-950/90 border border-slate-800 rounded-lg px-2 py-1.5 text-[11px] text-white focus:outline-none focus:border-orange-500 transition-colors"
+                />
+              </div>
+              <div>
+                <label className="text-[10px] font-semibold text-slate-400 block mb-1">Fecha Fin</label>
+                <input
+                  type="date"
+                  value={fechaFin}
+                  onChange={e => setFechaFin(e.target.value)}
+                  className="w-full bg-slate-950/90 border border-slate-800 rounded-lg px-2 py-1.5 text-[11px] text-white focus:outline-none focus:border-orange-500 transition-colors"
+                />
+              </div>
+            </div>
+
+            {/* Grupo de Servicio */}
+            <div>
+              <label className="text-[10px] font-semibold text-slate-400 block mb-1">Grupo de Servicio</label>
+              <select
+                value={grupoServicio}
+                onChange={e => {
+                  setGrupoServicio(e.target.value);
+                  setPage(1);
+                }}
+                className="w-full bg-slate-950/90 border border-slate-800 rounded-lg px-2 py-1.5 text-xs text-white focus:outline-none focus:border-orange-500 transition-colors cursor-pointer"
+              >
+                <option value="">Todos los grupos</option>
+                <optgroup label="Tipos de Operación">
+                  {(filtrosOpciones.gruposServicioMantra && filtrosOpciones.gruposServicioMantra.length > 0
+                    ? filtrosOpciones.gruposServicioMantra.filter(g => !['Instalacion', 'Averias'].includes(g))
+                    : ['INSTALACION', 'AVERIAS', 'PROVINCIA', 'POSTVENTA', 'AVERIAS PRV']
+                  ).map(g => (
+                    <option key={g} value={g}>{g}</option>
+                  ))}
+                </optgroup>
+                <optgroup label="Canales Mantra">
+                  <option value="Instalacion">Canal Instalacion</option>
+                  <option value="Averias">Canal Averias</option>
+                </optgroup>
+              </select>
+            </div>
+
+            {/* Botones de acción */}
+            <div className="flex items-center gap-1.5 pt-1">
+              <button
+                type="submit"
+                className="flex-1 flex items-center justify-center gap-1.5 py-1.5 px-3 bg-[#FF5A0A] hover:bg-[#e04f08] active:scale-95 text-white font-bold text-xs rounded-lg transition-all shadow-md shadow-orange-500/20 cursor-pointer"
+              >
+                <Filter className="w-3 h-3" />
+                Filtrar
+              </button>
+              <button
+                type="button"
+                onClick={() => activeTab === 'dashboard' ? fetchDashboardStats() : fetchData(1)}
+                title="Refrescar datos"
+                className="p-1.5 bg-slate-800/90 hover:bg-slate-700 text-slate-300 rounded-lg border border-slate-700 transition-all active:scale-95 cursor-pointer"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${(loading || loadingStats) ? 'animate-spin text-orange-400' : ''}`} />
+              </button>
+            </div>
+          </form>
+
+          {/* Footer Sidebar */}
+          <div className="pt-2.5 mt-2.5 border-t border-slate-800/60 text-[10px] text-slate-500 flex items-center justify-between">
+            <div className="flex items-center gap-1.5">
+              <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+              <span className="font-mono text-slate-400">BD_Phoenix</span>
+            </div>
+            <span className="text-slate-600 font-mono">v2.1</span>
           </div>
-          <span className="text-[10px] text-slate-600 font-mono">v2.1</span>
         </div>
       </aside>
 
@@ -821,7 +1076,7 @@ export default function AdminDashboard() {
           )}
 
         {/* Barra de Filtros / Barra de Usuarios */}
-        {activeTab === 'usuarios' ? (
+        {activeTab === 'usuarios' && (
           <div className="bg-slate-900/70 border border-slate-800 rounded-2xl p-4 shadow-sm backdrop-blur flex flex-col md:flex-row items-center justify-between gap-4 z-30">
             <div className="flex items-center gap-3 w-full md:w-auto">
               <div className="p-2.5 bg-orange-500/10 border border-orange-500/20 text-orange-400 rounded-xl">
@@ -852,7 +1107,7 @@ export default function AdminDashboard() {
               <button
                 type="button"
                 onClick={() => fetchUsers()}
-                className="p-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl border border-slate-700 transition-all active:scale-95"
+                className="p-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl border border-slate-700 transition-all active:scale-95 cursor-pointer"
                 title="Refrescar usuarios"
               >
                 <RefreshCw className={`w-4 h-4 ${isLoadingUsers ? 'animate-spin text-orange-400' : ''}`} />
@@ -875,294 +1130,49 @@ export default function AdminDashboard() {
                   setUserFormSuccess(null);
                   setIsUserModalOpen(true);
                 }}
-                className="flex items-center gap-2 px-4 py-2 bg-orange-500 hover:bg-orange-600 active:scale-95 text-white rounded-xl text-xs font-bold transition-all shadow-lg shadow-orange-500/25 shrink-0"
+                className="flex items-center gap-2 px-4 py-2 bg-orange-500 hover:bg-orange-600 active:scale-95 text-white rounded-xl text-xs font-bold transition-all shadow-lg shadow-orange-500/25 shrink-0 cursor-pointer"
               >
                 <UserPlus className="w-4 h-4" />
                 <span>+ Registrar Usuario</span>
               </button>
             </div>
           </div>
-        ) : (
-        <div className="bg-slate-900/70 border border-slate-800 rounded-2xl p-4 shadow-sm backdrop-blur relative z-30">
-          <form onSubmit={handleSearchSubmit} className={`grid grid-cols-1 md:grid-cols-2 ${activeTab === 'chats_mantra' ? 'lg:grid-cols-6' : 'lg:grid-cols-5'} gap-3 relative z-30`}>
-            {/* Buscador general */}
-            <div className="relative">
-              <label className="text-[11px] font-medium text-slate-400 block mb-1">Búsqueda rápida</label>
-              <div className="relative">
-                <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
-                <input
-                  type="text"
-                  value={search}
-                  onChange={e => setSearch(e.target.value)}
-                  placeholder={
-                    activeTab === 'principal' 
-                      ? 'Cliente, DNI, Token, OT, Dirección...' 
-                      : activeTab === 'chats_mantra'
-                      ? 'Ticket, Teléfono, Cliente, Orden ID, Asesor...'
-                      : activeTab === 'reporte' || activeTab === 'dashboard'
-                      ? 'OT, Ticket, Cliente, Teléfono, Cuadrilla, Distrito...'
-                      : 'Token, comentario, motivo...'
-                  }
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-9 pr-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-orange-500 transition-colors"
-                />
-              </div>
-            </div>
+        )}
 
-            {/* Fecha Inicio */}
-            <div>
-              <label className="text-[11px] font-medium text-slate-400 block mb-1">
-                {activeTab === 'principal' || activeTab === 'reporte' || activeTab === 'dashboard' ? 'Fecha Visita Desde' : activeTab === 'chats_mantra' ? 'Fecha Gestión/Msg Desde' : 'Fecha Desde'}
-              </label>
-              <div className="relative">
-                <input
-                  type="date"
-                  value={fechaInicio}
-                  onChange={e => setFechaInicio(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-orange-500 transition-colors"
-                />
-              </div>
-            </div>
-
-            {/* Fecha Fin */}
-            <div>
-              <label className="text-[11px] font-medium text-slate-400 block mb-1">
-                {activeTab === 'principal' || activeTab === 'reporte' || activeTab === 'dashboard' ? 'Fecha Visita Hasta' : activeTab === 'chats_mantra' ? 'Fecha Gestión/Msg Hasta' : 'Fecha Hasta'}
-              </label>
-              <div className="relative">
-                <input
-                  type="date"
-                  value={fechaFin}
-                  onChange={e => setFechaFin(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-orange-500 transition-colors"
-                />
-              </div>
-            </div>
-
-            {/* Tipo de Servicio (Visible en Principal, Reporte y Dashboard) con Selección Múltiple */}
-            {(activeTab === 'principal' || activeTab === 'reporte' || activeTab === 'dashboard') && (
-              <div className="relative z-40" ref={tipoServicioDropdownRef}>
-                <label className="text-[11px] font-medium text-slate-400 mb-1 flex items-center justify-between">
-                  <span>Tipo de Servicio / Trabajo</span>
-                  {tipoServicio.length > 0 && (
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setTipoServicio([]);
-                      }}
-                      className="text-[10px] text-orange-400 hover:text-orange-300 transition-colors"
-                    >
-                      Limpiar ({tipoServicio.length})
-                    </button>
-                  )}
-                </label>
+        {/* Chips de Filtros Excel Activos */}
+        {Object.keys(columnFilters).length > 0 && activeTab !== 'dashboard' && activeTab !== 'usuarios' && (
+          <div className="flex flex-wrap items-center gap-2 px-3 py-2 bg-slate-900/80 border border-slate-800 rounded-xl text-xs z-20">
+            <span className="text-[11px] font-semibold text-slate-400 flex items-center gap-1.5">
+              <Filter className="w-3.5 h-3.5 text-orange-400" />
+              Filtros Excel activos ({Object.keys(columnFilters).length}):
+            </span>
+            {Object.entries(columnFilters).map(([fKey, fVal]) => (
+              <span
+                key={fKey}
+                className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-orange-500/15 border border-orange-500/30 text-orange-300 text-[11px] font-mono"
+              >
+                <strong className="text-slate-300 capitalize">{fKey.replace(/_/g, ' ')}:</strong>
+                <span className="truncate max-w-[140px]">
+                  {fVal.selected && fVal.selected.length > 0 ? fVal.selected.join(', ') : fVal.search}
+                </span>
                 <button
                   type="button"
-                  onClick={() => setTipoServicioOpen(prev => !prev)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white flex items-center justify-between focus:outline-none focus:border-orange-500 transition-colors text-left"
+                  onClick={() => handleColumnFilterChange(fKey, null)}
+                  className="hover:text-white transition-colors cursor-pointer ml-0.5"
+                  title="Quitar este filtro"
                 >
-                  <span className="truncate">
-                    {tipoServicio.length === 0
-                      ? 'Todos los tipos'
-                      : tipoServicio.length === 1
-                      ? (tipoServicio[0].includes(':') ? tipoServicio[0].split(':')[1] : tipoServicio[0])
-                      : `${tipoServicio.length} tipos seleccionados`}
-                  </span>
-                  <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform ${tipoServicioOpen ? 'rotate-180' : ''}`} />
+                  <X className="w-3 h-3" />
                 </button>
-
-                {tipoServicioOpen && (
-                  <div className="absolute top-full left-0 right-0 mt-1 max-h-72 min-w-[280px] overflow-y-auto bg-slate-900 border border-slate-700 rounded-xl shadow-2xl z-50 p-2 space-y-2 backdrop-blur">
-                    <div className="flex items-center justify-between px-1 pb-1 border-b border-slate-800 text-[11px]">
-                      <span className="text-slate-400 font-medium">Selección Múltiple</span>
-                      {tipoServicio.length > 0 && (
-                        <button
-                          type="button"
-                          onClick={() => setTipoServicio([])}
-                          className="text-[10px] text-slate-400 hover:text-white"
-                        >
-                          Deseleccionar todo
-                        </button>
-                      )}
-                    </div>
-
-                    {filtrosOpciones.tiposClasificados.length > 0 && (
-                      <div>
-                        <div className="text-[10px] font-bold text-orange-400 uppercase tracking-wider px-1 py-1">
-                          Tipos Cruzados (tiposervicio)
-                        </div>
-                        <div className="space-y-0.5">
-                          {filtrosOpciones.tiposClasificados.map(tc => {
-                            const val = `tipo:${tc}`;
-                            const isChecked = tipoServicio.includes(val);
-                            return (
-                              <label
-                                key={tc}
-                                className="flex items-center gap-2 px-2 py-1 rounded-lg hover:bg-slate-800 cursor-pointer text-xs text-slate-200 transition-colors select-none"
-                              >
-                                <input
-                                  type="checkbox"
-                                  checked={isChecked}
-                                  onChange={() => {
-                                    setTipoServicio(prev =>
-                                      isChecked ? prev.filter(x => x !== val) : [...prev, val]
-                                    );
-                                  }}
-                                  className="rounded border-slate-700 bg-slate-950 text-orange-500 focus:ring-0 focus:ring-offset-0 cursor-pointer"
-                                />
-                                <span className="truncate">{tc}</span>
-                              </label>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    )}
-
-                    {filtrosOpciones.tiposTraba.length > 0 && (
-                      <div>
-                        <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-1 py-1 border-t border-slate-800/60 pt-1.5">
-                          Tipos de Trabajo (vw)
-                        </div>
-                        <div className="space-y-0.5">
-                          {filtrosOpciones.tiposTraba.map(t => {
-                            const val = `trabajo:${t}`;
-                            const isChecked = tipoServicio.includes(val);
-                            return (
-                              <label
-                                key={t}
-                                className="flex items-center gap-2 px-2 py-1 rounded-lg hover:bg-slate-800 cursor-pointer text-xs text-slate-200 transition-colors select-none"
-                              >
-                                <input
-                                  type="checkbox"
-                                  checked={isChecked}
-                                  onChange={() => {
-                                    setTipoServicio(prev =>
-                                      isChecked ? prev.filter(x => x !== val) : [...prev, val]
-                                    );
-                                  }}
-                                  className="rounded border-slate-700 bg-slate-950 text-orange-500 focus:ring-0 focus:ring-offset-0 cursor-pointer"
-                                />
-                                <span className="truncate">{t}</span>
-                              </label>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    )}
-
-                    {filtrosOpciones.productos.length > 0 && (
-                      <div>
-                        <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-1 py-1 border-t border-slate-800/60 pt-1.5">
-                          Productos (vw)
-                        </div>
-                        <div className="space-y-0.5">
-                          {filtrosOpciones.productos.map(p => {
-                            const val = `producto:${p}`;
-                            const isChecked = tipoServicio.includes(val);
-                            return (
-                              <label
-                                key={p}
-                                className="flex items-center gap-2 px-2 py-1 rounded-lg hover:bg-slate-800 cursor-pointer text-xs text-slate-200 transition-colors select-none"
-                              >
-                                <input
-                                  type="checkbox"
-                                  checked={isChecked}
-                                  onChange={() => {
-                                    setTipoServicio(prev =>
-                                      isChecked ? prev.filter(x => x !== val) : [...prev, val]
-                                    );
-                                  }}
-                                  className="rounded border-slate-700 bg-slate-950 text-orange-500 focus:ring-0 focus:ring-offset-0 cursor-pointer"
-                                />
-                                <span className="truncate">{p}</span>
-                              </label>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Filtro Grupo de Servicio (Solo visible en Historial Chats Mantra) */}
-            {activeTab === 'chats_mantra' && (
-              <div>
-                <label className="text-[11px] font-medium text-slate-400 block mb-1">Grupo de Servicio</label>
-                <select
-                  value={grupoServicio}
-                  onChange={e => {
-                    setGrupoServicio(e.target.value);
-                    setPage(1);
-                  }}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-orange-500 transition-colors"
-                >
-                  <option value="">Todos los grupos de servicio</option>
-                  <optgroup label="Tipos de Servicio (Operación)">
-                    <option value="INSTALACION">INSTALACION (Lima)</option>
-                    <option value="AVERIAS">AVERIAS (Lima)</option>
-                    <option value="PROVINCIA">PROVINCIA (Instalación)</option>
-                    <option value="POSTVENTA">POSTVENTA</option>
-                    <option value="AVERIAS PRV">AVERIAS PRV (Provincia)</option>
-                  </optgroup>
-                  <optgroup label="Canales de WhatsApp Mantra">
-                    <option value="Instalacion">Canal Instalacion (Todo)</option>
-                    <option value="Averias">Canal Averias (Todo)</option>
-                  </optgroup>
-                </select>
-              </div>
-            )}
-
-            {/* Filtro Estado Chat (Solo visible en Historial Chats Mantra) */}
-            {activeTab === 'chats_mantra' && (
-              <div>
-                <label className="text-[11px] font-medium text-slate-400 block mb-1">Estado Chat</label>
-                <select
-                  value={estadoChatFiltro}
-                  onChange={e => {
-                    setEstadoChatFiltro(e.target.value);
-                    setPage(1);
-                  }}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-orange-500 transition-colors"
-                >
-                  <option value="">Todos los estados</option>
-                  <option value="Abierto">Abierto (Cliente sin resp.)</option>
-                  <option value="Pendiente">Pendiente (Plantilla)</option>
-                  <option value="Sin Respuesta">Sin Respuesta (Asesor)</option>
-                  <option value="Cerrado">Cerrado (Sin pendientes)</option>
-                </select>
-              </div>
-            )}
-
-            {/* Botones de acción */}
-            <div className={`flex items-end gap-2 ${(activeTab !== 'principal' && activeTab !== 'chats_mantra' && activeTab !== 'reporte' && activeTab !== 'dashboard') ? 'lg:col-span-2' : ''}`}>
-              <button
-                type="submit"
-                className="flex-1 flex items-center justify-center gap-1.5 px-4 py-2 bg-orange-600 hover:bg-orange-500 text-white font-medium text-xs rounded-xl transition-all shadow-md shadow-orange-950 active:scale-95"
-              >
-                <Filter className="w-3.5 h-3.5" />
-                Filtrar
-              </button>
-              <button
-                type="button"
-                onClick={handleResetFilters}
-                className="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 font-medium text-xs rounded-xl border border-slate-700 transition-all active:scale-95"
-                title="Limpiar filtros"
-              >
-                Limpiar
-              </button>
-              <button
-                type="button"
-                onClick={() => activeTab === 'dashboard' ? fetchDashboardStats() : fetchData()}
-                className="p-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl border border-slate-700 transition-all active:scale-95"
-                title="Refrescar datos"
-              >
-                <RefreshCw className={`w-4 h-4 ${(loading || loadingStats) ? 'animate-spin text-orange-400' : ''}`} />
-              </button>
-            </div>
-          </form>
-        </div>
+              </span>
+            ))}
+            <button
+              type="button"
+              onClick={() => setColumnFilters({})}
+              className="text-[11px] text-slate-400 hover:text-white underline ml-auto cursor-pointer"
+            >
+              Limpiar filtros de columna
+            </button>
+          </div>
         )}
 
         {/* Resumen y paginación superior */}
@@ -1831,41 +1841,142 @@ export default function AdminDashboard() {
               {/* 1. Tabla Principal */}
               {activeTab === 'principal' && (
                 <table className="w-full text-left text-xs text-slate-300 border-collapse">
-                <thead className="bg-slate-950/80 sticky top-0 z-10 border-b border-slate-800 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
+                <thead className="bg-slate-950/80 sticky top-0 z-20 border-b border-slate-800 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
                   <tr>
-                    <th className="py-3 px-4">Acción</th>
-                    <th onClick={() => handleSort('OrdenId')} className="py-3 px-4 cursor-pointer hover:text-white select-none">
-                      Orden ID {renderSortIndicator('OrdenId')}
-                    </th>
-                    <th onClick={() => handleSort('TipoServicioCalculado')} className="py-3 px-4 cursor-pointer hover:text-white select-none">
-                      Tipo Servicio {renderSortIndicator('TipoServicioCalculado')}
-                    </th>
-                    <th onClick={() => handleSort('Cliente')} className="py-3 px-4 cursor-pointer hover:text-white select-none">
-                      Cliente {renderSortIndicator('Cliente')}
-                    </th>
-                    <th onClick={() => handleSort('NumeroDocumento')} className="py-3 px-4 cursor-pointer hover:text-white select-none">
-                      Documento {renderSortIndicator('NumeroDocumento')}
-                    </th>
-                    <th onClick={() => handleSort('FechaVisita')} className="py-3 px-4 cursor-pointer hover:text-white select-none">
-                      Fecha Visita {renderSortIndicator('FechaVisita')}
-                    </th>
-                    <th onClick={() => handleSort('TipoTraba')} className="py-3 px-4 cursor-pointer hover:text-white select-none">
-                      Tipo Trabajo {renderSortIndicator('TipoTraba')}
-                    </th>
-                    <th onClick={() => handleSort('Producto')} className="py-3 px-4 cursor-pointer hover:text-white select-none">
-                      Producto {renderSortIndicator('Producto')}
-                    </th>
-                    <th onClick={() => handleSort('Estado')} className="py-3 px-4 cursor-pointer hover:text-white select-none">
-                      Estado {renderSortIndicator('Estado')}
-                    </th>
-                    <th onClick={() => handleSort('Localidad')} className="py-3 px-4 cursor-pointer hover:text-white select-none">
-                      Localidad / Zona {renderSortIndicator('Localidad')}
-                    </th>
-                    <th onClick={() => handleSort('Cuadrilla_nombre')} className="py-3 px-4 cursor-pointer hover:text-white select-none">
-                      Cuadrilla {renderSortIndicator('Cuadrilla_nombre')}
-                    </th>
-                    <th className="py-3 px-4">PIN</th>
-                    <th className="py-3 px-4">Token</th>
+                    <th className="py-3 px-3">Acción</th>
+                    <ExcelFilterHeader
+                      title="Orden ID"
+                      field="OrdenId"
+                      sortField={sortField}
+                      sortOrder={sortOrder}
+                      onSort={handleSort}
+                      columnFilters={columnFilters}
+                      onFilterChange={handleColumnFilterChange}
+                      activeDropdown={activeFilterDropdown}
+                      setActiveDropdown={setActiveFilterDropdown}
+                      allValues={getUniqueValuesForField('OrdenId')}
+                    />
+                    <ExcelFilterHeader
+                      title="Tipo Servicio"
+                      field="TipoServicioCalculado"
+                      sortField={sortField}
+                      sortOrder={sortOrder}
+                      onSort={handleSort}
+                      columnFilters={columnFilters}
+                      onFilterChange={handleColumnFilterChange}
+                      activeDropdown={activeFilterDropdown}
+                      setActiveDropdown={setActiveFilterDropdown}
+                      allValues={getUniqueValuesForField('TipoServicioCalculado')}
+                    />
+                    <ExcelFilterHeader
+                      title="Cliente"
+                      field="Cliente"
+                      sortField={sortField}
+                      sortOrder={sortOrder}
+                      onSort={handleSort}
+                      columnFilters={columnFilters}
+                      onFilterChange={handleColumnFilterChange}
+                      activeDropdown={activeFilterDropdown}
+                      setActiveDropdown={setActiveFilterDropdown}
+                      allValues={getUniqueValuesForField('Cliente')}
+                    />
+                    <ExcelFilterHeader
+                      title="Documento"
+                      field="NumeroDocumento"
+                      sortField={sortField}
+                      sortOrder={sortOrder}
+                      onSort={handleSort}
+                      columnFilters={columnFilters}
+                      onFilterChange={handleColumnFilterChange}
+                      activeDropdown={activeFilterDropdown}
+                      setActiveDropdown={setActiveFilterDropdown}
+                      allValues={getUniqueValuesForField('NumeroDocumento')}
+                    />
+                    <ExcelFilterHeader
+                      title="Fecha Visita"
+                      field="FechaVisita"
+                      sortField={sortField}
+                      sortOrder={sortOrder}
+                      onSort={handleSort}
+                      columnFilters={columnFilters}
+                      onFilterChange={handleColumnFilterChange}
+                      activeDropdown={activeFilterDropdown}
+                      setActiveDropdown={setActiveFilterDropdown}
+                      allValues={getUniqueValuesForField('FechaVisita')}
+                    />
+                    <ExcelFilterHeader
+                      title="Tipo Trabajo"
+                      field="TipoTraba"
+                      sortField={sortField}
+                      sortOrder={sortOrder}
+                      onSort={handleSort}
+                      columnFilters={columnFilters}
+                      onFilterChange={handleColumnFilterChange}
+                      activeDropdown={activeFilterDropdown}
+                      setActiveDropdown={setActiveFilterDropdown}
+                      allValues={getUniqueValuesForField('TipoTraba')}
+                    />
+                    <ExcelFilterHeader
+                      title="Producto"
+                      field="Producto"
+                      sortField={sortField}
+                      sortOrder={sortOrder}
+                      onSort={handleSort}
+                      columnFilters={columnFilters}
+                      onFilterChange={handleColumnFilterChange}
+                      activeDropdown={activeFilterDropdown}
+                      setActiveDropdown={setActiveFilterDropdown}
+                      allValues={getUniqueValuesForField('Producto')}
+                    />
+                    <ExcelFilterHeader
+                      title="Estado"
+                      field="Estado"
+                      sortField={sortField}
+                      sortOrder={sortOrder}
+                      onSort={handleSort}
+                      columnFilters={columnFilters}
+                      onFilterChange={handleColumnFilterChange}
+                      activeDropdown={activeFilterDropdown}
+                      setActiveDropdown={setActiveFilterDropdown}
+                      allValues={getUniqueValuesForField('Estado')}
+                    />
+                    <ExcelFilterHeader
+                      title="Dirección"
+                      field="Direccion"
+                      sortField={sortField}
+                      sortOrder={sortOrder}
+                      onSort={handleSort}
+                      columnFilters={columnFilters}
+                      onFilterChange={handleColumnFilterChange}
+                      activeDropdown={activeFilterDropdown}
+                      setActiveDropdown={setActiveFilterDropdown}
+                      allValues={getUniqueValuesForField('Direccion')}
+                    />
+                    <ExcelFilterHeader
+                      title="Distrito"
+                      field="Localidad"
+                      sortField={sortField}
+                      sortOrder={sortOrder}
+                      onSort={handleSort}
+                      columnFilters={columnFilters}
+                      onFilterChange={handleColumnFilterChange}
+                      activeDropdown={activeFilterDropdown}
+                      setActiveDropdown={setActiveFilterDropdown}
+                      allValues={getUniqueValuesForField('Localidad')}
+                    />
+                    <ExcelFilterHeader
+                      title="Cuadrilla"
+                      field="Cuadrilla"
+                      sortField={sortField}
+                      sortOrder={sortOrder}
+                      onSort={handleSort}
+                      columnFilters={columnFilters}
+                      onFilterChange={handleColumnFilterChange}
+                      activeDropdown={activeFilterDropdown}
+                      setActiveDropdown={setActiveFilterDropdown}
+                      allValues={getUniqueValuesForField('Cuadrilla')}
+                      alignRight={true}
+                    />
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-800/60">
@@ -1950,45 +2061,154 @@ export default function AdminDashboard() {
             {/* 2. Reporte Funnel Casos 360 (Monitoreo de Chats y Tracking) */}
             {activeTab === 'reporte' && (
               <table className="w-full text-left text-xs text-slate-300 border-collapse">
-                <thead className="bg-slate-950/80 sticky top-0 z-10 border-b border-slate-800 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
+                <thead className="bg-slate-950/80 sticky top-0 z-20 border-b border-slate-800 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
                   <tr>
-                    <th className="py-3 px-4">Acción</th>
-                    <th onClick={() => handleSort('orden_id')} className="py-3 px-4 cursor-pointer hover:text-white select-none whitespace-nowrap">
-                      Orden / Ticket {renderSortIndicator('orden_id')}
-                    </th>
-                    <th onClick={() => handleSort('cliente')} className="py-3 px-4 cursor-pointer hover:text-white select-none">
-                      Cliente {renderSortIndicator('cliente')}
-                    </th>
-                    <th onClick={() => handleSort('telefono')} className="py-3 px-4 cursor-pointer hover:text-white select-none whitespace-nowrap">
-                      Teléfono {renderSortIndicator('telefono')}
-                    </th>
-                    <th onClick={() => handleSort('tipo_operacion')} className="py-3 px-4 cursor-pointer hover:text-white select-none whitespace-nowrap">
-                      Operación / Trabajo {renderSortIndicator('tipo_operacion')}
-                    </th>
-                    <th onClick={() => handleSort('estado_ot')} className="py-3 px-4 cursor-pointer hover:text-white select-none whitespace-nowrap">
-                      Estado OT {renderSortIndicator('estado_ot')}
-                    </th>
-                    <th onClick={() => handleSort('fecha_visita')} className="py-3 px-4 cursor-pointer hover:text-white select-none whitespace-nowrap">
-                      Fecha Visita {renderSortIndicator('fecha_visita')}
-                    </th>
-                    <th onClick={() => handleSort('distrito')} className="py-3 px-4 cursor-pointer hover:text-white select-none">
-                      Distrito / Cuadrilla {renderSortIndicator('distrito')}
-                    </th>
-                    <th onClick={() => handleSort('se_envio_wsp')} className="py-3 px-4 cursor-pointer hover:text-white select-none whitespace-nowrap">
-                      WhatsApp {renderSortIndicator('se_envio_wsp')}
-                    </th>
-                    <th onClick={() => handleSort('ingreso_tracking')} className="py-3 px-4 cursor-pointer hover:text-white select-none whitespace-nowrap">
-                      Tracking / Mapa {renderSortIndicator('ingreso_tracking')}
-                    </th>
-                    <th onClick={() => handleSort('reprogramo')} className="py-3 px-4 cursor-pointer hover:text-white select-none whitespace-nowrap">
-                      Reprogramó {renderSortIndicator('reprogramo')}
-                    </th>
-                    <th onClick={() => handleSort('respondio_encuesta')} className="py-3 px-4 cursor-pointer hover:text-white select-none whitespace-nowrap">
-                      Encuesta {renderSortIndicator('respondio_encuesta')}
-                    </th>
-                    <th onClick={() => handleSort('pulso_soporte')} className="py-3 px-4 cursor-pointer hover:text-white select-none whitespace-nowrap">
-                      Soporte {renderSortIndicator('pulso_soporte')}
-                    </th>
+                    <th className="py-3 px-3">Acción</th>
+                    <ExcelFilterHeader
+                      title="Orden / Ticket"
+                      field="orden_id"
+                      sortField={sortField}
+                      sortOrder={sortOrder}
+                      onSort={handleSort}
+                      columnFilters={columnFilters}
+                      onFilterChange={handleColumnFilterChange}
+                      activeDropdown={activeFilterDropdown}
+                      setActiveDropdown={setActiveFilterDropdown}
+                      allValues={getUniqueValuesForField('orden_id')}
+                    />
+                    <ExcelFilterHeader
+                      title="Cliente"
+                      field="cliente"
+                      sortField={sortField}
+                      sortOrder={sortOrder}
+                      onSort={handleSort}
+                      columnFilters={columnFilters}
+                      onFilterChange={handleColumnFilterChange}
+                      activeDropdown={activeFilterDropdown}
+                      setActiveDropdown={setActiveFilterDropdown}
+                      allValues={getUniqueValuesForField('cliente')}
+                    />
+                    <ExcelFilterHeader
+                      title="Teléfono"
+                      field="telefono"
+                      sortField={sortField}
+                      sortOrder={sortOrder}
+                      onSort={handleSort}
+                      columnFilters={columnFilters}
+                      onFilterChange={handleColumnFilterChange}
+                      activeDropdown={activeFilterDropdown}
+                      setActiveDropdown={setActiveFilterDropdown}
+                      allValues={getUniqueValuesForField('telefono')}
+                    />
+                    <ExcelFilterHeader
+                      title="Operación / Trabajo"
+                      field="tipo_operacion"
+                      sortField={sortField}
+                      sortOrder={sortOrder}
+                      onSort={handleSort}
+                      columnFilters={columnFilters}
+                      onFilterChange={handleColumnFilterChange}
+                      activeDropdown={activeFilterDropdown}
+                      setActiveDropdown={setActiveFilterDropdown}
+                      allValues={getUniqueValuesForField('tipo_operacion')}
+                    />
+                    <ExcelFilterHeader
+                      title="Estado OT"
+                      field="estado_ot"
+                      sortField={sortField}
+                      sortOrder={sortOrder}
+                      onSort={handleSort}
+                      columnFilters={columnFilters}
+                      onFilterChange={handleColumnFilterChange}
+                      activeDropdown={activeFilterDropdown}
+                      setActiveDropdown={setActiveFilterDropdown}
+                      allValues={getUniqueValuesForField('estado_ot')}
+                    />
+                    <ExcelFilterHeader
+                      title="Fecha Visita"
+                      field="fecha_visita"
+                      sortField={sortField}
+                      sortOrder={sortOrder}
+                      onSort={handleSort}
+                      columnFilters={columnFilters}
+                      onFilterChange={handleColumnFilterChange}
+                      activeDropdown={activeFilterDropdown}
+                      setActiveDropdown={setActiveFilterDropdown}
+                      allValues={getUniqueValuesForField('fecha_visita')}
+                    />
+                    <ExcelFilterHeader
+                      title="Distrito / Cuadrilla"
+                      field="distrito"
+                      sortField={sortField}
+                      sortOrder={sortOrder}
+                      onSort={handleSort}
+                      columnFilters={columnFilters}
+                      onFilterChange={handleColumnFilterChange}
+                      activeDropdown={activeFilterDropdown}
+                      setActiveDropdown={setActiveFilterDropdown}
+                      allValues={getUniqueValuesForField('distrito')}
+                    />
+                    <ExcelFilterHeader
+                      title="WhatsApp"
+                      field="se_envio_wsp"
+                      sortField={sortField}
+                      sortOrder={sortOrder}
+                      onSort={handleSort}
+                      columnFilters={columnFilters}
+                      onFilterChange={handleColumnFilterChange}
+                      activeDropdown={activeFilterDropdown}
+                      setActiveDropdown={setActiveFilterDropdown}
+                      allValues={getUniqueValuesForField('se_envio_wsp')}
+                    />
+                    <ExcelFilterHeader
+                      title="Tracking / Mapa"
+                      field="ingreso_tracking"
+                      sortField={sortField}
+                      sortOrder={sortOrder}
+                      onSort={handleSort}
+                      columnFilters={columnFilters}
+                      onFilterChange={handleColumnFilterChange}
+                      activeDropdown={activeFilterDropdown}
+                      setActiveDropdown={setActiveFilterDropdown}
+                      allValues={getUniqueValuesForField('ingreso_tracking')}
+                    />
+                    <ExcelFilterHeader
+                      title="Reprogramó"
+                      field="reprogramo"
+                      sortField={sortField}
+                      sortOrder={sortOrder}
+                      onSort={handleSort}
+                      columnFilters={columnFilters}
+                      onFilterChange={handleColumnFilterChange}
+                      activeDropdown={activeFilterDropdown}
+                      setActiveDropdown={setActiveFilterDropdown}
+                      allValues={getUniqueValuesForField('reprogramo')}
+                    />
+                    <ExcelFilterHeader
+                      title="Encuesta"
+                      field="respondio_encuesta"
+                      sortField={sortField}
+                      sortOrder={sortOrder}
+                      onSort={handleSort}
+                      columnFilters={columnFilters}
+                      onFilterChange={handleColumnFilterChange}
+                      activeDropdown={activeFilterDropdown}
+                      setActiveDropdown={setActiveFilterDropdown}
+                      allValues={getUniqueValuesForField('respondio_encuesta')}
+                    />
+                    <ExcelFilterHeader
+                      title="Soporte"
+                      field="pulso_soporte"
+                      sortField={sortField}
+                      sortOrder={sortOrder}
+                      onSort={handleSort}
+                      columnFilters={columnFilters}
+                      onFilterChange={handleColumnFilterChange}
+                      activeDropdown={activeFilterDropdown}
+                      setActiveDropdown={setActiveFilterDropdown}
+                      allValues={getUniqueValuesForField('pulso_soporte')}
+                      alignRight={true}
+                    />
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-800/60">
@@ -2120,48 +2340,167 @@ export default function AdminDashboard() {
             )}
             {activeTab === 'chats_mantra' && (
               <table className="w-full text-left text-xs text-slate-300 border-collapse">
-                <thead className="bg-slate-950/80 sticky top-0 z-10 border-b border-slate-800 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
+                <thead className="bg-slate-950/80 sticky top-0 z-20 border-b border-slate-800 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
                   <tr>
-                    <th className="py-3 px-4">Acción</th>
-                    <th onClick={() => handleSort('id')} className="py-3 px-4 cursor-pointer hover:text-white select-none whitespace-nowrap">
-                      ID {renderSortIndicator('id')}
-                    </th>
-                    <th onClick={() => handleSort('orden_id')} className="py-3 px-4 cursor-pointer hover:text-white select-none whitespace-nowrap">
-                      Orden ID {renderSortIndicator('orden_id')}
-                    </th>
-                    <th onClick={() => handleSort('ticket')} className="py-3 px-4 cursor-pointer hover:text-white select-none whitespace-nowrap">
-                      Ticket {renderSortIndicator('ticket')}
-                    </th>
-                    <th onClick={() => handleSort('phone')} className="py-3 px-4 cursor-pointer hover:text-white select-none whitespace-nowrap">
-                      Teléfono {renderSortIndicator('phone')}
-                    </th>
-                    <th onClick={() => handleSort('cliente_nombre')} className="py-3 px-4 cursor-pointer hover:text-white select-none">
-                      Cliente {renderSortIndicator('cliente_nombre')}
-                    </th>
-                    <th onClick={() => handleSort('asesor_asignado')} className="py-3 px-4 cursor-pointer hover:text-white select-none whitespace-nowrap">
-                      Usuario {renderSortIndicator('asesor_asignado')}
-                    </th>
-                    <th onClick={() => handleSort('grupo_servicio')} className="py-3 px-4 cursor-pointer hover:text-white select-none whitespace-nowrap">
-                      Grupo Serv. {renderSortIndicator('grupo_servicio')}
-                    </th>
-                    <th onClick={() => handleSort('distrito')} className="py-3 px-4 cursor-pointer hover:text-white select-none">
-                      Distrito / Prov. {renderSortIndicator('distrito')}
-                    </th>
-                    <th onClick={() => handleSort('quien_tiene_la_palabra')} className="py-3 px-4 cursor-pointer hover:text-white select-none whitespace-nowrap">
-                      Palabra {renderSortIndicator('quien_tiene_la_palabra')}
-                    </th>
-                    <th onClick={() => handleSort('estado_chat')} className="py-3 px-4 cursor-pointer hover:text-white select-none whitespace-nowrap">
-                      Estado Chat {renderSortIndicator('estado_chat')}
-                    </th>
-                    <th onClick={() => handleSort('semaforo_sla')} className="py-3 px-4 cursor-pointer hover:text-white select-none whitespace-nowrap">
-                      SLA {renderSortIndicator('semaforo_sla')}
-                    </th>
-                    <th onClick={() => handleSort('ultimo_mensaje_texto')} className="py-3 px-4 cursor-pointer hover:text-white select-none">
-                      Último Mensaje {renderSortIndicator('ultimo_mensaje_texto')}
-                    </th>
-                    <th onClick={() => handleSort('ultimo_mensaje_fecha')} className="py-3 px-4 cursor-pointer hover:text-white select-none whitespace-nowrap">
-                      Fecha Último Msg {renderSortIndicator('ultimo_mensaje_fecha')}
-                    </th>
+                    <th className="py-3 px-3">Acción</th>
+                    <ExcelFilterHeader
+                      title="ID"
+                      field="id"
+                      sortField={sortField}
+                      sortOrder={sortOrder}
+                      onSort={handleSort}
+                      columnFilters={columnFilters}
+                      onFilterChange={handleColumnFilterChange}
+                      activeDropdown={activeFilterDropdown}
+                      setActiveDropdown={setActiveFilterDropdown}
+                      allValues={getUniqueValuesForField('id')}
+                    />
+                    <ExcelFilterHeader
+                      title="Orden ID"
+                      field="orden_id"
+                      sortField={sortField}
+                      sortOrder={sortOrder}
+                      onSort={handleSort}
+                      columnFilters={columnFilters}
+                      onFilterChange={handleColumnFilterChange}
+                      activeDropdown={activeFilterDropdown}
+                      setActiveDropdown={setActiveFilterDropdown}
+                      allValues={getUniqueValuesForField('orden_id')}
+                    />
+                    <ExcelFilterHeader
+                      title="Ticket"
+                      field="ticket"
+                      sortField={sortField}
+                      sortOrder={sortOrder}
+                      onSort={handleSort}
+                      columnFilters={columnFilters}
+                      onFilterChange={handleColumnFilterChange}
+                      activeDropdown={activeFilterDropdown}
+                      setActiveDropdown={setActiveFilterDropdown}
+                      allValues={getUniqueValuesForField('ticket')}
+                    />
+                    <ExcelFilterHeader
+                      title="Teléfono"
+                      field="phone"
+                      sortField={sortField}
+                      sortOrder={sortOrder}
+                      onSort={handleSort}
+                      columnFilters={columnFilters}
+                      onFilterChange={handleColumnFilterChange}
+                      activeDropdown={activeFilterDropdown}
+                      setActiveDropdown={setActiveFilterDropdown}
+                      allValues={getUniqueValuesForField('phone')}
+                    />
+                    <ExcelFilterHeader
+                      title="Cliente"
+                      field="cliente_nombre"
+                      sortField={sortField}
+                      sortOrder={sortOrder}
+                      onSort={handleSort}
+                      columnFilters={columnFilters}
+                      onFilterChange={handleColumnFilterChange}
+                      activeDropdown={activeFilterDropdown}
+                      setActiveDropdown={setActiveFilterDropdown}
+                      allValues={getUniqueValuesForField('cliente_nombre')}
+                    />
+                    <ExcelFilterHeader
+                      title="Usuario"
+                      field="asesor_asignado"
+                      sortField={sortField}
+                      sortOrder={sortOrder}
+                      onSort={handleSort}
+                      columnFilters={columnFilters}
+                      onFilterChange={handleColumnFilterChange}
+                      activeDropdown={activeFilterDropdown}
+                      setActiveDropdown={setActiveFilterDropdown}
+                      allValues={getUniqueValuesForField('asesor_asignado')}
+                    />
+                    <ExcelFilterHeader
+                      title="Grupo Serv."
+                      field="grupo_servicio"
+                      sortField={sortField}
+                      sortOrder={sortOrder}
+                      onSort={handleSort}
+                      columnFilters={columnFilters}
+                      onFilterChange={handleColumnFilterChange}
+                      activeDropdown={activeFilterDropdown}
+                      setActiveDropdown={setActiveFilterDropdown}
+                      allValues={getUniqueValuesForField('grupo_servicio')}
+                    />
+                    <ExcelFilterHeader
+                      title="Distrito / Prov."
+                      field="distrito"
+                      sortField={sortField}
+                      sortOrder={sortOrder}
+                      onSort={handleSort}
+                      columnFilters={columnFilters}
+                      onFilterChange={handleColumnFilterChange}
+                      activeDropdown={activeFilterDropdown}
+                      setActiveDropdown={setActiveFilterDropdown}
+                      allValues={getUniqueValuesForField('distrito')}
+                    />
+                    <ExcelFilterHeader
+                      title="Palabra"
+                      field="quien_tiene_la_palabra"
+                      sortField={sortField}
+                      sortOrder={sortOrder}
+                      onSort={handleSort}
+                      columnFilters={columnFilters}
+                      onFilterChange={handleColumnFilterChange}
+                      activeDropdown={activeFilterDropdown}
+                      setActiveDropdown={setActiveFilterDropdown}
+                      allValues={getUniqueValuesForField('quien_tiene_la_palabra')}
+                    />
+                    <ExcelFilterHeader
+                      title="Estado Chat"
+                      field="estado_chat"
+                      sortField={sortField}
+                      sortOrder={sortOrder}
+                      onSort={handleSort}
+                      columnFilters={columnFilters}
+                      onFilterChange={handleColumnFilterChange}
+                      activeDropdown={activeFilterDropdown}
+                      setActiveDropdown={setActiveFilterDropdown}
+                      allValues={getUniqueValuesForField('estado_chat')}
+                    />
+                    <ExcelFilterHeader
+                      title="SLA"
+                      field="semaforo_sla"
+                      sortField={sortField}
+                      sortOrder={sortOrder}
+                      onSort={handleSort}
+                      columnFilters={columnFilters}
+                      onFilterChange={handleColumnFilterChange}
+                      activeDropdown={activeFilterDropdown}
+                      setActiveDropdown={setActiveFilterDropdown}
+                      allValues={getUniqueValuesForField('semaforo_sla')}
+                    />
+                    <ExcelFilterHeader
+                      title="Último Mensaje"
+                      field="ultimo_mensaje_texto"
+                      sortField={sortField}
+                      sortOrder={sortOrder}
+                      onSort={handleSort}
+                      columnFilters={columnFilters}
+                      onFilterChange={handleColumnFilterChange}
+                      activeDropdown={activeFilterDropdown}
+                      setActiveDropdown={setActiveFilterDropdown}
+                      allValues={getUniqueValuesForField('ultimo_mensaje_texto')}
+                      alignRight={true}
+                    />
+                    <ExcelFilterHeader
+                      title="Fecha Último Msg"
+                      field="ultimo_mensaje_fecha"
+                      sortField={sortField}
+                      sortOrder={sortOrder}
+                      onSort={handleSort}
+                      columnFilters={columnFilters}
+                      onFilterChange={handleColumnFilterChange}
+                      activeDropdown={activeFilterDropdown}
+                      setActiveDropdown={setActiveFilterDropdown}
+                      allValues={getUniqueValuesForField('ultimo_mensaje_fecha')}
+                      alignRight={true}
+                    />
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-800/60">
