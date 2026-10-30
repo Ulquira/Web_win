@@ -1443,19 +1443,36 @@ app.get('/api/4dm1n_/data', async (req, res) => {
         OR LOWER(TRIM(h.ultimo_mensaje_texto)) LIKE 'sí, confirmo%'
         OR LOWER(TRIM(h.ultimo_mensaje_texto)) LIKE 'confirmado%'
         OR LOWER(TRIM(h.ultimo_mensaje_texto)) LIKE 'confirmar%'
+        OR LOWER(TRIM(h.ultimo_mensaje_texto)) LIKE 'si, conforme%'
+        OR LOWER(TRIM(h.ultimo_mensaje_texto)) LIKE 'si conforme%'
+        OR LOWER(TRIM(h.ultimo_mensaje_texto)) LIKE 'si todo conforme%'
         OR LOWER(TRIM(h.ultimo_mensaje_texto)) = 'si'
         OR LOWER(TRIM(h.ultimo_mensaje_texto)) = 'sí'
         OR LOWER(TRIM(h.ultimo_mensaje_texto)) = '1'
-        OR LOWER(TRIM(h.ultimo_mensaje_texto)) = 'ok'
         OR LOWER(TRIM(h.ultimo_mensaje_texto)) = 'conforme'
       )`;
 
       const plantillaCond = `(
         h.quien_tiene_la_palabra = 'BOT' 
+        OR LOWER(TRIM(h.ultimo_mensaje_texto)) LIKE 'entiendo, gracias%'
+        OR LOWER(TRIM(h.ultimo_mensaje_texto)) LIKE 'entiendo gracias%'
+        OR LOWER(TRIM(h.ultimo_mensaje_texto)) LIKE 'otras opciones%'
+        OR LOWER(TRIM(h.ultimo_mensaje_texto)) = 'ok'
+        OR LOWER(TRIM(h.ultimo_mensaje_texto)) = 'ok.'
+        OR LOWER(TRIM(h.ultimo_mensaje_texto)) = 'ok!'
+        OR LOWER(TRIM(h.ultimo_mensaje_texto)) = 'okey'
+        OR LOWER(TRIM(h.ultimo_mensaje_texto)) = 'oki'
+        OR LOWER(TRIM(h.ultimo_mensaje_texto)) = 'todo ok'
+        OR LOWER(TRIM(h.ultimo_mensaje_texto)) = 'de acuerdo'
+        OR LOWER(TRIM(h.ultimo_mensaje_texto)) LIKE 'ok gracias%'
+        OR LOWER(TRIM(h.ultimo_mensaje_texto)) LIKE 'ok, gracias%'
+        OR LOWER(TRIM(h.ultimo_mensaje_texto)) LIKE 'gracias por su respuesta%'
+        OR LOWER(TRIM(h.ultimo_mensaje_texto)) LIKE 'se informa, muchas gracias%'
         OR h.ultimo_mensaje_texto LIKE '%Trak_%' 
         OR h.ultimo_mensaje_texto LIKE '%Adelanto%' 
         OR h.ultimo_mensaje_texto LIKE '%Blindaje%' 
         OR h.ultimo_mensaje_texto LIKE '%Confirmación%'
+        OR h.ultimo_mensaje_texto LIKE '%Confirmacion%'
         OR h.ultimo_mensaje_texto LIKE '%enruta.win.pe%'
         OR h.ultimo_mensaje_texto LIKE '%| [%'
         OR h.ultimo_mensaje_texto LIKE '%Ad. Inc.%'
@@ -1463,6 +1480,7 @@ app.get('/api/4dm1n_/data', async (req, res) => {
         OR h.ultimo_mensaje_texto LIKE '%TRAKING%'
         OR h.ultimo_mensaje_texto LIKE '%Seguimiento de VT%'
         OR h.ultimo_mensaje_texto LIKE '%programaci%'
+        OR h.ultimo_mensaje_texto LIKE '%gracias por confirmar%'
       )`;
 
       const allowedColsChats: Record<string, string> = {
@@ -1503,8 +1521,8 @@ app.get('/api/4dm1n_/data', async (req, res) => {
           if (selectedArr.length > 0) {
             const orParts: string[] = [];
             if (selectedArr.includes('CONFIRMADO')) orParts.push(`(${confirmacionCond})`);
-            if (selectedArr.includes('CLIENTE')) orParts.push(`(h.quien_tiene_la_palabra = 'CLIENTE' AND NOT ${confirmacionCond})`);
             if (selectedArr.includes('PLANTILLA')) orParts.push(`(${plantillaCond} AND NOT ${confirmacionCond})`);
+            if (selectedArr.includes('CLIENTE')) orParts.push(`(h.quien_tiene_la_palabra = 'CLIENTE' AND NOT ${confirmacionCond} AND NOT ${plantillaCond})`);
             if (selectedArr.includes('ASESOR')) orParts.push(`(h.quien_tiene_la_palabra != 'CLIENTE' AND NOT ${plantillaCond} AND NOT ${confirmacionCond})`);
             if (orParts.length > 0) {
               whereClauses.push(`(${orParts.join(' OR ')})`);
@@ -1525,7 +1543,7 @@ app.get('/api/4dm1n_/data', async (req, res) => {
           if (selectedArr.length > 0) {
             const orParts: string[] = [];
             if (selectedArr.includes('Cerrado')) orParts.push(`(h.estado_chat = 'Cerrado' OR ${confirmacionCond})`);
-            if (selectedArr.includes('Abierto')) orParts.push(`((h.estado_chat != 'Cerrado' OR h.estado_chat IS NULL) AND h.quien_tiene_la_palabra = 'CLIENTE' AND NOT ${confirmacionCond})`);
+            if (selectedArr.includes('Abierto')) orParts.push(`((h.estado_chat != 'Cerrado' OR h.estado_chat IS NULL) AND h.quien_tiene_la_palabra = 'CLIENTE' AND NOT ${confirmacionCond} AND NOT ${plantillaCond})`);
             if (selectedArr.includes('Pendiente')) orParts.push(`((h.estado_chat != 'Cerrado' OR h.estado_chat IS NULL) AND ${plantillaCond} AND NOT ${confirmacionCond})`);
             if (selectedArr.includes('Sin Respuesta')) orParts.push(`((h.estado_chat != 'Cerrado' OR h.estado_chat IS NULL) AND h.quien_tiene_la_palabra != 'CLIENTE' AND NOT ${plantillaCond} AND NOT ${confirmacionCond})`);
             if (orParts.length > 0) {
@@ -1565,7 +1583,7 @@ app.get('/api/4dm1n_/data', async (req, res) => {
         if (estadoChat === 'Cerrado') {
           whereClauses.push(`(h.estado_chat = 'Cerrado' OR ${confirmacionCond})`);
         } else if (estadoChat === 'Abierto') {
-          whereClauses.push(`(h.estado_chat != 'Cerrado' OR h.estado_chat IS NULL) AND h.quien_tiene_la_palabra = 'CLIENTE' AND NOT ${confirmacionCond}`);
+          whereClauses.push(`(h.estado_chat != 'Cerrado' OR h.estado_chat IS NULL) AND h.quien_tiene_la_palabra = 'CLIENTE' AND NOT ${confirmacionCond} AND NOT ${plantillaCond}`);
         } else if (estadoChat === 'Pendiente') {
           whereClauses.push(`(h.estado_chat != 'Cerrado' OR h.estado_chat IS NULL) AND ${plantillaCond} AND NOT ${confirmacionCond}`);
         } else if (estadoChat === 'Sin Respuesta') {
@@ -1602,18 +1620,18 @@ app.get('/api/4dm1n_/data', async (req, res) => {
           h.*,
           CASE 
             WHEN ${confirmacionCond} THEN 'CONFIRMADO'
-            WHEN h.quien_tiene_la_palabra = 'CLIENTE' THEN 'CLIENTE'
             WHEN ${plantillaCond} THEN 'PLANTILLA'
+            WHEN h.quien_tiene_la_palabra = 'CLIENTE' THEN 'CLIENTE'
             ELSE 'ASESOR'
           END AS quien_tiene_la_palabra,
           CASE
             WHEN h.estado_chat = 'Cerrado' OR ${confirmacionCond} THEN 'Cerrado'
-            WHEN h.quien_tiene_la_palabra = 'CLIENTE' THEN 'Abierto'
             WHEN ${plantillaCond} THEN 'Pendiente'
+            WHEN h.quien_tiene_la_palabra = 'CLIENTE' THEN 'Abierto'
             ELSE 'Sin Respuesta'
           END AS estado_chat,
           CASE
-            WHEN ${confirmacionCond} OR h.estado_chat = 'Cerrado' THEN 'VERDE'
+            WHEN ${confirmacionCond} OR h.estado_chat = 'Cerrado' OR ${plantillaCond} THEN 'VERDE'
             ELSE COALESCE(h.semaforo_sla, 'VERDE')
           END AS semaforo_sla
         FROM historial_chats_mantra h
@@ -2069,43 +2087,61 @@ app.get('/api/4dm1n_/chats-dashboard-stats', async (req, res) => {
     const whereSql = whereClauses.join(' AND ');
 
     const confirmCond = `(
-      LOWER(TRIM(h.ultimo_mensaje_texto)) LIKE 'si, confirmo%'
-      OR LOWER(TRIM(h.ultimo_mensaje_texto)) LIKE 'sí, confirmo%'
-      OR LOWER(TRIM(h.ultimo_mensaje_texto)) LIKE 'confirmado%'
-      OR LOWER(TRIM(h.ultimo_mensaje_texto)) LIKE 'confirmar%'
-      OR LOWER(TRIM(h.ultimo_mensaje_texto)) = 'si'
-      OR LOWER(TRIM(h.ultimo_mensaje_texto)) = 'sí'
-      OR LOWER(TRIM(h.ultimo_mensaje_texto)) = '1'
-      OR LOWER(TRIM(h.ultimo_mensaje_texto)) = 'ok'
-      OR LOWER(TRIM(h.ultimo_mensaje_texto)) = 'conforme'
-    )`;
+        LOWER(TRIM(h.ultimo_mensaje_texto)) LIKE 'si, confirmo%'
+        OR LOWER(TRIM(h.ultimo_mensaje_texto)) LIKE 'sí, confirmo%'
+        OR LOWER(TRIM(h.ultimo_mensaje_texto)) LIKE 'confirmado%'
+        OR LOWER(TRIM(h.ultimo_mensaje_texto)) LIKE 'confirmar%'
+        OR LOWER(TRIM(h.ultimo_mensaje_texto)) LIKE 'si, conforme%'
+        OR LOWER(TRIM(h.ultimo_mensaje_texto)) LIKE 'si conforme%'
+        OR LOWER(TRIM(h.ultimo_mensaje_texto)) LIKE 'si todo conforme%'
+        OR LOWER(TRIM(h.ultimo_mensaje_texto)) = 'si'
+        OR LOWER(TRIM(h.ultimo_mensaje_texto)) = 'sí'
+        OR LOWER(TRIM(h.ultimo_mensaje_texto)) = '1'
+        OR LOWER(TRIM(h.ultimo_mensaje_texto)) = 'conforme'
+      )`;
 
     const plantCond = `(
-      h.quien_tiene_la_palabra = 'BOT' 
-      OR h.ultimo_mensaje_texto LIKE '%Trak_%' 
-      OR h.ultimo_mensaje_texto LIKE '%Adelanto%' 
-      OR h.ultimo_mensaje_texto LIKE '%Blindaje%' 
-      OR h.ultimo_mensaje_texto LIKE '%Confirmación%'
-      OR h.ultimo_mensaje_texto LIKE '%enruta.win.pe%'
-      OR h.ultimo_mensaje_texto LIKE '%| [%'
-      OR h.ultimo_mensaje_texto LIKE '%Ad. Inc.%'
-      OR h.ultimo_mensaje_texto LIKE '%Velocidad%'
-      OR h.ultimo_mensaje_texto LIKE '%TRAKING%'
-      OR h.ultimo_mensaje_texto LIKE '%Seguimiento de VT%'
-      OR h.ultimo_mensaje_texto LIKE '%programaci%'
-    )`;
+        h.quien_tiene_la_palabra = 'BOT' 
+        OR LOWER(TRIM(h.ultimo_mensaje_texto)) LIKE 'entiendo, gracias%'
+        OR LOWER(TRIM(h.ultimo_mensaje_texto)) LIKE 'entiendo gracias%'
+        OR LOWER(TRIM(h.ultimo_mensaje_texto)) LIKE 'otras opciones%'
+        OR LOWER(TRIM(h.ultimo_mensaje_texto)) = 'ok'
+        OR LOWER(TRIM(h.ultimo_mensaje_texto)) = 'ok.'
+        OR LOWER(TRIM(h.ultimo_mensaje_texto)) = 'ok!'
+        OR LOWER(TRIM(h.ultimo_mensaje_texto)) = 'okey'
+        OR LOWER(TRIM(h.ultimo_mensaje_texto)) = 'oki'
+        OR LOWER(TRIM(h.ultimo_mensaje_texto)) = 'todo ok'
+        OR LOWER(TRIM(h.ultimo_mensaje_texto)) = 'de acuerdo'
+        OR LOWER(TRIM(h.ultimo_mensaje_texto)) LIKE 'ok gracias%'
+        OR LOWER(TRIM(h.ultimo_mensaje_texto)) LIKE 'ok, gracias%'
+        OR LOWER(TRIM(h.ultimo_mensaje_texto)) LIKE 'gracias por su respuesta%'
+        OR LOWER(TRIM(h.ultimo_mensaje_texto)) LIKE 'se informa, muchas gracias%'
+        OR h.ultimo_mensaje_texto LIKE '%Trak_%' 
+        OR h.ultimo_mensaje_texto LIKE '%Adelanto%' 
+        OR h.ultimo_mensaje_texto LIKE '%Blindaje%' 
+        OR h.ultimo_mensaje_texto LIKE '%Confirmación%'
+        OR h.ultimo_mensaje_texto LIKE '%Confirmacion%'
+        OR h.ultimo_mensaje_texto LIKE '%enruta.win.pe%'
+        OR h.ultimo_mensaje_texto LIKE '%| [%'
+        OR h.ultimo_mensaje_texto LIKE '%Ad. Inc.%'
+        OR h.ultimo_mensaje_texto LIKE '%Velocidad%'
+        OR h.ultimo_mensaje_texto LIKE '%TRAKING%'
+        OR h.ultimo_mensaje_texto LIKE '%Seguimiento de VT%'
+        OR h.ultimo_mensaje_texto LIKE '%programaci%'
+        OR h.ultimo_mensaje_texto LIKE '%gracias por confirmar%'
+      )`;
 
     const kpiQuery = `
       SELECT 
         COUNT(*) as totalChats,
         SUM(CASE WHEN ${confirmCond} THEN 1 ELSE 0 END) as totalConfirmados,
-        SUM(CASE WHEN h.quien_tiene_la_palabra = 'CLIENTE' AND NOT ${confirmCond} AND (h.estado_chat != 'Cerrado' OR h.estado_chat IS NULL) THEN 1 ELSE 0 END) as chatsAbiertos,
+        SUM(CASE WHEN h.quien_tiene_la_palabra = 'CLIENTE' AND NOT ${confirmCond} AND NOT ${plantCond} AND (h.estado_chat != 'Cerrado' OR h.estado_chat IS NULL) THEN 1 ELSE 0 END) as chatsAbiertos,
         SUM(CASE WHEN h.estado_chat = 'Cerrado' OR ${confirmCond} THEN 1 ELSE 0 END) as chatsCerrados,
         SUM(CASE WHEN ${plantCond} AND NOT ${confirmCond} AND (h.estado_chat != 'Cerrado' OR h.estado_chat IS NULL) THEN 1 ELSE 0 END) as chatsPendientes,
         SUM(CASE WHEN h.quien_tiene_la_palabra NOT IN ('CLIENTE', 'BOT') AND NOT ${confirmCond} AND NOT ${plantCond} THEN 1 ELSE 0 END) as chatsAsesorUltimo,
-        SUM(CASE WHEN ${confirmCond} OR h.estado_chat = 'Cerrado' OR COALESCE(h.semaforo_sla, 'VERDE') = 'VERDE' THEN 1 ELSE 0 END) as slaVerde,
-        SUM(CASE WHEN COALESCE(h.semaforo_sla, 'VERDE') = 'AMARILLO' AND NOT ${confirmCond} AND (h.estado_chat != 'Cerrado' OR h.estado_chat IS NULL) THEN 1 ELSE 0 END) as slaAmarillo,
-        SUM(CASE WHEN COALESCE(h.semaforo_sla, 'VERDE') = 'ROJO' AND NOT ${confirmCond} AND (h.estado_chat != 'Cerrado' OR h.estado_chat IS NULL) THEN 1 ELSE 0 END) as slaRojo
+        SUM(CASE WHEN ${confirmCond} OR ${plantCond} OR h.estado_chat = 'Cerrado' OR COALESCE(h.semaforo_sla, 'VERDE') = 'VERDE' THEN 1 ELSE 0 END) as slaVerde,
+        SUM(CASE WHEN COALESCE(h.semaforo_sla, 'VERDE') = 'AMARILLO' AND NOT ${confirmCond} AND NOT ${plantCond} AND (h.estado_chat != 'Cerrado' OR h.estado_chat IS NULL) THEN 1 ELSE 0 END) as slaAmarillo,
+        SUM(CASE WHEN COALESCE(h.semaforo_sla, 'VERDE') = 'ROJO' AND NOT ${confirmCond} AND NOT ${plantCond} AND (h.estado_chat != 'Cerrado' OR h.estado_chat IS NULL) THEN 1 ELSE 0 END) as slaRojo
       FROM historial_chats_mantra h
       WHERE ${whereSql}
     `;
@@ -2114,8 +2150,8 @@ app.get('/api/4dm1n_/chats-dashboard-stats', async (req, res) => {
       SELECT 
         CASE
           WHEN ${confirmCond} THEN 'CONFIRMADO'
-          WHEN h.quien_tiene_la_palabra = 'CLIENTE' THEN 'CLIENTE'
           WHEN ${plantCond} THEN 'PLANTILLA'
+          WHEN h.quien_tiene_la_palabra = 'CLIENTE' THEN 'CLIENTE'
           ELSE 'ASESOR'
         END as palabra,
         COUNT(*) as total
@@ -2129,8 +2165,8 @@ app.get('/api/4dm1n_/chats-dashboard-stats', async (req, res) => {
       SELECT 
         CASE
           WHEN h.estado_chat = 'Cerrado' OR ${confirmCond} THEN 'Cerrado'
-          WHEN h.quien_tiene_la_palabra = 'CLIENTE' THEN 'Abierto'
           WHEN ${plantCond} THEN 'Pendiente'
+          WHEN h.quien_tiene_la_palabra = 'CLIENTE' THEN 'Abierto'
           ELSE 'Sin Respuesta'
         END as estado,
         COUNT(*) as total
@@ -2144,10 +2180,10 @@ app.get('/api/4dm1n_/chats-dashboard-stats', async (req, res) => {
       SELECT 
         COALESCE(NULLIF(TRIM(h.asesor_asignado), ''), 'Sin Asignar') as asesor,
         COUNT(*) as total,
-        SUM(CASE WHEN ${confirmCond} OR h.estado_chat = 'Cerrado' OR h.quien_tiene_la_palabra NOT IN ('CLIENTE', 'BOT') THEN 1 ELSE 0 END) as atendidos,
-        SUM(CASE WHEN h.quien_tiene_la_palabra = 'CLIENTE' AND NOT ${confirmCond} AND (h.estado_chat != 'Cerrado' OR h.estado_chat IS NULL) THEN 1 ELSE 0 END) as abiertos,
-        SUM(CASE WHEN ${confirmCond} OR h.estado_chat = 'Cerrado' OR COALESCE(h.semaforo_sla, 'VERDE') = 'VERDE' THEN 1 ELSE 0 END) as verdes,
-        SUM(CASE WHEN COALESCE(h.semaforo_sla, 'VERDE') = 'ROJO' AND NOT ${confirmCond} AND (h.estado_chat != 'Cerrado' OR h.estado_chat IS NULL) THEN 1 ELSE 0 END) as rojos
+        SUM(CASE WHEN ${confirmCond} OR ${plantCond} OR h.estado_chat = 'Cerrado' OR h.quien_tiene_la_palabra NOT IN ('CLIENTE', 'BOT') THEN 1 ELSE 0 END) as atendidos,
+        SUM(CASE WHEN h.quien_tiene_la_palabra = 'CLIENTE' AND NOT ${confirmCond} AND NOT ${plantCond} AND (h.estado_chat != 'Cerrado' OR h.estado_chat IS NULL) THEN 1 ELSE 0 END) as abiertos,
+        SUM(CASE WHEN ${confirmCond} OR ${plantCond} OR h.estado_chat = 'Cerrado' OR COALESCE(h.semaforo_sla, 'VERDE') = 'VERDE' THEN 1 ELSE 0 END) as verdes,
+        SUM(CASE WHEN COALESCE(h.semaforo_sla, 'VERDE') = 'ROJO' AND NOT ${confirmCond} AND NOT ${plantCond} AND (h.estado_chat != 'Cerrado' OR h.estado_chat IS NULL) THEN 1 ELSE 0 END) as rojos
       FROM historial_chats_mantra h
       WHERE ${whereSql}
       GROUP BY asesor
@@ -2430,19 +2466,36 @@ app.get('/api/4dm1n_/export', async (req, res) => {
         OR LOWER(TRIM(h.ultimo_mensaje_texto)) LIKE 'sí, confirmo%'
         OR LOWER(TRIM(h.ultimo_mensaje_texto)) LIKE 'confirmado%'
         OR LOWER(TRIM(h.ultimo_mensaje_texto)) LIKE 'confirmar%'
+        OR LOWER(TRIM(h.ultimo_mensaje_texto)) LIKE 'si, conforme%'
+        OR LOWER(TRIM(h.ultimo_mensaje_texto)) LIKE 'si conforme%'
+        OR LOWER(TRIM(h.ultimo_mensaje_texto)) LIKE 'si todo conforme%'
         OR LOWER(TRIM(h.ultimo_mensaje_texto)) = 'si'
         OR LOWER(TRIM(h.ultimo_mensaje_texto)) = 'sí'
         OR LOWER(TRIM(h.ultimo_mensaje_texto)) = '1'
-        OR LOWER(TRIM(h.ultimo_mensaje_texto)) = 'ok'
         OR LOWER(TRIM(h.ultimo_mensaje_texto)) = 'conforme'
       )`;
 
       const plantillaCond = `(
         h.quien_tiene_la_palabra = 'BOT' 
+        OR LOWER(TRIM(h.ultimo_mensaje_texto)) LIKE 'entiendo, gracias%'
+        OR LOWER(TRIM(h.ultimo_mensaje_texto)) LIKE 'entiendo gracias%'
+        OR LOWER(TRIM(h.ultimo_mensaje_texto)) LIKE 'otras opciones%'
+        OR LOWER(TRIM(h.ultimo_mensaje_texto)) = 'ok'
+        OR LOWER(TRIM(h.ultimo_mensaje_texto)) = 'ok.'
+        OR LOWER(TRIM(h.ultimo_mensaje_texto)) = 'ok!'
+        OR LOWER(TRIM(h.ultimo_mensaje_texto)) = 'okey'
+        OR LOWER(TRIM(h.ultimo_mensaje_texto)) = 'oki'
+        OR LOWER(TRIM(h.ultimo_mensaje_texto)) = 'todo ok'
+        OR LOWER(TRIM(h.ultimo_mensaje_texto)) = 'de acuerdo'
+        OR LOWER(TRIM(h.ultimo_mensaje_texto)) LIKE 'ok gracias%'
+        OR LOWER(TRIM(h.ultimo_mensaje_texto)) LIKE 'ok, gracias%'
+        OR LOWER(TRIM(h.ultimo_mensaje_texto)) LIKE 'gracias por su respuesta%'
+        OR LOWER(TRIM(h.ultimo_mensaje_texto)) LIKE 'se informa, muchas gracias%'
         OR h.ultimo_mensaje_texto LIKE '%Trak_%' 
         OR h.ultimo_mensaje_texto LIKE '%Adelanto%' 
         OR h.ultimo_mensaje_texto LIKE '%Blindaje%' 
         OR h.ultimo_mensaje_texto LIKE '%Confirmación%'
+        OR h.ultimo_mensaje_texto LIKE '%Confirmacion%'
         OR h.ultimo_mensaje_texto LIKE '%enruta.win.pe%'
         OR h.ultimo_mensaje_texto LIKE '%| [%'
         OR h.ultimo_mensaje_texto LIKE '%Ad. Inc.%'
@@ -2450,6 +2503,7 @@ app.get('/api/4dm1n_/export', async (req, res) => {
         OR h.ultimo_mensaje_texto LIKE '%TRAKING%'
         OR h.ultimo_mensaje_texto LIKE '%Seguimiento de VT%'
         OR h.ultimo_mensaje_texto LIKE '%programaci%'
+        OR h.ultimo_mensaje_texto LIKE '%gracias por confirmar%'
       )`;
 
       const allowedColsChats: Record<string, string> = {
@@ -2490,8 +2544,8 @@ app.get('/api/4dm1n_/export', async (req, res) => {
           if (selectedArr.length > 0) {
             const orParts: string[] = [];
             if (selectedArr.includes('CONFIRMADO')) orParts.push(`(${confirmacionCond})`);
-            if (selectedArr.includes('CLIENTE')) orParts.push(`(h.quien_tiene_la_palabra = 'CLIENTE' AND NOT ${confirmacionCond})`);
             if (selectedArr.includes('PLANTILLA')) orParts.push(`(${plantillaCond} AND NOT ${confirmacionCond})`);
+            if (selectedArr.includes('CLIENTE')) orParts.push(`(h.quien_tiene_la_palabra = 'CLIENTE' AND NOT ${confirmacionCond} AND NOT ${plantillaCond})`);
             if (selectedArr.includes('ASESOR')) orParts.push(`(h.quien_tiene_la_palabra != 'CLIENTE' AND NOT ${plantillaCond} AND NOT ${confirmacionCond})`);
             if (orParts.length > 0) {
               whereClauses.push(`(${orParts.join(' OR ')})`);
@@ -2512,7 +2566,7 @@ app.get('/api/4dm1n_/export', async (req, res) => {
           if (selectedArr.length > 0) {
             const orParts: string[] = [];
             if (selectedArr.includes('Cerrado')) orParts.push(`(h.estado_chat = 'Cerrado' OR ${confirmacionCond})`);
-            if (selectedArr.includes('Abierto')) orParts.push(`((h.estado_chat != 'Cerrado' OR h.estado_chat IS NULL) AND h.quien_tiene_la_palabra = 'CLIENTE' AND NOT ${confirmacionCond})`);
+            if (selectedArr.includes('Abierto')) orParts.push(`((h.estado_chat != 'Cerrado' OR h.estado_chat IS NULL) AND h.quien_tiene_la_palabra = 'CLIENTE' AND NOT ${confirmacionCond} AND NOT ${plantillaCond})`);
             if (selectedArr.includes('Pendiente')) orParts.push(`((h.estado_chat != 'Cerrado' OR h.estado_chat IS NULL) AND ${plantillaCond} AND NOT ${confirmacionCond})`);
             if (selectedArr.includes('Sin Respuesta')) orParts.push(`((h.estado_chat != 'Cerrado' OR h.estado_chat IS NULL) AND h.quien_tiene_la_palabra != 'CLIENTE' AND NOT ${plantillaCond} AND NOT ${confirmacionCond})`);
             if (orParts.length > 0) {
@@ -2552,7 +2606,7 @@ app.get('/api/4dm1n_/export', async (req, res) => {
         if (estadoChat === 'Cerrado') {
           whereClauses.push(`(h.estado_chat = 'Cerrado' OR ${confirmacionCond})`);
         } else if (estadoChat === 'Abierto') {
-          whereClauses.push(`(h.estado_chat != 'Cerrado' OR h.estado_chat IS NULL) AND h.quien_tiene_la_palabra = 'CLIENTE' AND NOT ${confirmacionCond}`);
+          whereClauses.push(`(h.estado_chat != 'Cerrado' OR h.estado_chat IS NULL) AND h.quien_tiene_la_palabra = 'CLIENTE' AND NOT ${confirmacionCond} AND NOT ${plantillaCond}`);
         } else if (estadoChat === 'Pendiente') {
           whereClauses.push(`(h.estado_chat != 'Cerrado' OR h.estado_chat IS NULL) AND ${plantillaCond} AND NOT ${confirmacionCond}`);
         } else if (estadoChat === 'Sin Respuesta') {
@@ -2589,18 +2643,18 @@ app.get('/api/4dm1n_/export', async (req, res) => {
           h.*,
           CASE 
             WHEN ${confirmacionCond} THEN 'CONFIRMADO'
-            WHEN h.quien_tiene_la_palabra = 'CLIENTE' THEN 'CLIENTE'
             WHEN ${plantillaCond} THEN 'PLANTILLA'
+            WHEN h.quien_tiene_la_palabra = 'CLIENTE' THEN 'CLIENTE'
             ELSE 'ASESOR'
           END AS quien_tiene_la_palabra,
           CASE
             WHEN h.estado_chat = 'Cerrado' OR ${confirmacionCond} THEN 'Cerrado'
-            WHEN h.quien_tiene_la_palabra = 'CLIENTE' THEN 'Abierto'
             WHEN ${plantillaCond} THEN 'Pendiente'
+            WHEN h.quien_tiene_la_palabra = 'CLIENTE' THEN 'Abierto'
             ELSE 'Sin Respuesta'
           END AS estado_chat,
           CASE
-            WHEN ${confirmacionCond} OR h.estado_chat = 'Cerrado' THEN 'VERDE'
+            WHEN ${confirmacionCond} OR h.estado_chat = 'Cerrado' OR ${plantillaCond} THEN 'VERDE'
             ELSE COALESCE(h.semaforo_sla, 'VERDE')
           END AS semaforo_sla
         FROM historial_chats_mantra h

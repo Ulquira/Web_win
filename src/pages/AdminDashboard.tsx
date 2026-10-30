@@ -492,17 +492,47 @@ export default function AdminDashboard() {
       clean === 'sí confirmo' ||
       clean === 'confirmado' ||
       clean === 'confirmar' ||
+      clean === 'si, conforme' ||
+      clean === 'si conforme' ||
+      clean === 'si todo conforme' ||
+      clean === 'conforme' ||
       clean === 'si' ||
       clean === 'sí' ||
-      clean === 'ok' ||
-      clean === 'de acuerdo' ||
+      clean === '1' ||
       clean.startsWith('si, confirmo') ||
       clean.startsWith('si confirmo') ||
       clean.startsWith('sí, confirmo')
     ) {
       return true;
     }
-    return /^(si\s*,?\s*confirmo|confirmado|confirmar|si\s+confirmo|sí\s+confirmo|si|sí|ok|de\s+acuerdo)(\s+gracias|\s*[\.!]*)*$/i.test(clean);
+    return /^(si\s*,?\s*confirmo|confirmado|confirmar|si\s+confirmo|sí\s+confirmo|si\s*,?\s*conforme|si|sí)(\s+gracias|\s*[\.!]*)*$/i.test(clean);
+  };
+
+  const isPlantillaMessage = (text: string): boolean => {
+    if (!text) return false;
+    const clean = text.trim().toLowerCase();
+    if (
+      clean === 'entiendo, gracias' ||
+      clean === 'entiendo gracias' ||
+      clean === 'otras opciones' ||
+      clean === 'ok' ||
+      clean === 'ok.' ||
+      clean === 'ok!' ||
+      clean === 'okey' ||
+      clean === 'oki' ||
+      clean === 'todo ok' ||
+      clean === 'de acuerdo' ||
+      clean.startsWith('entiendo, gracias') ||
+      clean.startsWith('entiendo gracias') ||
+      clean.startsWith('otras opciones') ||
+      clean.startsWith('ok gracias') ||
+      clean.startsWith('ok, gracias') ||
+      clean.startsWith('gracias por su respuesta') ||
+      clean.startsWith('se informa, muchas gracias')
+    ) {
+      return true;
+    }
+    return /^(entiendo,?\s*gracias|otras\s+opciones|ok|okey|oki|todo\s+ok|de\s+acuerdo)(\s+gracias|\s*[\.!]*)*$/i.test(clean);
   };
 
   const normalizeChatsRows = (items: any[]): any[] => {
@@ -512,6 +542,14 @@ export default function AdminDashboard() {
         return {
           ...row,
           quien_tiene_la_palabra: 'CONFIRMADO',
+          estado_chat: (row.estado_chat === 'Abierto' ? 'Cerrado' : row.estado_chat) || 'Cerrado',
+          semaforo_sla: 'VERDE'
+        };
+      }
+      if (isPlantillaMessage(msg)) {
+        return {
+          ...row,
+          quien_tiene_la_palabra: 'PLANTILLA',
           estado_chat: (row.estado_chat === 'Abierto' ? 'Pendiente' : row.estado_chat) || 'Pendiente',
           semaforo_sla: 'VERDE'
         };
