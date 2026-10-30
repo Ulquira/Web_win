@@ -426,6 +426,45 @@ export default function AdminDashboard() {
 
 
 
+  // Clasificación de confirmaciones automáticas por botón (para evitar marcar erróneamente 'CLIENTE' / SLA Rojo)
+  const isConfirmationMessage = (text: string): boolean => {
+    if (!text) return false;
+    const clean = text.trim().toLowerCase();
+    if (
+      clean === 'si, confirmo' ||
+      clean === 'si confirmo' ||
+      clean === 'sí, confirmo' ||
+      clean === 'sí confirmo' ||
+      clean === 'confirmado' ||
+      clean === 'confirmar' ||
+      clean === 'si' ||
+      clean === 'sí' ||
+      clean === 'ok' ||
+      clean === 'de acuerdo' ||
+      clean.startsWith('si, confirmo') ||
+      clean.startsWith('si confirmo') ||
+      clean.startsWith('sí, confirmo')
+    ) {
+      return true;
+    }
+    return /^(si\s*,?\s*confirmo|confirmado|confirmar|si\s+confirmo|sí\s+confirmo|si|sí|ok|de\s+acuerdo)(\s+gracias|\s*[\.!]*)*$/i.test(clean);
+  };
+
+  const normalizeChatsRows = (items: any[]): any[] => {
+    return items.map((row: any) => {
+      const msg = row.ultimo_mensaje_texto || '';
+      if (isConfirmationMessage(msg)) {
+        return {
+          ...row,
+          quien_tiene_la_palabra: 'CONFIRMADO',
+          estado_chat: (row.estado_chat === 'Abierto' ? 'Pendiente' : row.estado_chat) || 'Pendiente',
+          semaforo_sla: 'VERDE'
+        };
+      }
+      return row;
+    });
+  };
+
   // Cargar datos al cambiar tab, paginación, ordenamiento o filtros
   const fetchData = async (targetPage = page, customFilters?: any, retryCount = 1) => {
     if (abortControllerRef.current) {
@@ -489,7 +528,9 @@ export default function AdminDashboard() {
       const json = await res.json();
 
       if (json.success) {
-        setData(json.data || []);
+        const rawData = json.data || [];
+        const processed = currentTab === 'chats_mantra' ? normalizeChatsRows(rawData) : rawData;
+        setData(processed);
         setTotal(json.total || 0);
         setPage(json.page || 1);
         setTotalPages(json.totalPages || 1);
@@ -541,14 +582,114 @@ export default function AdminDashboard() {
       if (currentFFin) params.append('fechaFin', currentFFin);
       if (currentGrupo) params.append('grupoServicio', currentGrupo);
 
-      const res = await fetch(`${apiUrl}/api/4dm1n_/chats-dashboard-stats?${params.toString()}`);
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const json = await res.json();
-      if (json.success) {
-        setChatsDashboardStats(json);
-      } else {
-        throw new Error(json.message || 'Error cargando dashboard de chats');
+      let serverSuccess = false;
+      try {
+        const res = await fetch(`${apiUrl}/api/4dm1n_/chats-dashboard-stats?${params.toString()}`);
+        if (res.ok) {
+          const json = await res.json();
+          if (json && json.success && json.kpis) {
+            setChatsDashboardStats(json);
+            serverSuccess = true;
+          }
+        }
+      } catch (err) {
+        console.warn('Endpoint remoto no listo, usando agregación client-side:', err);
       }
+
+      if (serverSuccess) return;
+
+      // Fallback robusto en cliente
+      const fallbackParams = new URLSearchParams({
+        tabla: 'chats_mantra',
+        page: '1',
+        limit: '500',
+        sortBy: 'ultimo_mensaje_fecha',
+        sortOrder: 'desc'
+      });
+      if (currentSearch) fallbackParams.append('search', currentSearch);
+      if (currentFInicio) fallbackParams.append('fechaInicio', currentFInicio);
+      if (currentFFin) fallbackParams.append('fechaFin', currentFFin);
+      if (currentGrupo) fallbackParams.append('grupoServicio', currentGrupo);
+
+      const dataRes = await fetch(`${apiUrl}/api/4dm1n_/data?${fallbackParams.toString()}`);
+      if (!dataRes.ok) throw new Error('No se pudo obtener datos para el dashboard de chats');
+      const dataJson = await dataRes.json();
+      const rawChats = normalizeChatsRows(dataJson.data || []);
+
+      const total = dataJson.total || rawChats.length;
+      let abiertas = 0, sinRespuesta = 0, cerradas = 0, pendientes = 0;
+      let verdes = 0, ambar = 0, rojos = 0;
+      const palabraMap: Record<string, number> = { CLIENTE: 0, ASESOR: 0, PLANTILLA: 0, CONFIRMADO: 0 };
+      const gruposMap: Record<string, number> = {};
+      const asesoresMap: Record<string, { total: number; abiertos: number; cerrados: number; verdes: number; rojos: number }> = {};
+
+      rawChats.forEach((c: any) => {
+        const est = c.estado_chat || 'Pendiente';
+        if (est === 'Abierto') abiertas++;
+        else if (est === 'Sin Respuesta') sinRespuesta++;
+        else if (est === 'Cerrado') cerradas++;
+        else pendientes++;
+
+        const sla = c.semaforo_sla || 'VERDE';
+        if (sla === 'VERDE') verdes++;
+        else if (sla === 'AMBAR') ambar++;
+        else if (sla === 'ROJO') rojos++;
+
+        const pal = c.quien_tiene_la_palabra || 'ASESOR';
+        palabraMap[pal] = (palabraMap[pal] || 0) + 1;
+
+        const grp = (c.tipo_trabajo || c.grupo_servicio || 'OTROS').trim().toUpperCase();
+        gruposMap[grp] = (gruposMap[grp] || 0) + 1;
+
+        const ase = (c.asesor_asignado || 'Sin Asignar').trim();
+        if (!asesoresMap[ase]) {
+          asesoresMap[ase] = { total: 0, abiertos: 0, cerrados: 0, verdes: 0, rojos: 0 };
+        }
+        asesoresMap[ase].total++;
+        if (est === 'Abierto') asesoresMap[ase].abiertos++;
+        if (est === 'Cerrado') asesoresMap[ase].cerrados++;
+        if (sla === 'VERDE') asesoresMap[ase].verdes++;
+        if (sla === 'ROJO') asesoresMap[ase].rojos++;
+      });
+
+      const statsFallback = {
+        success: true,
+        kpis: {
+          totalChats: total,
+          totalConfirmados: rawChats.filter((c: any) => c.quien_tiene_la_palabra === 'CONFIRMADO').length,
+          chatsAbiertos: abiertas,
+          chatsCerrados: cerradas,
+          chatsPendientes: pendientes,
+          chatsAsesorUltimo: sinRespuesta,
+          slaVerde: verdes,
+          slaAmarillo: ambar,
+          slaRojo: rojos,
+          conAsesor: rawChats.filter((c: any) => c.asesor_asignado && c.asesor_asignado !== 'Sin asignar').length,
+          sinAsesor: rawChats.filter((c: any) => !c.asesor_asignado || c.asesor_asignado === 'Sin asignar').length
+        },
+        palabra: Object.entries(palabraMap).map(([palabra, total]) => ({ palabra, total })),
+        estados: [
+          { estado_chat: 'Abierto', total: abiertas },
+          { estado_chat: 'Pendiente', total: pendientes },
+          { estado_chat: 'Sin Respuesta', total: sinRespuesta },
+          { estado_chat: 'Cerrado', total: cerradas }
+        ],
+        asesores: Object.entries(asesoresMap).map(([asesor, d]) => ({
+          asesor,
+          total: d.total,
+          atendidos: d.cerrados,
+          abiertos: d.abiertos,
+          cerrados: d.cerrados,
+          verdes: d.verdes,
+          rojos: d.rojos
+        })).sort((a, b) => b.total - a.total).slice(0, 15),
+        grupos: Object.entries(gruposMap).map(([grupo, total]) => ({
+          grupo,
+          total
+        })).sort((a, b) => b.total - a.total)
+      };
+
+      setChatsDashboardStats(statsFallback);
     } catch (err: any) {
       if (retryCount > 0) {
         await new Promise(r => setTimeout(r, 1000));
@@ -684,9 +825,6 @@ export default function AdminDashboard() {
   // Obtener valor de celda homogéneo para filtros y ordenamientos
   const getCellValue = (row: any, field: string): string => {
     if (!row) return '';
-    if (row[field] !== undefined && row[field] !== null) {
-      return String(row[field]);
-    }
     switch (field) {
       case 'id':
         return String(row.id ?? row.IDuser ?? '');
@@ -767,7 +905,7 @@ export default function AdminDashboard() {
       case 'token':
         return String(row.token ?? '');
       default:
-        return '';
+        return row[field] !== undefined && row[field] !== null ? String(row[field]) : '';
     }
   };
 
@@ -798,9 +936,50 @@ export default function AdminDashboard() {
 
   // Filtrado local y ordenamiento sobre las filas visibles con soporte Excel
   const displayData = useMemo(() => {
-    if (!sortField || data.length === 0) return data;
+    if (data.length === 0) return [];
 
-    return [...data].sort((a, b) => {
+    const activeFilterEntries = Object.entries(columnFilters).filter(
+      ([_, filter]) => filter && (filter.search || (filter.selected && filter.selected.length > 0))
+    );
+
+    // 1. Filtrado estricto e insensible a mayúsculas por filtros de columnas Excel
+    let filtered = data;
+    if (activeFilterEntries.length > 0) {
+      filtered = data.filter(row => {
+        for (const [field, filter] of activeFilterEntries) {
+          if (!filter) continue;
+          const cellRaw = getCellValue(row, field).trim();
+          const cellDisplay = cellRaw || '(Vacío)';
+
+          // Búsqueda de texto dentro del popover
+          if (filter.search && filter.search.trim()) {
+            const s = filter.search.trim().toLowerCase();
+            if (!cellRaw.toLowerCase().includes(s)) {
+              return false;
+            }
+          }
+
+          // Checkboxes seleccionados estilo Excel
+          if (filter.selected && filter.selected.length > 0) {
+            const hasMatch = filter.selected.some(sel => {
+              if (sel === '(Vacío)') {
+                return !cellRaw;
+              }
+              const sSel = sel.trim().toLowerCase();
+              const sCell = cellRaw.toLowerCase();
+              return sSel === sCell || sSel === cellDisplay.toLowerCase();
+            });
+            if (!hasMatch) return false;
+          }
+        }
+        return true;
+      });
+    }
+
+    // 2. Ordenamiento
+    if (!sortField) return filtered;
+
+    return [...filtered].sort((a, b) => {
       let valA = a[sortField];
       let valB = b[sortField];
       if (valA === null || valA === undefined) return 1;
@@ -825,7 +1004,7 @@ export default function AdminDashboard() {
       const strB = String(valB).toLowerCase();
       return sortOrder === 'asc' ? strA.localeCompare(strB) : strB.localeCompare(strA);
     });
-  }, [data, sortField, sortOrder]);
+  }, [data, columnFilters, sortField, sortOrder]);
 
   // Mensajes parseados para la vista amigable de chat (prioriza mensajes en vivo de Mantra si existen)
   const parsedChatMessages = useMemo(() => {
