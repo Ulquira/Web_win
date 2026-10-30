@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { 
+  getCupos,
   reprogramar, 
   guardarEncuesta, 
   verificarEncuesta, 
@@ -10,6 +11,7 @@ import {
 
 const router = Router();
 
+router.get('/cupos/:token', getCupos);
 router.post('/reprogramar', reprogramar);
 router.post('/encuesta', guardarEncuesta);
 router.get('/encuesta/verificar/:token', verificarEncuesta);

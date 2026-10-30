@@ -1,12 +1,13 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { ExcelFilterHeader, ColumnFilterState } from '../components/ExcelFilterHeader';
 import { 
   Database, 
   Search, 
   Filter, 
   RefreshCw, 
   ChevronLeft, 
-  ChevronRight, 
-  ChevronDown,
+  ChevronRight,
+  ChevronDown, 
   FileSpreadsheet, 
   FileCode, 
   Eye, 
@@ -35,10 +36,71 @@ import {
   Activity,
   CheckCheck,
   TrendingUp,
-  MapPin
+  MapPin,
+  Users,
+  UserPlus,
+  Shield,
+  Mail,
+  Phone,
+  Lock,
+  CreditCard,
+  AtSign
 } from 'lucide-react';
 
-type TabType = 'principal' | 'reporte' | 'dashboard' | 'encuestas' | 'reprogramaciones' | 'chats_mantra';
+// Mapeo de identificadores de columna a etiquetas amigables
+const COLUMN_FRIENDLY_LABELS: Record<string, string> = {
+  TipoServicioCalculado: 'Tipo Servicio',
+  tipo_servicio: 'Tipo Servicio',
+  TipoTraba: 'Tipo Trabajo',
+  tipo_trabajo: 'Tipo Trabajo',
+  tipo_operacion: 'Operación / Trabajo',
+  Producto: 'Producto',
+  producto: 'Producto',
+  Estado: 'Estado',
+  estado: 'Estado',
+  estado_ot: 'Estado OT',
+  OrdenId: 'Orden ID',
+  orden_id: 'Orden ID',
+  ticket: 'Ticket',
+  Cliente: 'Cliente',
+  cliente: 'Cliente',
+  cliente_nombre: 'Cliente',
+  NumeroDocumento: 'Documento',
+  'Número Documento': 'Documento',
+  documento: 'Documento',
+  FechaVisita: 'Fecha Visita',
+  fecha_visita: 'Fecha Visita',
+  Direccion: 'Dirección',
+  direccion: 'Dirección',
+  Localidad: 'Distrito',
+  distrito: 'Distrito',
+  Cuadrilla: 'Cuadrilla',
+  cuadrilla: 'Cuadrilla',
+  phone: 'Teléfono',
+  telefono: 'Teléfono',
+  asesor_asignado: 'Usuario',
+  grupo_servicio: 'Grupo Serv.',
+  quien_tiene_la_palabra: 'Palabra',
+  estado_chat: 'Estado Chat',
+  semaforo_sla: 'SLA',
+  ultimo_mensaje_texto: 'Último Mensaje',
+  ultimo_mensaje_fecha: 'Fecha Último Msg',
+  se_envio_wsp: 'WhatsApp',
+  ingreso_tracking: 'Tracking / Mapa',
+  reprogramo: 'Reprogramó',
+  respondio_encuesta: 'Encuesta',
+  pulso_soporte: 'Soporte',
+  fecha_solicitada: 'Fecha Solicitada',
+  turno: 'Turno',
+  motivo: 'Motivo',
+  token: 'Token'
+};
+
+const getColumnLabel = (field: string): string => {
+  return COLUMN_FRIENDLY_LABELS[field] || field.replace(/_/g, ' ');
+};
+
+type TabType = 'principal' | 'reporte' | 'dashboard' | 'dashboard_chats' | 'encuestas' | 'reprogramaciones' | 'chats_mantra' | 'usuarios';
 
 const getTodayPeruString = () => {
   try {
@@ -132,11 +194,26 @@ export default function AdminDashboard() {
   const [fechaInicio, setFechaInicio] = useState(getTodayPeruString());
   const [fechaFin, setFechaFin] = useState(getTodayPeruString());
   const [tipoServicio, setTipoServicio] = useState<string[]>([]);
-  const [tipoServicioOpen, setTipoServicioOpen] = useState(false);
-  const tipoServicioDropdownRef = useRef<HTMLDivElement>(null);
   const [grupoServicio, setGrupoServicio] = useState('');
   const [estadoChatFiltro, setEstadoChatFiltro] = useState('');
   const [updatingChatId, setUpdatingChatId] = useState<number | null>(null);
+
+  // Filtros interactivos tipo Excel por columna
+  const [columnFilters, setColumnFilters] = useState<Record<string, ColumnFilterState>>({});
+  const [activeFilterDropdown, setActiveFilterDropdown] = useState<string | null>(null);
+
+  // Cerrar popover de filtro Excel al hacer clic fuera
+  useEffect(() => {
+    if (!activeFilterDropdown) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (!target.closest('.excel-filter-popover') && !target.closest('.excel-filter-trigger')) {
+        setActiveFilterDropdown(null);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [activeFilterDropdown]);
 
   // Ordenamiento de columnas (ascendente / descendente)
   const [sortField, setSortField] = useState<string>('id');
@@ -158,9 +235,117 @@ export default function AdminDashboard() {
   const [liveChatMessages, setLiveChatMessages] = useState<any[] | null>(null);
   const [liveChatTotal, setLiveChatTotal] = useState<number | null>(null);
   const [loadingChat, setLoadingChat] = useState<boolean>(false);
+
+  // Estados para pestaña de Control de Roles & Usuarios
+  interface UserItem {
+    IDuser: number;
+    Nombre: string;
+    Documento: string;
+    Telefono?: string | null;
+    Email: string;
+    Usuario: string;
+    Area: 'INSTALACION' | 'PROVINCIA' | 'AVERIAS' | 'ADMIN';
+    Rol: 'ADMIN' | 'SUPERVISOR' | 'COORDINADOR' | 'ASESOR';
+    Activo: number;
+    created_at?: string;
+  }
+  const [usersList, setUsersList] = useState<UserItem[]>([]);
+  const [isLoadingUsers, setIsLoadingUsers] = useState(false);
+  const [userSearch, setUserSearch] = useState('');
+  const [isUserModalOpen, setIsUserModalOpen] = useState(false);
+  const [isSavingUser, setIsSavingUser] = useState(false);
+  const [userFormError, setUserFormError] = useState<string | null>(null);
+  const [userFormSuccess, setUserFormSuccess] = useState<string | null>(null);
+  const [userFormData, setUserFormData] = useState({
+    Nombre: '',
+    Documento: '',
+    Telefono: '',
+    Email: '',
+    Usuario: '',
+    Password: '',
+    Area: 'INSTALACION' as 'INSTALACION' | 'PROVINCIA' | 'AVERIAS' | 'ADMIN',
+    Rol: 'ASESOR' as 'ADMIN' | 'SUPERVISOR' | 'COORDINADOR' | 'ASESOR'
+  });
+
+  const fetchUsers = async () => {
+    setIsLoadingUsers(true);
+    try {
+      const res = await fetch(`${apiUrl}/api/4dm1n_/users`);
+      const dataRes = await res.json();
+      if (dataRes.success && Array.isArray(dataRes.users)) {
+        setUsersList(dataRes.users);
+      }
+    } catch (err) {
+      console.error('Error cargando usuarios:', err);
+    } finally {
+      setIsLoadingUsers(false);
+    }
+  };
+
+  const handleCreateUser = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setUserFormError(null);
+    setUserFormSuccess(null);
+    setIsSavingUser(true);
+
+    try {
+      const res = await fetch(`${apiUrl}/api/4dm1n_/users`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(userFormData)
+      });
+      const dataRes = await res.json();
+      if (!res.ok || !dataRes.success) {
+        throw new Error(dataRes.message || 'Error al registrar usuario');
+      }
+      setUserFormSuccess('¡Usuario creado exitosamente!');
+      setTimeout(() => {
+        setIsUserModalOpen(false);
+        setUserFormSuccess(null);
+        fetchUsers();
+      }, 1000);
+    } catch (err: any) {
+      setUserFormError(err.message || 'Error al guardar el usuario');
+    } finally {
+      setIsSavingUser(false);
+    }
+  };
+
+  const handleToggleUserActivo = async (id: number, currentActivo: number) => {
+    try {
+      const newActivo = currentActivo ? 0 : 1;
+      const res = await fetch(`${apiUrl}/api/4dm1n_/users/${id}/estado`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ activo: newActivo })
+      });
+      if (res.ok) {
+        setUsersList(prev => prev.map(u => u.IDuser === id ? { ...u, Activo: newActivo } : u));
+      }
+    } catch (err) {
+      console.error('Error alternando estado:', err);
+    }
+  };
+
+  const filteredUsers = useMemo(() => {
+    if (!userSearch) return usersList;
+    const term = userSearch.toLowerCase().trim();
+    return usersList.filter(u => 
+      u.Nombre.toLowerCase().includes(term) ||
+      u.Documento.toLowerCase().includes(term) ||
+      u.Usuario.toLowerCase().includes(term) ||
+      u.Email.toLowerCase().includes(term) ||
+      u.Area.toLowerCase().includes(term) ||
+      u.Rol.toLowerCase().includes(term)
+    );
+  }, [usersList, userSearch]);
+
   const [chatLimit, setChatLimit] = useState<number>(15);
   const [dashboardStats, setDashboardStats] = useState<any | null>(null);
   const [loadingStats, setLoadingStats] = useState<boolean>(false);
+  const [chatsDashboardStats, setChatsDashboardStats] = useState<any | null>(null);
+  const [dashboardMenuOpen, setDashboardMenuOpen] = useState<boolean>(true);
+  const [loadingChatsStats, setLoadingChatsStats] = useState<boolean>(false);
 
   // Endpoint en línea (Azure App Service con soporte para variable de entorno)
   const apiUrl = (import.meta as any).env?.VITE_API_URL || 'https://webwin-api-service-eus.azurewebsites.net';
@@ -294,18 +479,84 @@ export default function AdminDashboard() {
       });
   }, [apiUrl]);
 
-  // Cerrar dropdown de Tipo de Servicio al hacer clic fuera
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (tipoServicioDropdownRef.current && !tipoServicioDropdownRef.current.contains(event.target as Node)) {
-        setTipoServicioOpen(false);
+
+
+  // Clasificación de confirmaciones automáticas por botón (para evitar marcar erróneamente 'CLIENTE' / SLA Rojo)
+  const isConfirmationMessage = (text: string): boolean => {
+    if (!text) return false;
+    const clean = text.trim().toLowerCase();
+    if (
+      clean === 'si, confirmo' ||
+      clean === 'si confirmo' ||
+      clean === 'sí, confirmo' ||
+      clean === 'sí confirmo' ||
+      clean === 'confirmado' ||
+      clean === 'confirmar' ||
+      clean === 'si, conforme' ||
+      clean === 'si conforme' ||
+      clean === 'si todo conforme' ||
+      clean === 'conforme' ||
+      clean === 'si' ||
+      clean === 'sí' ||
+      clean === '1' ||
+      clean.startsWith('si, confirmo') ||
+      clean.startsWith('si confirmo') ||
+      clean.startsWith('sí, confirmo')
+    ) {
+      return true;
+    }
+    return /^(si\s*,?\s*confirmo|confirmado|confirmar|si\s+confirmo|sí\s+confirmo|si\s*,?\s*conforme|si|sí)(\s+gracias|\s*[\.!]*)*$/i.test(clean);
+  };
+
+  const isPlantillaMessage = (text: string): boolean => {
+    if (!text) return false;
+    const clean = text.trim().toLowerCase();
+    if (
+      clean === 'entiendo, gracias' ||
+      clean === 'entiendo gracias' ||
+      clean === 'otras opciones' ||
+      clean === 'ok' ||
+      clean === 'ok.' ||
+      clean === 'ok!' ||
+      clean === 'okey' ||
+      clean === 'oki' ||
+      clean === 'todo ok' ||
+      clean === 'de acuerdo' ||
+      clean.startsWith('entiendo, gracias') ||
+      clean.startsWith('entiendo gracias') ||
+      clean.startsWith('otras opciones') ||
+      clean.startsWith('ok gracias') ||
+      clean.startsWith('ok, gracias') ||
+      clean.startsWith('gracias por su respuesta') ||
+      clean.startsWith('se informa, muchas gracias')
+    ) {
+      return true;
+    }
+    return /^(entiendo,?\s*gracias|otras\s+opciones|ok|okey|oki|todo\s+ok|de\s+acuerdo)(\s+gracias|\s*[\.!]*)*$/i.test(clean);
+  };
+
+  const normalizeChatsRows = (items: any[]): any[] => {
+    return items.map((row: any) => {
+      const msg = row.ultimo_mensaje_texto || '';
+      if (isConfirmationMessage(msg)) {
+        return {
+          ...row,
+          quien_tiene_la_palabra: 'CONFIRMADO',
+          estado_chat: (row.estado_chat === 'Abierto' ? 'Cerrado' : row.estado_chat) || 'Cerrado',
+          semaforo_sla: 'VERDE'
+        };
       }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, []);
+      if (isPlantillaMessage(msg)) {
+        return {
+          ...row,
+          quien_tiene_la_palabra: 'PLANTILLA',
+          estado_chat: (row.estado_chat === 'Abierto' ? 'Pendiente' : row.estado_chat) || 'Pendiente',
+          semaforo_sla: 'VERDE'
+        };
+      }
+      return row;
+    });
+  };
 
   // Cargar datos al cambiar tab, paginación, ordenamiento o filtros
   const fetchData = async (targetPage = page, customFilters?: any, retryCount = 1) => {
@@ -342,12 +593,23 @@ export default function AdminDashboard() {
       });
 
       if (currentSearch) params.append('search', currentSearch);
+
+      const currentColFilters = customFilters?.columnFilters ?? columnFilters;
+      const activeCols: Record<string, any> = {};
+      for (const [k, v] of Object.entries(currentColFilters)) {
+        if (v && ((v as any).search || ((v as any).selected && (v as any).selected.length > 0))) {
+          activeCols[k] = v;
+        }
+      }
+      if (Object.keys(activeCols).length > 0) {
+        params.append('colFilters', JSON.stringify(activeCols));
+      }
       if (currentFInicio) params.append('fechaInicio', currentFInicio);
       if (currentFFin) params.append('fechaFin', currentFFin);
       if (currentTipo.length > 0 && (currentTab === 'principal' || currentTab === 'reporte')) {
         params.append('tipoServicio', currentTipo.join(','));
       }
-      if (currentGrupo && currentTab === 'chats_mantra') params.append('grupoServicio', currentGrupo);
+      if (currentGrupo) params.append('grupoServicio', currentGrupo);
       if (currentEstado && currentTab === 'chats_mantra') params.append('estadoChat', currentEstado);
 
       const res = await fetch(`${apiUrl}/api/4dm1n_/data?${params.toString()}`, {
@@ -359,7 +621,9 @@ export default function AdminDashboard() {
       const json = await res.json();
 
       if (json.success) {
-        setData(json.data || []);
+        const rawData = json.data || [];
+        const processed = currentTab === 'chats_mantra' ? normalizeChatsRows(rawData) : rawData;
+        setData(processed);
         setTotal(json.total || 0);
         setPage(json.page || 1);
         setTotalPages(json.totalPages || 1);
@@ -384,6 +648,153 @@ export default function AdminDashboard() {
     }
   };
 
+  // Cargar métricas especializadas para Dashboard de Chats Mantra
+  const fetchChatsStats = async (customFilters?: any, retryCount = 1) => {
+    setLoadingChatsStats(true);
+    setErrorMsg(null);
+    try {
+      const currentSearch = customFilters?.search ?? search;
+      const currentFInicio = customFilters?.fechaInicio ?? fechaInicio;
+      const currentFFin = customFilters?.fechaFin ?? fechaFin;
+      const currentGrupo = customFilters?.grupoServicio ?? grupoServicio;
+
+      const params = new URLSearchParams();
+      if (currentSearch) params.append('search', currentSearch);
+
+      const currentColFilters = customFilters?.columnFilters ?? columnFilters;
+      const activeCols: Record<string, any> = {};
+      for (const [k, v] of Object.entries(currentColFilters)) {
+        if (v && ((v as any).search || ((v as any).selected && (v as any).selected.length > 0))) {
+          activeCols[k] = v;
+        }
+      }
+      if (Object.keys(activeCols).length > 0) {
+        params.append('colFilters', JSON.stringify(activeCols));
+      }
+      if (currentFInicio) params.append('fechaInicio', currentFInicio);
+      if (currentFFin) params.append('fechaFin', currentFFin);
+      if (currentGrupo) params.append('grupoServicio', currentGrupo);
+
+      let serverSuccess = false;
+      try {
+        const res = await fetch(`${apiUrl}/api/4dm1n_/chats-dashboard-stats?${params.toString()}`);
+        if (res.ok) {
+          const json = await res.json();
+          if (json && json.success && json.kpis) {
+            setChatsDashboardStats(json);
+            serverSuccess = true;
+          }
+        }
+      } catch (err) {
+        console.warn('Endpoint remoto no listo, usando agregación client-side:', err);
+      }
+
+      if (serverSuccess) return;
+
+      // Fallback robusto en cliente
+      const fallbackParams = new URLSearchParams({
+        tabla: 'chats_mantra',
+        page: '1',
+        limit: '500',
+        sortBy: 'ultimo_mensaje_fecha',
+        sortOrder: 'desc'
+      });
+      if (currentSearch) fallbackParams.append('search', currentSearch);
+      if (currentFInicio) fallbackParams.append('fechaInicio', currentFInicio);
+      if (currentFFin) fallbackParams.append('fechaFin', currentFFin);
+      if (currentGrupo) fallbackParams.append('grupoServicio', currentGrupo);
+
+      const dataRes = await fetch(`${apiUrl}/api/4dm1n_/data?${fallbackParams.toString()}`);
+      if (!dataRes.ok) throw new Error('No se pudo obtener datos para el dashboard de chats');
+      const dataJson = await dataRes.json();
+      const rawChats = normalizeChatsRows(dataJson.data || []);
+
+      const total = dataJson.total || rawChats.length;
+      let abiertas = 0, sinRespuesta = 0, cerradas = 0, pendientes = 0;
+      let verdes = 0, ambar = 0, rojos = 0;
+      const palabraMap: Record<string, number> = { CLIENTE: 0, ASESOR: 0, PLANTILLA: 0, CONFIRMADO: 0 };
+      const gruposMap: Record<string, number> = {};
+      const asesoresMap: Record<string, { total: number; abiertos: number; cerrados: number; verdes: number; rojos: number }> = {};
+
+      rawChats.forEach((c: any) => {
+        const est = c.estado_chat || 'Pendiente';
+        if (est === 'Abierto') abiertas++;
+        else if (est === 'Sin Respuesta') sinRespuesta++;
+        else if (est === 'Cerrado') cerradas++;
+        else pendientes++;
+
+        const sla = c.semaforo_sla || 'VERDE';
+        if (sla === 'VERDE') verdes++;
+        else if (sla === 'AMBAR') ambar++;
+        else if (sla === 'ROJO') rojos++;
+
+        const pal = c.quien_tiene_la_palabra || 'ASESOR';
+        palabraMap[pal] = (palabraMap[pal] || 0) + 1;
+
+        const grp = (c.tipo_trabajo || c.grupo_servicio || 'OTROS').trim().toUpperCase();
+        gruposMap[grp] = (gruposMap[grp] || 0) + 1;
+
+        const ase = (c.asesor_asignado || 'Sin Asignar').trim();
+        if (!asesoresMap[ase]) {
+          asesoresMap[ase] = { total: 0, abiertos: 0, cerrados: 0, verdes: 0, rojos: 0 };
+        }
+        asesoresMap[ase].total++;
+        if (est === 'Abierto') asesoresMap[ase].abiertos++;
+        if (est === 'Cerrado') asesoresMap[ase].cerrados++;
+        if (sla === 'VERDE') asesoresMap[ase].verdes++;
+        if (sla === 'ROJO') asesoresMap[ase].rojos++;
+      });
+
+      const statsFallback = {
+        success: true,
+        kpis: {
+          totalChats: total,
+          totalConfirmados: rawChats.filter((c: any) => c.quien_tiene_la_palabra === 'CONFIRMADO').length,
+          chatsAbiertos: abiertas,
+          chatsCerrados: cerradas,
+          chatsPendientes: pendientes,
+          chatsAsesorUltimo: sinRespuesta,
+          slaVerde: verdes,
+          slaAmarillo: ambar,
+          slaRojo: rojos,
+          conAsesor: rawChats.filter((c: any) => c.asesor_asignado && c.asesor_asignado !== 'Sin asignar').length,
+          sinAsesor: rawChats.filter((c: any) => !c.asesor_asignado || c.asesor_asignado === 'Sin asignar').length
+        },
+        palabra: Object.entries(palabraMap).map(([palabra, total]) => ({ palabra, total })),
+        estados: [
+          { estado_chat: 'Abierto', total: abiertas },
+          { estado_chat: 'Pendiente', total: pendientes },
+          { estado_chat: 'Sin Respuesta', total: sinRespuesta },
+          { estado_chat: 'Cerrado', total: cerradas }
+        ],
+        asesores: Object.entries(asesoresMap).map(([asesor, d]) => ({
+          asesor,
+          total: d.total,
+          atendidos: d.cerrados,
+          abiertos: d.abiertos,
+          cerrados: d.cerrados,
+          verdes: d.verdes,
+          rojos: d.rojos
+        })).sort((a, b) => b.total - a.total).slice(0, 15),
+        grupos: Object.entries(gruposMap).map(([grupo, total]) => ({
+          grupo,
+          total
+        })).sort((a, b) => b.total - a.total)
+      };
+
+      setChatsDashboardStats(statsFallback);
+    } catch (err: any) {
+      if (retryCount > 0) {
+        await new Promise(r => setTimeout(r, 1000));
+        return fetchChatsStats(customFilters, retryCount - 1);
+      }
+      console.error('Error cargando estadísticas de chats:', err);
+      setChatsDashboardStats(null);
+    } finally {
+      setLoadingChatsStats(false);
+    }
+  };
+
   // Cargar métricas ejecutivas del Dashboard
   const fetchDashboardStats = async (customFilters?: any, retryCount = 1) => {
     setLoadingStats(true);
@@ -401,6 +812,17 @@ export default function AdminDashboard() {
 
       const params = new URLSearchParams();
       if (currentSearch) params.append('search', currentSearch);
+
+      const currentColFilters = customFilters?.columnFilters ?? columnFilters;
+      const activeCols: Record<string, any> = {};
+      for (const [k, v] of Object.entries(currentColFilters)) {
+        if (v && ((v as any).search || ((v as any).selected && (v as any).selected.length > 0))) {
+          activeCols[k] = v;
+        }
+      }
+      if (Object.keys(activeCols).length > 0) {
+        params.append('colFilters', JSON.stringify(activeCols));
+      }
       if (currentFInicio) params.append('fechaInicio', currentFInicio);
       if (currentFFin) params.append('fechaFin', currentFFin);
       if (currentTipo.length > 0) params.append('tipoServicio', currentTipo.join(','));
@@ -432,6 +854,8 @@ export default function AdminDashboard() {
   useEffect(() => {
     if (activeTab === 'dashboard') {
       fetchDashboardStats();
+    } else if (activeTab === 'dashboard_chats') {
+      fetchChatsStats();
     } else {
       setPage(1);
       fetchData(1);
@@ -442,6 +866,8 @@ export default function AdminDashboard() {
     e.preventDefault();
     if (activeTab === 'dashboard') {
       fetchDashboardStats();
+    } else if (activeTab === 'dashboard_chats') {
+      fetchChatsStats();
     } else {
       setPage(1);
       fetchData(1);
@@ -472,6 +898,8 @@ export default function AdminDashboard() {
     };
     if (activeTab === 'dashboard') {
       fetchDashboardStats(resetObj);
+    } else if (activeTab === 'dashboard_chats') {
+      fetchChatsStats(resetObj);
     } else {
       fetchData(1, resetObj);
     }
@@ -487,10 +915,178 @@ export default function AdminDashboard() {
     }
   };
 
-  // Ordenamiento local instantáneo sobre las filas visibles
+  // Obtener valor de celda homogéneo para filtros y ordenamientos
+  const getCellValue = (row: any, field: string): string => {
+    if (!row) return '';
+    switch (field) {
+      case 'id':
+        return String(row.id ?? row.IDuser ?? '');
+      case 'orden_id':
+      case 'OrdenId':
+        return String(row.orden_id ?? row.OrdenId ?? row.id ?? '');
+      case 'ticket':
+      case 'Ticket':
+        return String(row.ticket ?? row.Ticket ?? row.CodiSegui ?? '');
+      case 'cliente':
+      case 'cliente_nombre':
+      case 'Cliente':
+        return String(row.cliente_nombre ?? row.cliente ?? row.Cliente ?? '');
+      case 'phone':
+      case 'telefono':
+      case 'Telefono':
+        return String(row.phone ?? row.telefono ?? row.Telefono ?? row.TeleMovilNume ?? '');
+      case 'asesor_asignado':
+      case 'usuario':
+      case 'Usuario':
+        return String(row.asesor_asignado ?? row.Usuario ?? '');
+      case 'TipoServicioCalculado':
+      case 'tipo_servicio':
+        return String(row.TipoServicioCalculado || row.tipo_servicio || row.tipo_trabajo || row.TipoTraba || '');
+      case 'TipoTraba':
+        return String(row.TipoTraba || row.tipo_trabajo || '');
+      case 'tipo_trabajo':
+        return String(row.tipo_trabajo || row.TipoTraba || '');
+      case 'grupo_servicio':
+        return String(row.grupo_servicio || row.tipo_trabajo || '');
+      case 'distrito':
+      case 'provincia':
+      case 'Localidad':
+        return String(row.distrito ?? row.provincia ?? row.Localidad ?? '');
+      case 'quien_tiene_la_palabra':
+        return String(row.quien_tiene_la_palabra ?? '');
+      case 'estado_chat':
+        return String(row.estado_chat ?? '');
+      case 'semaforo_sla':
+        return String(row.semaforo_sla ?? '');
+      case 'ultimo_mensaje_texto':
+        return String(row.ultimo_mensaje_texto ?? '');
+      case 'ultimo_mensaje_fecha':
+        return String(row.ultimo_mensaje_fecha ?? row.cliente_ultima_fecha ?? '');
+      case 'estado_ot':
+      case 'Estado':
+        return String(row.estado_ot ?? row.Estado ?? row['Estado OT'] ?? '');
+      case 'tipo_operacion':
+        return String(row.tipo_operacion ?? row.TipoServicioCalculado ?? row.tipo_trabajo ?? row.TipoTraba ?? '');
+      case 'se_envio_wsp':
+        return String(row.se_envio_wsp ?? '');
+      case 'ingreso_tracking':
+        return String(row.ingreso_tracking ?? '');
+      case 'reprogramo':
+        return String(row.reprogramo ?? '');
+      case 'respondio_encuesta':
+        return String(row.respondio_encuesta ?? '');
+      case 'pulso_soporte':
+        return String(row.pulso_soporte ?? '');
+      case 'NumeroDocumento':
+        return String(row.NumeroDocumento ?? row['Número Documento'] ?? '');
+      case 'Producto':
+        return String(row.Producto ?? '');
+      case 'FechaVisita':
+        return String(row.FechaVisita ?? row['F.Visita'] ?? '');
+      case 'Direccion':
+        return String(row.Direccion ?? '');
+      case 'Cuadrilla':
+        return String(row.Cuadrilla ?? '');
+      case 'instalacion_concretada':
+        return String(row.instalacion_concretada ?? '');
+      case 'satisfaccion_general':
+        return String(row.satisfaccion_general ?? '');
+      case 'tecnico_trato':
+        return String(row.tecnico_trato ?? '');
+      case 'fecha_solicitada':
+        return String(row.fecha_solicitada ?? '');
+      case 'turno':
+        return String(row.turno ?? '');
+      case 'motivo':
+        return String(row.motivo ?? '');
+      case 'token':
+        return String(row.token ?? '');
+      default:
+        return row[field] !== undefined && row[field] !== null ? String(row[field]) : '';
+    }
+  };
+
+  const getUniqueValuesForField = (field: string): string[] => {
+    const set = new Set<string>();
+    if (field === 'TipoServicioCalculado' || field === 'tipo_servicio') {
+      ['INSTALACION', 'AVERIAS', 'AVERIAS PRV', 'POSTVENTA', 'PROVINCIA'].forEach(t => set.add(t));
+      (filtrosOpciones.tiposClasificados || []).forEach(t => t && set.add(t));
+    } else if (field === 'quien_tiene_la_palabra') {
+      ['CONFIRMADO', 'CLIENTE', 'PLANTILLA', 'ASESOR'].forEach(p => set.add(p));
+    } else if (field === 'estado_chat') {
+      ['Abierto', 'Pendiente', 'Sin Respuesta', 'Cerrado'].forEach(e => set.add(e));
+    } else if (field === 'semaforo_sla') {
+      ['VERDE', 'AMARILLO', 'ROJO'].forEach(s => set.add(s));
+    }
+    for (let i = 0; i < data.length; i++) {
+      const val = getCellValue(data[i], field).trim();
+      if (val) set.add(val);
+    }
+    return Array.from(set).sort((a, b) => {
+      if (a === '(Vacío)') return 1;
+      if (b === '(Vacío)') return -1;
+      return a.localeCompare(b);
+    });
+  };
+
+  const handleColumnFilterChange = (field: string, filter: ColumnFilterState | null) => {
+    const updated = { ...columnFilters };
+    if (!filter) {
+      delete updated[field];
+    } else {
+      updated[field] = filter;
+    }
+    setColumnFilters(updated);
+    setPage(1);
+    fetchData(1, { columnFilters: updated });
+  };
+
+  // Filtrado local y ordenamiento sobre las filas visibles con soporte Excel
   const displayData = useMemo(() => {
-    if (!sortField || data.length === 0) return data;
-    return [...data].sort((a, b) => {
+    if (data.length === 0) return [];
+
+    const activeFilterEntries = Object.entries(columnFilters).filter(
+      ([_, filter]) => filter && (filter.search || (filter.selected && filter.selected.length > 0))
+    );
+
+    // 1. Filtrado estricto e insensible a mayúsculas por filtros de columnas Excel
+    let filtered = data;
+    if (activeFilterEntries.length > 0) {
+      filtered = data.filter(row => {
+        for (const [field, filter] of activeFilterEntries) {
+          if (!filter) continue;
+          const cellRaw = getCellValue(row, field).trim();
+          const cellDisplay = cellRaw || '(Vacío)';
+
+          // Búsqueda de texto dentro del popover
+          if (filter.search && filter.search.trim()) {
+            const s = filter.search.trim().toLowerCase();
+            if (!cellRaw.toLowerCase().includes(s)) {
+              return false;
+            }
+          }
+
+          // Checkboxes seleccionados estilo Excel
+          if (filter.selected && filter.selected.length > 0) {
+            const hasMatch = filter.selected.some(sel => {
+              if (sel === '(Vacío)') {
+                return !cellRaw;
+              }
+              const sSel = sel.trim().toLowerCase();
+              const sCell = cellRaw.toLowerCase();
+              return sSel === sCell || sSel === cellDisplay.toLowerCase();
+            });
+            if (!hasMatch) return false;
+          }
+        }
+        return true;
+      });
+    }
+
+    // 2. Ordenamiento
+    if (!sortField) return filtered;
+
+    return [...filtered].sort((a, b) => {
       let valA = a[sortField];
       let valB = b[sortField];
       if (valA === null || valA === undefined) return 1;
@@ -515,7 +1111,7 @@ export default function AdminDashboard() {
       const strB = String(valB).toLowerCase();
       return sortOrder === 'asc' ? strA.localeCompare(strB) : strB.localeCompare(strA);
     });
-  }, [data, sortField, sortOrder]);
+  }, [data, columnFilters, sortField, sortOrder]);
 
   // Mensajes parseados para la vista amigable de chat (prioriza mensajes en vivo de Mantra si existen)
   const parsedChatMessages = useMemo(() => {
@@ -598,424 +1194,462 @@ export default function AdminDashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans">
-      {/* Header Superior */}
-      <header className="bg-slate-900/90 border-b border-slate-800 backdrop-blur sticky top-0 z-30 px-6 py-4 flex flex-wrap items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div className="p-2.5 bg-gradient-to-tr from-orange-600 to-amber-500 rounded-xl shadow-lg shadow-orange-500/20 text-white">
-            <Database className="w-6 h-6" />
+    <div className="min-h-screen bg-[#0B0F17] text-slate-100 flex font-sans antialiased">
+            {/* Barra Lateral Izquierda (Sidebar Dividida en 2) */}
+      <aside className="w-64 bg-[#0F141F] border-r border-slate-800/80 flex flex-col shrink-0 sticky top-0 h-screen z-40 select-none">
+        {/* Brand Header */}
+        <div className="h-14 px-4 border-b border-slate-800/80 flex items-center gap-3 shrink-0">
+          <div className="w-8 h-8 rounded-xl bg-[#FF5A0A] flex items-center justify-center shadow-lg shadow-orange-500/20 text-white font-black text-sm">
+            W
           </div>
           <div>
-            <h1 className="text-xl font-bold tracking-tight text-white flex items-center gap-2">
-              Panel de Base de Datos <span className="text-xs px-2 py-0.5 rounded-full bg-orange-500/10 text-orange-400 border border-orange-500/30">Admin Local</span>
-            </h1>
-            
+            <span className="font-bold text-sm tracking-tight text-white block leading-tight">Control WIN</span>
+            <span className="text-[10px] text-slate-500 font-mono block">Administración</span>
           </div>
         </div>
 
-        {/* Acciones de exportación */}
-        <div className="flex flex-wrap items-center gap-2">
-          
-
-          <button
-            onClick={() => handleDownload('csv')}
-            className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg transition-all shadow-md shadow-emerald-900/30 active:scale-95"
-            title="Descargar en formato CSV compatible con Microsoft Excel"
-          >
-            <FileSpreadsheet className="w-4 h-4" />
-            Descargar CSV
-          </button>
-          <button
-            onClick={() => handleDownload('json')}
-            className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-lg transition-all active:scale-95"
-            title="Descargar JSON estructurado"
-          >
-            <FileCode className="w-4 h-4" />
-            Descargar JSON
-          </button>
-        </div>
-      </header>
-
-      {/* Contenedor Principal */}
-      <main className="flex-1 p-6 max-w-[1750px] w-full mx-auto flex flex-col gap-5">
-        {/* Banner de Error si falla la conexión */}
-        {errorMsg && (
-          <div className="bg-rose-500/10 border border-rose-500/30 text-rose-300 px-4 py-3 rounded-2xl flex items-center justify-between gap-3 text-xs">
-            <div className="flex items-center gap-2">
-              <span className="font-bold">⚠️ Error de conexión:</span>
-              <span>{errorMsg}</span>
-            </div>
-            <button
-              onClick={() => fetchData()}
-              className="px-3 py-1 bg-rose-600/30 hover:bg-rose-600 text-white rounded-lg transition-colors font-medium"
-            >
-              Reintentar
-            </button>
+        {/* Sección 1 (Superior): Menú de Navegación */}
+        <nav className="p-2.5 space-y-1 overflow-y-auto max-h-[42vh] scrollbar-thin scrollbar-thumb-slate-800 shrink-0">
+          <div className="px-2 pb-1 text-[10px] font-bold uppercase tracking-wider text-slate-500">
+            Vistas
           </div>
-        )}
 
-        {/* Selector de Tablas */}
-        <div className="flex flex-wrap items-center gap-2 border-b border-slate-800 pb-3">
+          {/* Órdenes */}
           <button
-            onClick={() => setActiveTab('principal')}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-medium text-sm transition-all ${
+            type="button"
+            onClick={() => {
+              setActiveTab('principal');
+              setColumnFilters({});
+              setActiveFilterDropdown(null);
+            }}
+            className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
               activeTab === 'principal'
-                ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/20'
-                : 'bg-slate-900 text-slate-400 hover:text-slate-200 hover:bg-slate-800 border border-slate-800'
+                ? 'bg-[#FF5A0A] text-white shadow-lg shadow-orange-500/25 font-bold'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
             }`}
           >
-            <Layers className="w-4 h-4" />
-            <span>Tabla Principal (Órdenes de Trabajo)</span>
+            <Layers className={`w-4 h-4 shrink-0 ${activeTab === 'principal' ? 'text-white' : 'text-slate-400'}`} />
+            <span>Órdenes</span>
           </button>
 
+          {/* Reporte */}
           <button
+            type="button"
             onClick={() => {
               setActiveTab('reporte');
+              setColumnFilters({});
+              setActiveFilterDropdown(null);
               if (sortField === 'id') setSortField('fecha_visita');
             }}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-medium text-sm transition-all ${
+            className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
               activeTab === 'reporte'
-                ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/20'
-                : 'bg-slate-900 text-slate-400 hover:text-slate-200 hover:bg-slate-800 border border-slate-800'
+                ? 'bg-[#FF5A0A] text-white shadow-lg shadow-orange-500/25 font-bold'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
             }`}
           >
-            <BarChart3 className="w-4 h-4" />
+            <BarChart3 className={`w-4 h-4 shrink-0 ${activeTab === 'reporte' ? 'text-white' : 'text-slate-400'}`} />
             <span>Reporte</span>
           </button>
 
-          <button
-            onClick={() => setActiveTab('dashboard')}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-medium text-sm transition-all ${
-              activeTab === 'dashboard'
-                ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/20'
-                : 'bg-slate-900 text-slate-400 hover:text-slate-200 hover:bg-slate-800 border border-slate-800'
-            }`}
-          >
-            <LayoutDashboard className="w-4 h-4" />
-            <span>Dashboard</span>
-          </button>
+          {/* Menú Desglosable Dashboard */}
+          <div className="space-y-0.5">
+            <button
+              type="button"
+              onClick={() => setDashboardMenuOpen(!dashboardMenuOpen)}
+              className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+                activeTab === 'dashboard' || activeTab === 'dashboard_chats'
+                  ? 'bg-slate-800/80 text-orange-400 border border-orange-500/30'
+                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <LayoutDashboard className={`w-4 h-4 shrink-0 ${activeTab === 'dashboard' || activeTab === 'dashboard_chats' ? 'text-[#FF5A0A]' : 'text-slate-400'}`} />
+                <span>Dashboard</span>
+              </div>
+              <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${dashboardMenuOpen ? 'rotate-180 text-orange-400' : 'text-slate-500'}`} />
+            </button>
 
+            {dashboardMenuOpen && (
+              <div className="pl-6 pr-1 py-1 space-y-1">
+                {/* WinENRUTA */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveTab('dashboard');
+                    setColumnFilters({});
+                    setActiveFilterDropdown(null);
+                  }}
+                  className={`w-full flex items-center gap-2.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer ${
+                    activeTab === 'dashboard'
+                      ? 'bg-[#FF5A0A] text-white shadow-md shadow-orange-500/20 font-bold'
+                      : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+                  }`}
+                >
+                  <TrendingUp className={`w-3.5 h-3.5 shrink-0 ${activeTab === 'dashboard' ? 'text-white' : 'text-slate-400'}`} />
+                  <span>WinENRUTA</span>
+                </button>
+
+                {/* Chat */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveTab('dashboard_chats');
+                    setColumnFilters({});
+                    setActiveFilterDropdown(null);
+                  }}
+                  className={`w-full flex items-center gap-2.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer ${
+                    activeTab === 'dashboard_chats'
+                      ? 'bg-[#FF5A0A] text-white shadow-md shadow-orange-500/20 font-bold'
+                      : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+                  }`}
+                >
+                  <MessageCircle className={`w-3.5 h-3.5 shrink-0 ${activeTab === 'dashboard_chats' ? 'text-white' : 'text-slate-400'}`} />
+                  <span>Chat</span>
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Encuestas */}
           <button
-            onClick={() => setActiveTab('encuestas')}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-medium text-sm transition-all ${
+            type="button"
+            onClick={() => {
+              setActiveTab('encuestas');
+              setColumnFilters({});
+              setActiveFilterDropdown(null);
+            }}
+            className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
               activeTab === 'encuestas'
-                ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/20'
-                : 'bg-slate-900 text-slate-400 hover:text-slate-200 hover:bg-slate-800 border border-slate-800'
+                ? 'bg-[#FF5A0A] text-white shadow-lg shadow-orange-500/25 font-bold'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
             }`}
           >
-            <CheckCircle2 className="w-4 h-4" />
-            <span>Encuestas de Satisfacción</span>
+            <CheckCircle2 className={`w-4 h-4 shrink-0 ${activeTab === 'encuestas' ? 'text-white' : 'text-slate-400'}`} />
+            <span>Encuestas</span>
           </button>
 
+          {/* Reprogramaciones */}
           <button
-            onClick={() => setActiveTab('reprogramaciones')}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-medium text-sm transition-all ${
+            type="button"
+            onClick={() => {
+              setActiveTab('reprogramaciones');
+              setColumnFilters({});
+              setActiveFilterDropdown(null);
+            }}
+            className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
               activeTab === 'reprogramaciones'
-                ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/20'
-                : 'bg-slate-900 text-slate-400 hover:text-slate-200 hover:bg-slate-800 border border-slate-800'
+                ? 'bg-[#FF5A0A] text-white shadow-lg shadow-orange-500/25 font-bold'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
             }`}
           >
-            <CalendarClock className="w-4 h-4" />
+            <CalendarClock className={`w-4 h-4 shrink-0 ${activeTab === 'reprogramaciones' ? 'text-white' : 'text-slate-400'}`} />
             <span>Reprogramaciones</span>
           </button>
 
+          {/* Chats */}
           <button
-            onClick={() => setActiveTab('chats_mantra')}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-medium text-sm transition-all ${
+            type="button"
+            onClick={() => {
+              setActiveTab('chats_mantra');
+              setColumnFilters({});
+              setActiveFilterDropdown(null);
+            }}
+            className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
               activeTab === 'chats_mantra'
-                ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/20'
-                : 'bg-slate-900 text-slate-400 hover:text-slate-200 hover:bg-slate-800 border border-slate-800'
+                ? 'bg-[#FF5A0A] text-white shadow-lg shadow-orange-500/25 font-bold'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
             }`}
           >
-            <MessageSquare className="w-4 h-4" />
-            <span>Historial Chats Mantra</span>
+            <MessageSquare className={`w-4 h-4 shrink-0 ${activeTab === 'chats_mantra' ? 'text-white' : 'text-slate-400'}`} />
+            <span>Chats</span>
           </button>
-        </div>
 
-        {/* Barra de Filtros */}
-        <div className="bg-slate-900/70 border border-slate-800 rounded-2xl p-4 shadow-sm backdrop-blur relative z-30">
-          <form onSubmit={handleSearchSubmit} className={`grid grid-cols-1 md:grid-cols-2 ${activeTab === 'chats_mantra' ? 'lg:grid-cols-6' : 'lg:grid-cols-5'} gap-3 relative z-30`}>
-            {/* Buscador general */}
-            <div className="relative">
-              <label className="text-[11px] font-medium text-slate-400 block mb-1">Búsqueda rápida</label>
+          {/* Usuarios */}
+          <button
+            type="button"
+            onClick={() => {
+              setActiveTab('usuarios');
+              setColumnFilters({});
+              setActiveFilterDropdown(null);
+            }}
+            className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+              activeTab === 'usuarios'
+                ? 'bg-[#FF5A0A] text-white shadow-lg shadow-orange-500/25 font-bold'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
+            }`}
+          >
+            <Users className={`w-4 h-4 shrink-0 ${activeTab === 'usuarios' ? 'text-white' : 'text-slate-400'}`} />
+            <span>Usuarios</span>
+          </button>
+        </nav>
+
+        {/* Sección 2 (Inferior): Filtros Generales */}
+        <div className="flex-1 border-t border-slate-800/80 p-3 flex flex-col justify-between overflow-y-auto scrollbar-thin scrollbar-thumb-slate-800 bg-[#0C101A]">
+          <form onSubmit={handleSearchSubmit} className="space-y-2.5">
+            <div className="flex items-center justify-between pb-1">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                <Filter className="w-3 h-3 text-[#FF5A0A]" /> Filtros Globales
+              </span>
+              {(search || grupoServicio || fechaInicio !== getTodayPeruString() || fechaFin !== getTodayPeruString()) && (
+                <button
+                  type="button"
+                  onClick={handleResetFilters}
+                  className="text-[10px] text-orange-400 hover:text-orange-300 font-semibold cursor-pointer"
+                >
+                  Limpiar
+                </button>
+              )}
+            </div>
+
+            {/* Búsqueda rápida */}
+            <div>
+              <label className="text-[10px] font-semibold text-slate-400 block mb-1">Búsqueda rápida</label>
               <div className="relative">
-                <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
+                <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500" />
                 <input
                   type="text"
                   value={search}
                   onChange={e => setSearch(e.target.value)}
-                  placeholder={
-                    activeTab === 'principal' 
-                      ? 'Cliente, DNI, Token, OT, Dirección...' 
-                      : activeTab === 'chats_mantra'
-                      ? 'Ticket, Teléfono, Cliente, Orden ID, Asesor...'
-                      : activeTab === 'reporte' || activeTab === 'dashboard'
-                      ? 'OT, Ticket, Cliente, Teléfono, Cuadrilla, Distrito...'
-                      : 'Token, comentario, motivo...'
-                  }
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-9 pr-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-orange-500 transition-colors"
+                  placeholder="OT, Ticket, Cliente..."
+                  className="w-full bg-slate-950/90 border border-slate-800 rounded-lg pl-8 pr-2.5 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-orange-500 transition-colors"
                 />
               </div>
             </div>
 
-            {/* Fecha Inicio */}
-            <div>
-              <label className="text-[11px] font-medium text-slate-400 block mb-1">
-                {activeTab === 'principal' || activeTab === 'reporte' || activeTab === 'dashboard' ? 'Fecha Visita Desde' : activeTab === 'chats_mantra' ? 'Fecha Gestión/Msg Desde' : 'Fecha Desde'}
-              </label>
-              <div className="relative">
+            {/* Fecha Inicio y Fecha Fin en 2 columnas */}
+            <div className="grid grid-cols-2 gap-1.5">
+              <div>
+                <label className="text-[10px] font-semibold text-slate-400 block mb-1">Fecha Inicio</label>
                 <input
                   type="date"
                   value={fechaInicio}
                   onChange={e => setFechaInicio(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-orange-500 transition-colors"
+                  className="w-full bg-slate-950/90 border border-slate-800 rounded-lg px-2 py-1.5 text-[11px] text-white focus:outline-none focus:border-orange-500 transition-colors"
                 />
               </div>
-            </div>
-
-            {/* Fecha Fin */}
-            <div>
-              <label className="text-[11px] font-medium text-slate-400 block mb-1">
-                {activeTab === 'principal' || activeTab === 'reporte' || activeTab === 'dashboard' ? 'Fecha Visita Hasta' : activeTab === 'chats_mantra' ? 'Fecha Gestión/Msg Hasta' : 'Fecha Hasta'}
-              </label>
-              <div className="relative">
+              <div>
+                <label className="text-[10px] font-semibold text-slate-400 block mb-1">Fecha Fin</label>
                 <input
                   type="date"
                   value={fechaFin}
                   onChange={e => setFechaFin(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-orange-500 transition-colors"
+                  className="w-full bg-slate-950/90 border border-slate-800 rounded-lg px-2 py-1.5 text-[11px] text-white focus:outline-none focus:border-orange-500 transition-colors"
                 />
               </div>
             </div>
 
-            {/* Tipo de Servicio (Visible en Principal, Reporte y Dashboard) con Selección Múltiple */}
-            {(activeTab === 'principal' || activeTab === 'reporte' || activeTab === 'dashboard') && (
-              <div className="relative z-40" ref={tipoServicioDropdownRef}>
-                <label className="text-[11px] font-medium text-slate-400 mb-1 flex items-center justify-between">
-                  <span>Tipo de Servicio / Trabajo</span>
-                  {tipoServicio.length > 0 && (
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setTipoServicio([]);
-                      }}
-                      className="text-[10px] text-orange-400 hover:text-orange-300 transition-colors"
-                    >
-                      Limpiar ({tipoServicio.length})
-                    </button>
-                  )}
-                </label>
-                <button
-                  type="button"
-                  onClick={() => setTipoServicioOpen(prev => !prev)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white flex items-center justify-between focus:outline-none focus:border-orange-500 transition-colors text-left"
-                >
-                  <span className="truncate">
-                    {tipoServicio.length === 0
-                      ? 'Todos los tipos'
-                      : tipoServicio.length === 1
-                      ? (tipoServicio[0].includes(':') ? tipoServicio[0].split(':')[1] : tipoServicio[0])
-                      : `${tipoServicio.length} tipos seleccionados`}
-                  </span>
-                  <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform ${tipoServicioOpen ? 'rotate-180' : ''}`} />
-                </button>
-
-                {tipoServicioOpen && (
-                  <div className="absolute top-full left-0 right-0 mt-1 max-h-72 min-w-[280px] overflow-y-auto bg-slate-900 border border-slate-700 rounded-xl shadow-2xl z-50 p-2 space-y-2 backdrop-blur">
-                    <div className="flex items-center justify-between px-1 pb-1 border-b border-slate-800 text-[11px]">
-                      <span className="text-slate-400 font-medium">Selección Múltiple</span>
-                      {tipoServicio.length > 0 && (
-                        <button
-                          type="button"
-                          onClick={() => setTipoServicio([])}
-                          className="text-[10px] text-slate-400 hover:text-white"
-                        >
-                          Deseleccionar todo
-                        </button>
-                      )}
-                    </div>
-
-                    {filtrosOpciones.tiposClasificados.length > 0 && (
-                      <div>
-                        <div className="text-[10px] font-bold text-orange-400 uppercase tracking-wider px-1 py-1">
-                          Tipos Cruzados (tiposervicio)
-                        </div>
-                        <div className="space-y-0.5">
-                          {filtrosOpciones.tiposClasificados.map(tc => {
-                            const val = `tipo:${tc}`;
-                            const isChecked = tipoServicio.includes(val);
-                            return (
-                              <label
-                                key={tc}
-                                className="flex items-center gap-2 px-2 py-1 rounded-lg hover:bg-slate-800 cursor-pointer text-xs text-slate-200 transition-colors select-none"
-                              >
-                                <input
-                                  type="checkbox"
-                                  checked={isChecked}
-                                  onChange={() => {
-                                    setTipoServicio(prev =>
-                                      isChecked ? prev.filter(x => x !== val) : [...prev, val]
-                                    );
-                                  }}
-                                  className="rounded border-slate-700 bg-slate-950 text-orange-500 focus:ring-0 focus:ring-offset-0 cursor-pointer"
-                                />
-                                <span className="truncate">{tc}</span>
-                              </label>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    )}
-
-                    {filtrosOpciones.tiposTraba.length > 0 && (
-                      <div>
-                        <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-1 py-1 border-t border-slate-800/60 pt-1.5">
-                          Tipos de Trabajo (vw)
-                        </div>
-                        <div className="space-y-0.5">
-                          {filtrosOpciones.tiposTraba.map(t => {
-                            const val = `trabajo:${t}`;
-                            const isChecked = tipoServicio.includes(val);
-                            return (
-                              <label
-                                key={t}
-                                className="flex items-center gap-2 px-2 py-1 rounded-lg hover:bg-slate-800 cursor-pointer text-xs text-slate-200 transition-colors select-none"
-                              >
-                                <input
-                                  type="checkbox"
-                                  checked={isChecked}
-                                  onChange={() => {
-                                    setTipoServicio(prev =>
-                                      isChecked ? prev.filter(x => x !== val) : [...prev, val]
-                                    );
-                                  }}
-                                  className="rounded border-slate-700 bg-slate-950 text-orange-500 focus:ring-0 focus:ring-offset-0 cursor-pointer"
-                                />
-                                <span className="truncate">{t}</span>
-                              </label>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    )}
-
-                    {filtrosOpciones.productos.length > 0 && (
-                      <div>
-                        <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-1 py-1 border-t border-slate-800/60 pt-1.5">
-                          Productos (vw)
-                        </div>
-                        <div className="space-y-0.5">
-                          {filtrosOpciones.productos.map(p => {
-                            const val = `producto:${p}`;
-                            const isChecked = tipoServicio.includes(val);
-                            return (
-                              <label
-                                key={p}
-                                className="flex items-center gap-2 px-2 py-1 rounded-lg hover:bg-slate-800 cursor-pointer text-xs text-slate-200 transition-colors select-none"
-                              >
-                                <input
-                                  type="checkbox"
-                                  checked={isChecked}
-                                  onChange={() => {
-                                    setTipoServicio(prev =>
-                                      isChecked ? prev.filter(x => x !== val) : [...prev, val]
-                                    );
-                                  }}
-                                  className="rounded border-slate-700 bg-slate-950 text-orange-500 focus:ring-0 focus:ring-offset-0 cursor-pointer"
-                                />
-                                <span className="truncate">{p}</span>
-                              </label>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Filtro Grupo de Servicio (Solo visible en Historial Chats Mantra) */}
-            {activeTab === 'chats_mantra' && (
-              <div>
-                <label className="text-[11px] font-medium text-slate-400 block mb-1">Grupo de Servicio</label>
-                <select
-                  value={grupoServicio}
-                  onChange={e => {
-                    setGrupoServicio(e.target.value);
-                    setPage(1);
-                  }}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-orange-500 transition-colors"
-                >
-                  <option value="">Todos los grupos de servicio</option>
-                  <optgroup label="Tipos de Servicio (Operación)">
-                    <option value="INSTALACION">INSTALACION (Lima)</option>
-                    <option value="AVERIAS">AVERIAS (Lima)</option>
-                    <option value="PROVINCIA">PROVINCIA (Instalación)</option>
-                    <option value="POSTVENTA">POSTVENTA</option>
-                    <option value="AVERIAS PRV">AVERIAS PRV (Provincia)</option>
-                  </optgroup>
-                  <optgroup label="Canales de WhatsApp Mantra">
-                    <option value="Instalacion">Canal Instalacion (Todo)</option>
-                    <option value="Averias">Canal Averias (Todo)</option>
-                  </optgroup>
-                </select>
-              </div>
-            )}
-
-            {/* Filtro Estado Chat (Solo visible en Historial Chats Mantra) */}
-            {activeTab === 'chats_mantra' && (
-              <div>
-                <label className="text-[11px] font-medium text-slate-400 block mb-1">Estado Chat</label>
-                <select
-                  value={estadoChatFiltro}
-                  onChange={e => {
-                    setEstadoChatFiltro(e.target.value);
-                    setPage(1);
-                  }}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-orange-500 transition-colors"
-                >
-                  <option value="">Todos los estados</option>
-                  <option value="Abierto">Abierto (Cliente sin resp.)</option>
-                  <option value="Pendiente">Pendiente (Plantilla)</option>
-                  <option value="Sin Respuesta">Sin Respuesta (Asesor)</option>
-                  <option value="Cerrado">Cerrado (Sin pendientes)</option>
-                </select>
-              </div>
-            )}
+            {/* Grupo de Servicio */}
+            <div>
+              <label className="text-[10px] font-semibold text-slate-400 block mb-1">Grupo de Servicio</label>
+              <select
+                value={grupoServicio}
+                onChange={e => {
+                  setGrupoServicio(e.target.value);
+                  setPage(1);
+                }}
+                className="w-full bg-slate-950/90 border border-slate-800 rounded-lg px-2 py-1.5 text-xs text-white focus:outline-none focus:border-orange-500 transition-colors cursor-pointer"
+              >
+                <option value="">Todos los grupos</option>
+                <optgroup label="Tipos de Operación">
+                  {(filtrosOpciones.gruposServicioMantra && filtrosOpciones.gruposServicioMantra.length > 0
+                    ? filtrosOpciones.gruposServicioMantra.filter(g => !['Instalacion', 'Averias'].includes(g))
+                    : ['INSTALACION', 'AVERIAS', 'PROVINCIA', 'POSTVENTA', 'AVERIAS PRV']
+                  ).map(g => (
+                    <option key={g} value={g}>{g}</option>
+                  ))}
+                </optgroup>
+                <optgroup label="Canales Mantra">
+                  <option value="Instalacion">Canal Instalacion</option>
+                  <option value="Averias">Canal Averias</option>
+                </optgroup>
+              </select>
+            </div>
 
             {/* Botones de acción */}
-            <div className={`flex items-end gap-2 ${(activeTab !== 'principal' && activeTab !== 'chats_mantra' && activeTab !== 'reporte' && activeTab !== 'dashboard') ? 'lg:col-span-2' : ''}`}>
+            <div className="flex items-center gap-1.5 pt-1">
               <button
                 type="submit"
-                className="flex-1 flex items-center justify-center gap-1.5 px-4 py-2 bg-orange-600 hover:bg-orange-500 text-white font-medium text-xs rounded-xl transition-all shadow-md shadow-orange-950 active:scale-95"
+                className="flex-1 flex items-center justify-center gap-1.5 py-1.5 px-3 bg-[#FF5A0A] hover:bg-[#e04f08] active:scale-95 text-white font-bold text-xs rounded-lg transition-all shadow-md shadow-orange-500/20 cursor-pointer"
               >
-                <Filter className="w-3.5 h-3.5" />
+                <Filter className="w-3 h-3" />
                 Filtrar
               </button>
               <button
                 type="button"
-                onClick={handleResetFilters}
-                className="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 font-medium text-xs rounded-xl border border-slate-700 transition-all active:scale-95"
-                title="Limpiar filtros"
-              >
-                Limpiar
-              </button>
-              <button
-                type="button"
-                onClick={() => activeTab === 'dashboard' ? fetchDashboardStats() : fetchData()}
-                className="p-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl border border-slate-700 transition-all active:scale-95"
+                onClick={() => activeTab === 'dashboard' ? fetchDashboardStats() : activeTab === 'dashboard_chats' ? fetchChatsStats() : fetchData(1)}
                 title="Refrescar datos"
+                className="p-1.5 bg-slate-800/90 hover:bg-slate-700 text-slate-300 rounded-lg border border-slate-700 transition-all active:scale-95 cursor-pointer"
               >
-                <RefreshCw className={`w-4 h-4 ${(loading || loadingStats) ? 'animate-spin text-orange-400' : ''}`} />
+                <RefreshCw className={`w-3.5 h-3.5 ${(loading || loadingStats) ? 'animate-spin text-orange-400' : ''}`} />
               </button>
             </div>
           </form>
+
+          {/* Footer Sidebar */}
+          <div className="pt-2.5 mt-2.5 border-t border-slate-800/60 text-[10px] text-slate-500 flex items-center justify-between">
+            <div className="flex items-center gap-1.5">
+              <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+              <span className="font-mono text-slate-400">BD_Phoenix</span>
+            </div>
+            <span className="text-slate-600 font-mono">v2.1</span>
+          </div>
         </div>
+      </aside>
+
+      {/* Contenedor Principal (Derecha) */}
+      <div className="flex-1 flex flex-col min-w-0 min-h-screen">
+        {/* Topbar minimalista */}
+        <header className="h-16 bg-[#0F141F]/80 border-b border-slate-800/80 backdrop-blur sticky top-0 z-30 px-6 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <h1 className="text-base font-bold text-white tracking-tight">
+              {activeTab === 'principal' ? 'Órdenes de Trabajo' :
+               activeTab === 'reporte' ? 'Reporte Funnel' :
+               activeTab === 'dashboard' ? 'Dashboard WinENRUTA' :
+               activeTab === 'dashboard_chats' ? 'Dashboard Chat' :
+               activeTab === 'encuestas' ? 'Encuestas de Satisfacción' :
+               activeTab === 'reprogramaciones' ? 'Reprogramaciones' :
+               activeTab === 'chats_mantra' ? 'Historial de Chats' : 'Usuarios'}
+            </h1>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => handleDownload('csv')}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg transition-all shadow-sm active:scale-95 cursor-pointer"
+            >
+              <FileSpreadsheet className="w-3.5 h-3.5" />
+              <span>CSV</span>
+            </button>
+            <button
+              onClick={() => handleDownload('json')}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-lg transition-all active:scale-95 cursor-pointer"
+            >
+              <FileCode className="w-3.5 h-3.5" />
+              <span>JSON</span>
+            </button>
+          </div>
+        </header>
+
+        {/* Contenido Principal */}
+        <main className="flex-1 p-6 w-full flex flex-col gap-5">
+          {/* Banner de Error si falla la conexión */}
+          {errorMsg && (
+            <div className="bg-rose-500/10 border border-rose-500/30 text-rose-300 px-4 py-3 rounded-2xl flex items-center justify-between gap-3 text-xs">
+              <div className="flex items-center gap-2">
+                <span className="font-bold">⚠️ Error de conexión:</span>
+                <span>{errorMsg}</span>
+              </div>
+              <button
+                onClick={() => fetchData()}
+                className="px-3 py-1 bg-rose-600/30 hover:bg-rose-600 text-white rounded-lg transition-colors font-medium"
+              >
+                Reintentar
+              </button>
+            </div>
+          )}
+
+        {/* Barra de Filtros / Barra de Usuarios */}
+        {activeTab === 'usuarios' && (
+          <div className="bg-slate-900/70 border border-slate-800 rounded-2xl p-4 shadow-sm backdrop-blur flex flex-col md:flex-row items-center justify-between gap-4 z-30">
+            <div className="flex items-center gap-3 w-full md:w-auto">
+              <div className="p-2.5 bg-orange-500/10 border border-orange-500/20 text-orange-400 rounded-xl">
+                <Users className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                  Usuarios
+                  <span className="text-xs px-2 py-0.5 rounded-full bg-slate-800 text-orange-400 border border-slate-700 font-mono">
+                    {usersList.length}
+                  </span>
+                </h3>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3 w-full md:w-auto">
+              <div className="relative flex-1 md:w-64">
+                <Search className="w-4 h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  placeholder="Buscar usuario, área, rol..."
+                  value={userSearch}
+                  onChange={(e) => setUserSearch(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-9 pr-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-orange-500 transition-colors"
+                />
+              </div>
+
+              <button
+                type="button"
+                onClick={() => fetchUsers()}
+                className="p-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl border border-slate-700 transition-all active:scale-95 cursor-pointer"
+                title="Refrescar usuarios"
+              >
+                <RefreshCw className={`w-4 h-4 ${isLoadingUsers ? 'animate-spin text-orange-400' : ''}`} />
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setUserFormData({
+                    Nombre: '',
+                    Documento: '',
+                    Telefono: '',
+                    Email: '',
+                    Usuario: '',
+                    Password: '',
+                    Area: 'INSTALACION',
+                    Rol: 'ASESOR'
+                  });
+                  setUserFormError(null);
+                  setUserFormSuccess(null);
+                  setIsUserModalOpen(true);
+                }}
+                className="flex items-center gap-2 px-4 py-2 bg-orange-500 hover:bg-orange-600 active:scale-95 text-white rounded-xl text-xs font-bold transition-all shadow-lg shadow-orange-500/25 shrink-0 cursor-pointer"
+              >
+                <UserPlus className="w-4 h-4" />
+                <span>+ Registrar Usuario</span>
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Chips de Filtros Activos */}
+        {Object.keys(columnFilters).length > 0 && activeTab !== 'dashboard' && activeTab !== 'usuarios' && (
+          <div className="flex flex-wrap items-center gap-2 px-3 py-2 bg-slate-900/80 border border-slate-800 rounded-xl text-xs z-20">
+            <span className="text-[11px] font-semibold text-slate-400 flex items-center gap-1.5">
+              <Filter className="w-3.5 h-3.5 text-orange-400" />
+              {Object.keys(columnFilters).length === 1 ? 'Filtro activo:' : `Filtros activos (${Object.keys(columnFilters).length}):`}
+            </span>
+            {Object.entries(columnFilters).map(([fKey, fVal]) => (
+              <span
+                key={fKey}
+                className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-orange-500/15 border border-orange-500/30 text-orange-300 text-[11px] font-mono"
+              >
+                <strong className="text-slate-300 font-sans font-semibold">{getColumnLabel(fKey)}:</strong>
+                <span className="truncate max-w-[140px]">
+                  {fVal.selected && fVal.selected.length > 0 ? fVal.selected.join(', ') : fVal.search}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => handleColumnFilterChange(fKey, null)}
+                  className="hover:text-white transition-colors cursor-pointer ml-0.5"
+                  title="Quitar este filtro"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </span>
+            ))}
+            <button
+              type="button"
+              onClick={() => { setColumnFilters({}); setPage(1); fetchData(1, { columnFilters: {} }); }}
+              className="text-[11px] text-slate-400 hover:text-white underline ml-auto cursor-pointer"
+            >
+              Limpiar filtros de columna
+            </button>
+          </div>
+        )}
 
         {/* Resumen y paginación superior */}
-        {activeTab !== 'dashboard' ? (
+        {activeTab !== 'dashboard' && activeTab !== 'dashboard_chats' && activeTab !== 'usuarios' ? (
           <div className="flex flex-wrap items-center justify-between gap-4 text-xs text-slate-400 px-1 relative z-10">
             <div className="flex items-center gap-3">
               <div>
@@ -1066,20 +1700,16 @@ export default function AdminDashboard() {
             </div>
           </div>
         ) : (
-          <div className="flex flex-wrap items-center justify-between gap-2 px-1 text-xs text-slate-400">
-            <div className="flex items-center gap-2">
-              <Activity className="w-4 h-4 text-orange-400" />
-              <span className="font-semibold text-slate-200">Panel Ejecutivo de Métricas y Monitoreo Mantra</span>
-            </div>
+          <div className="flex flex-wrap items-center justify-end gap-2 px-1 text-xs text-slate-400">
             {dashboardStats?.kpis && (
               <span className="text-xs text-slate-400">
-                Total Órdenes Evaluadas: <strong className="text-white font-mono">{Number(dashboardStats.kpis.total_ots || 0).toLocaleString()}</strong>
+                Total Evaluadas: <strong className="text-white font-mono">{Number(dashboardStats.kpis.total_ots || 0).toLocaleString()}</strong>
               </span>
             )}
           </div>
         )}
 
-        {/* 1. Vista Dashboard Ejecutivo vs 2. Tablas de Resultados */}
+        {/* 1. Vista Dashboard Ejecutivo vs 2. Control de Usuarios vs 3. Tablas de Resultados */}
         {activeTab === 'dashboard' ? (
           <div className="space-y-4">
             {loadingStats ? (
@@ -1580,6 +2210,327 @@ export default function AdminDashboard() {
               })()
             )}
           </div>
+        ) : activeTab === 'dashboard_chats' ? (
+          /* Vista: Dashboard Chat */
+          <div className="space-y-5">
+            {loadingChatsStats ? (
+              <div className="py-20 flex flex-col items-center justify-center gap-3">
+                <RefreshCw className="w-8 h-8 text-orange-500 animate-spin" />
+                <p className="text-xs text-slate-400 font-medium">Calculando métricas analíticas de chats...</p>
+              </div>
+            ) : !chatsDashboardStats?.kpis ? (
+              <div className="py-16 text-center text-slate-500 text-xs">
+                No hay datos disponibles para el rango y filtros seleccionados
+              </div>
+            ) : (
+              (() => {
+                const kpis = chatsDashboardStats.kpis || {};
+                const totalChats = Number(kpis.totalChats || 0);
+                const confirmados = Number(kpis.totalConfirmados || 0);
+                const abiertos = Number(kpis.chatsAbiertos || 0);
+                const slaVerde = Number(kpis.slaVerde || 0);
+                const slaRojo = Number(kpis.slaRojo || 0);
+                const pctConfirmados = totalChats > 0 ? Math.round((confirmados / totalChats) * 100) : 0;
+                const pctSlaVerde = totalChats > 0 ? Math.round((slaVerde / totalChats) * 100) : 0;
+
+                return (
+                  <div className="space-y-5">
+                    {/* Tarjetas KPI Superiores */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                      {/* Total Chats */}
+                      <div className="bg-slate-900/70 border border-slate-800 rounded-2xl p-4 shadow-sm backdrop-blur relative overflow-hidden">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-xs font-semibold text-slate-400">Total Chats Gest.</span>
+                          <div className="p-2 bg-orange-500/10 text-orange-400 rounded-xl">
+                            <MessageSquare className="w-4 h-4" />
+                          </div>
+                        </div>
+                        <div className="text-2xl font-black text-white font-mono">{totalChats.toLocaleString()}</div>
+                        <div className="text-[11px] text-slate-500 mt-1">Conversaciones registradas</div>
+                      </div>
+
+                      {/* Confirmaciones por Botón */}
+                      <div className="bg-slate-900/70 border border-slate-800 rounded-2xl p-4 shadow-sm backdrop-blur relative overflow-hidden">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-xs font-semibold text-slate-400">Confirmadas (Botón)</span>
+                          <div className="p-2 bg-emerald-500/10 text-emerald-400 rounded-xl">
+                            <CheckCircle2 className="w-4 h-4" />
+                          </div>
+                        </div>
+                        <div className="text-2xl font-black text-emerald-400 font-mono">{confirmados.toLocaleString()}</div>
+                        <div className="text-[11px] text-slate-400 mt-1 flex items-center justify-between">
+                          <span>"Si, confirmo" / Auto</span>
+                          <span className="font-bold text-emerald-400 font-mono">{pctConfirmados}%</span>
+                        </div>
+                      </div>
+
+                      {/* Chats Abiertos (Requieren Asesor) */}
+                      <div className="bg-slate-900/70 border border-slate-800 rounded-2xl p-4 shadow-sm backdrop-blur relative overflow-hidden">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-xs font-semibold text-slate-400">Abiertos (Esperando Asesor)</span>
+                          <div className="p-2 bg-rose-500/10 text-rose-400 rounded-xl">
+                            <Activity className="w-4 h-4" />
+                          </div>
+                        </div>
+                        <div className="text-2xl font-black text-rose-400 font-mono">{abiertos.toLocaleString()}</div>
+                        <div className="text-[11px] text-rose-300/80 mt-1">Consultas reales de clientes</div>
+                      </div>
+
+                      {/* Cumplimiento SLA */}
+                      <div className="bg-slate-900/70 border border-slate-800 rounded-2xl p-4 shadow-sm backdrop-blur relative overflow-hidden">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-xs font-semibold text-slate-400">Cumplimiento SLA</span>
+                          <div className="p-2 bg-cyan-500/10 text-cyan-400 rounded-xl">
+                            <TrendingUp className="w-4 h-4" />
+                          </div>
+                        </div>
+                        <div className="text-2xl font-black text-cyan-400 font-mono">{pctSlaVerde}%</div>
+                        <div className="text-[11px] text-slate-400 mt-1 flex items-center justify-between">
+                          <span>Verde: <strong className="text-emerald-400 font-mono">{slaVerde}</strong></span>
+                          <span>Rojo: <strong className="text-rose-400 font-mono">{slaRojo}</strong></span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Fila Media: Distribución Quién Tiene la Palabra & Estados */}
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+                      {/* Quién Tiene la Palabra */}
+                      <div className="bg-slate-900/70 border border-slate-800 rounded-2xl p-5 shadow-sm backdrop-blur">
+                        <div className="flex items-center justify-between border-b border-slate-800 pb-3 mb-4">
+                          <h4 className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-2">
+                            <User className="w-4 h-4 text-orange-400" />
+                            Distribución de Último Mensaje (Quién tiene la palabra)
+                          </h4>
+                        </div>
+                        <div className="space-y-3.5">
+                          {(chatsDashboardStats.palabra || []).map((p: any) => {
+                            const pTotal = Number(p.total || 0);
+                            const pPct = totalChats > 0 ? ((pTotal / totalChats) * 100).toFixed(1) : '0';
+                            const badgeColor = 
+                              p.palabra === 'CONFIRMADO' ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/30' :
+                              p.palabra === 'CLIENTE' ? 'text-blue-400 bg-blue-500/10 border-blue-500/30' :
+                              p.palabra === 'PLANTILLA' ? 'text-purple-400 bg-purple-500/10 border-purple-500/30' :
+                              'text-orange-400 bg-orange-500/10 border-orange-500/30';
+
+                            return (
+                              <div key={p.palabra} className="space-y-1.5">
+                                <div className="flex items-center justify-between text-xs">
+                                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${badgeColor}`}>
+                                    {p.palabra}
+                                  </span>
+                                  <span className="font-mono text-slate-300 font-semibold">{pTotal.toLocaleString()} ({pPct}%)</span>
+                                </div>
+                                <div className="h-2 w-full bg-slate-950 rounded-full overflow-hidden border border-slate-800">
+                                  <div 
+                                    className={`h-full rounded-full transition-all duration-500 ${
+                                      p.palabra === 'CONFIRMADO' ? 'bg-emerald-500' :
+                                      p.palabra === 'CLIENTE' ? 'bg-blue-500' :
+                                      p.palabra === 'PLANTILLA' ? 'bg-purple-500' : 'bg-orange-500'
+                                    }`}
+                                    style={{ width: `${pPct}%` }}
+                                  />
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      {/* Grupos de Servicio / Operaciones */}
+                      <div className="bg-slate-900/70 border border-slate-800 rounded-2xl p-5 shadow-sm backdrop-blur">
+                        <div className="flex items-center justify-between border-b border-slate-800 pb-3 mb-4">
+                          <h4 className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-2">
+                            <Layers className="w-4 h-4 text-orange-400" />
+                            Volumen por Grupo de Servicio / Trabajo
+                          </h4>
+                        </div>
+                        <div className="space-y-3.5">
+                          {(chatsDashboardStats.grupos || []).map((g: any) => {
+                            const gTotal = Number(g.total || 0);
+                            const gPct = totalChats > 0 ? ((gTotal / totalChats) * 100).toFixed(1) : '0';
+                            return (
+                              <div key={g.grupo} className="space-y-1.5">
+                                <div className="flex items-center justify-between text-xs">
+                                  <span className="font-semibold text-slate-300">{g.grupo}</span>
+                                  <span className="font-mono text-slate-300 font-bold">{gTotal.toLocaleString()} ({gPct}%)</span>
+                                </div>
+                                <div className="h-2 w-full bg-slate-950 rounded-full overflow-hidden border border-slate-800">
+                                  <div className="h-full bg-gradient-to-r from-orange-500 to-amber-500 rounded-full" style={{ width: `${gPct}%` }} />
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Fila Inferior: Tabla de Rendimiento por Asesor */}
+                    <div className="bg-slate-900/70 border border-slate-800 rounded-2xl overflow-hidden shadow-sm backdrop-blur">
+                      <div className="p-4 border-b border-slate-800 flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <Headset className="w-4 h-4 text-orange-400" />
+                          <h4 className="text-xs font-bold text-white uppercase tracking-wider">
+                            Rendimiento y Productividad por Asesor
+                          </h4>
+                        </div>
+                        <span className="text-[11px] text-slate-400 font-mono">
+                          {chatsDashboardStats.asesores?.length || 0} asesores activos
+                        </span>
+                      </div>
+
+                      <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-slate-700">
+                        <table className="w-full text-left text-xs text-slate-300 border-collapse">
+                          <thead className="bg-slate-950/80 border-b border-slate-800 text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
+                            <tr>
+                              <th className="py-2.5 px-4">Asesor</th>
+                              <th className="py-2.5 px-4 text-right">Total Chats</th>
+                              <th className="py-2.5 px-4 text-right">Atendidos / Cerrados</th>
+                              <th className="py-2.5 px-4 text-right">Abiertos (Pendientes)</th>
+                              <th className="py-2.5 px-4 text-right">SLA Verde</th>
+                              <th className="py-2.5 px-4 text-right">SLA Rojo</th>
+                              <th className="py-2.5 px-4 text-right">% Cumplimiento</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-800/60 font-mono text-[11px]">
+                            {(chatsDashboardStats.asesores || []).map((a: any, aIdx: number) => {
+                              const aTotal = Number(a.total || 0);
+                              const aAtend = Number(a.atendidos || 0);
+                              const aAbiert = Number(a.abiertos || 0);
+                              const aVerd = Number(a.verdes || 0);
+                              const aRoj = Number(a.rojos || 0);
+                              const aCumpl = aTotal > 0 ? Math.round((aVerd / aTotal) * 100) : 100;
+
+                              return (
+                                <tr key={aIdx} className="hover:bg-slate-800/40 transition-colors">
+                                  <td className="py-2.5 px-4 font-sans font-semibold text-white">
+                                    {a.asesor}
+                                  </td>
+                                  <td className="py-2.5 px-4 text-right font-bold text-white">
+                                    {aTotal.toLocaleString()}
+                                  </td>
+                                  <td className="py-2.5 px-4 text-right text-emerald-400">
+                                    {aAtend.toLocaleString()}
+                                  </td>
+                                  <td className="py-2.5 px-4 text-right text-rose-400">
+                                    {aAbiert.toLocaleString()}
+                                  </td>
+                                  <td className="py-2.5 px-4 text-right text-cyan-400">
+                                    {aVerd.toLocaleString()}
+                                  </td>
+                                  <td className="py-2.5 px-4 text-right text-rose-400">
+                                    {aRoj.toLocaleString()}
+                                  </td>
+                                  <td className="py-2.5 px-4 text-right font-bold">
+                                    <span className={`px-2 py-0.5 rounded-full text-[10px] ${
+                                      aCumpl >= 80 ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30' :
+                                      aCumpl >= 60 ? 'bg-amber-500/15 text-amber-300 border border-amber-500/30' :
+                                      'bg-rose-500/15 text-rose-300 border border-rose-500/30'
+                                    }`}>
+                                      {aCumpl}%
+                                    </span>
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()
+            )}
+          </div>
+        ) : activeTab === 'usuarios' ? (
+          /* Vista de Usuarios y Roles */
+          <div className="bg-slate-900/60 border border-slate-800 rounded-2xl overflow-hidden shadow-xl backdrop-blur relative min-h-[400px]">
+            <div className="overflow-x-auto max-h-[650px] scrollbar-thin scrollbar-thumb-slate-700">
+              <table className="w-full text-left text-xs text-slate-300 border-collapse">
+                <thead className="bg-slate-950/80 sticky top-0 z-10 border-b border-slate-800 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
+                  <tr>
+                    <th className="py-3 px-4">ID</th>
+                    <th className="py-3 px-4">Nombre Completo</th>
+                    <th className="py-3 px-4">Documento</th>
+                    <th className="py-3 px-4">Usuario</th>
+                    <th className="py-3 px-4">Email Corporativo</th>
+                    <th className="py-3 px-4">Teléfono</th>
+                    <th className="py-3 px-4">Área Operativa</th>
+                    <th className="py-3 px-4">Rol Asignado</th>
+                    <th className="py-3 px-4">Estado</th>
+                    <th className="py-3 px-4">Fecha Creación</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-800/60 font-medium">
+                  {isLoadingUsers ? (
+                    <tr>
+                      <td colSpan={10} className="py-16 text-center text-slate-400">
+                        <RefreshCw className="w-7 h-7 animate-spin mx-auto text-orange-500 mb-2" />
+                        <span>Cargando directorio de usuarios de BD_Phoenix...</span>
+                      </td>
+                    </tr>
+                  ) : filteredUsers.length === 0 ? (
+                    <tr>
+                      <td colSpan={10} className="py-16 text-center text-slate-400">
+                        No se encontraron usuarios registrados en la tabla user. Haz clic en "+ Registrar Usuario" para añadir uno.
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredUsers.map((u) => {
+                      const areaColor = 
+                        u.Area === 'ADMIN' ? 'bg-orange-500/10 text-orange-400 border-orange-500/30' :
+                        u.Area === 'AVERIAS' ? 'bg-rose-500/10 text-rose-400 border-rose-500/30' :
+                        u.Area === 'PROVINCIA' ? 'bg-purple-500/10 text-purple-400 border-purple-500/30' :
+                        'bg-sky-500/10 text-sky-400 border-sky-500/30';
+
+                      const rolColor = 
+                        u.Rol === 'ADMIN' ? 'bg-amber-500/15 text-amber-300 border-amber-500/40' :
+                        u.Rol === 'SUPERVISOR' ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/40' :
+                        u.Rol === 'COORDINADOR' ? 'bg-blue-500/15 text-blue-300 border-blue-500/40' :
+                        'bg-slate-700/50 text-slate-300 border-slate-600';
+
+                      return (
+                        <tr key={u.IDuser} className="hover:bg-slate-800/40 transition-colors">
+                          <td className="py-3 px-4 font-mono text-[11px] text-slate-400">#{u.IDuser}</td>
+                          <td className="py-3 px-4 font-semibold text-white">{u.Nombre}</td>
+                          <td className="py-3 px-4 font-mono text-slate-300">{u.Documento}</td>
+                          <td className="py-3 px-4 font-mono text-orange-300">{u.Usuario}</td>
+                          <td className="py-3 px-4 text-slate-400">{u.Email}</td>
+                          <td className="py-3 px-4 text-slate-400">{u.Telefono || '-'}</td>
+                          <td className="py-3 px-4">
+                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${areaColor}`}>
+                              {u.Area}
+                            </span>
+                          </td>
+                          <td className="py-3 px-4">
+                            <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${rolColor}`}>
+                              {u.Rol === 'ADMIN' && <Shield className="w-3 h-3 text-amber-400" />}
+                              {u.Rol}
+                            </span>
+                          </td>
+                          <td className="py-3 px-4">
+                            <button
+                              type="button"
+                              onClick={() => handleToggleUserActivo(u.IDuser, u.Activo)}
+                              className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border transition-colors cursor-pointer ${
+                                u.Activo 
+                                  ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/30' 
+                                  : 'bg-rose-500/15 text-rose-400 border-rose-500/30 hover:bg-rose-500/30'
+                              }`}
+                            >
+                              {u.Activo ? '● Activo' : '○ Inactivo'}
+                            </button>
+                          </td>
+                          <td className="py-3 px-4 text-slate-500 text-[11px]">
+                            {u.created_at ? new Date(u.created_at).toLocaleDateString('es-PE') : '-'}
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
         ) : (
           /* Tabla de Resultados */
           <div className="bg-slate-900/60 border border-slate-800 rounded-2xl overflow-hidden shadow-xl backdrop-blur relative min-h-[400px] z-10">
@@ -1594,41 +2545,142 @@ export default function AdminDashboard() {
               {/* 1. Tabla Principal */}
               {activeTab === 'principal' && (
                 <table className="w-full text-left text-xs text-slate-300 border-collapse">
-                <thead className="bg-slate-950/80 sticky top-0 z-10 border-b border-slate-800 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
+                <thead className="bg-slate-950/80 sticky top-0 z-20 border-b border-slate-800 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
                   <tr>
-                    <th className="py-3 px-4">Acción</th>
-                    <th onClick={() => handleSort('OrdenId')} className="py-3 px-4 cursor-pointer hover:text-white select-none">
-                      Orden ID {renderSortIndicator('OrdenId')}
-                    </th>
-                    <th onClick={() => handleSort('TipoServicioCalculado')} className="py-3 px-4 cursor-pointer hover:text-white select-none">
-                      Tipo Servicio {renderSortIndicator('TipoServicioCalculado')}
-                    </th>
-                    <th onClick={() => handleSort('Cliente')} className="py-3 px-4 cursor-pointer hover:text-white select-none">
-                      Cliente {renderSortIndicator('Cliente')}
-                    </th>
-                    <th onClick={() => handleSort('NumeroDocumento')} className="py-3 px-4 cursor-pointer hover:text-white select-none">
-                      Documento {renderSortIndicator('NumeroDocumento')}
-                    </th>
-                    <th onClick={() => handleSort('FechaVisita')} className="py-3 px-4 cursor-pointer hover:text-white select-none">
-                      Fecha Visita {renderSortIndicator('FechaVisita')}
-                    </th>
-                    <th onClick={() => handleSort('TipoTraba')} className="py-3 px-4 cursor-pointer hover:text-white select-none">
-                      Tipo Trabajo {renderSortIndicator('TipoTraba')}
-                    </th>
-                    <th onClick={() => handleSort('Producto')} className="py-3 px-4 cursor-pointer hover:text-white select-none">
-                      Producto {renderSortIndicator('Producto')}
-                    </th>
-                    <th onClick={() => handleSort('Estado')} className="py-3 px-4 cursor-pointer hover:text-white select-none">
-                      Estado {renderSortIndicator('Estado')}
-                    </th>
-                    <th onClick={() => handleSort('Localidad')} className="py-3 px-4 cursor-pointer hover:text-white select-none">
-                      Localidad / Zona {renderSortIndicator('Localidad')}
-                    </th>
-                    <th onClick={() => handleSort('Cuadrilla_nombre')} className="py-3 px-4 cursor-pointer hover:text-white select-none">
-                      Cuadrilla {renderSortIndicator('Cuadrilla_nombre')}
-                    </th>
-                    <th className="py-3 px-4">PIN</th>
-                    <th className="py-3 px-4">Token</th>
+                    <th className="py-3 px-3">Acción</th>
+                    <ExcelFilterHeader
+                      title="Orden ID"
+                      field="OrdenId"
+                      sortField={sortField}
+                      sortOrder={sortOrder}
+                      onSort={handleSort}
+                      columnFilters={columnFilters}
+                      onFilterChange={handleColumnFilterChange}
+                      activeDropdown={activeFilterDropdown}
+                      setActiveDropdown={setActiveFilterDropdown}
+                      allValues={getUniqueValuesForField('OrdenId')}
+                    />
+                    <ExcelFilterHeader
+                      title="Tipo Servicio"
+                      field="TipoServicioCalculado"
+                      sortField={sortField}
+                      sortOrder={sortOrder}
+                      onSort={handleSort}
+                      columnFilters={columnFilters}
+                      onFilterChange={handleColumnFilterChange}
+                      activeDropdown={activeFilterDropdown}
+                      setActiveDropdown={setActiveFilterDropdown}
+                      allValues={getUniqueValuesForField('TipoServicioCalculado')}
+                    />
+                    <ExcelFilterHeader
+                      title="Cliente"
+                      field="Cliente"
+                      sortField={sortField}
+                      sortOrder={sortOrder}
+                      onSort={handleSort}
+                      columnFilters={columnFilters}
+                      onFilterChange={handleColumnFilterChange}
+                      activeDropdown={activeFilterDropdown}
+                      setActiveDropdown={setActiveFilterDropdown}
+                      allValues={getUniqueValuesForField('Cliente')}
+                    />
+                    <ExcelFilterHeader
+                      title="Documento"
+                      field="NumeroDocumento"
+                      sortField={sortField}
+                      sortOrder={sortOrder}
+                      onSort={handleSort}
+                      columnFilters={columnFilters}
+                      onFilterChange={handleColumnFilterChange}
+                      activeDropdown={activeFilterDropdown}
+                      setActiveDropdown={setActiveFilterDropdown}
+                      allValues={getUniqueValuesForField('NumeroDocumento')}
+                    />
+                    <ExcelFilterHeader
+                      title="Fecha Visita"
+                      field="FechaVisita"
+                      sortField={sortField}
+                      sortOrder={sortOrder}
+                      onSort={handleSort}
+                      columnFilters={columnFilters}
+                      onFilterChange={handleColumnFilterChange}
+                      activeDropdown={activeFilterDropdown}
+                      setActiveDropdown={setActiveFilterDropdown}
+                      allValues={getUniqueValuesForField('FechaVisita')}
+                    />
+                    <ExcelFilterHeader
+                      title="Tipo Trabajo"
+                      field="TipoTraba"
+                      sortField={sortField}
+                      sortOrder={sortOrder}
+                      onSort={handleSort}
+                      columnFilters={columnFilters}
+                      onFilterChange={handleColumnFilterChange}
+                      activeDropdown={activeFilterDropdown}
+                      setActiveDropdown={setActiveFilterDropdown}
+                      allValues={getUniqueValuesForField('TipoTraba')}
+                    />
+                    <ExcelFilterHeader
+                      title="Producto"
+                      field="Producto"
+                      sortField={sortField}
+                      sortOrder={sortOrder}
+                      onSort={handleSort}
+                      columnFilters={columnFilters}
+                      onFilterChange={handleColumnFilterChange}
+                      activeDropdown={activeFilterDropdown}
+                      setActiveDropdown={setActiveFilterDropdown}
+                      allValues={getUniqueValuesForField('Producto')}
+                    />
+                    <ExcelFilterHeader
+                      title="Estado"
+                      field="Estado"
+                      sortField={sortField}
+                      sortOrder={sortOrder}
+                      onSort={handleSort}
+                      columnFilters={columnFilters}
+                      onFilterChange={handleColumnFilterChange}
+                      activeDropdown={activeFilterDropdown}
+                      setActiveDropdown={setActiveFilterDropdown}
+                      allValues={getUniqueValuesForField('Estado')}
+                    />
+                    <ExcelFilterHeader
+                      title="Dirección"
+                      field="Direccion"
+                      sortField={sortField}
+                      sortOrder={sortOrder}
+                      onSort={handleSort}
+                      columnFilters={columnFilters}
+                      onFilterChange={handleColumnFilterChange}
+                      activeDropdown={activeFilterDropdown}
+                      setActiveDropdown={setActiveFilterDropdown}
+                      allValues={getUniqueValuesForField('Direccion')}
+                    />
+                    <ExcelFilterHeader
+                      title="Distrito"
+                      field="Localidad"
+                      sortField={sortField}
+                      sortOrder={sortOrder}
+                      onSort={handleSort}
+                      columnFilters={columnFilters}
+                      onFilterChange={handleColumnFilterChange}
+                      activeDropdown={activeFilterDropdown}
+                      setActiveDropdown={setActiveFilterDropdown}
+                      allValues={getUniqueValuesForField('Localidad')}
+                    />
+                    <ExcelFilterHeader
+                      title="Cuadrilla"
+                      field="Cuadrilla"
+                      sortField={sortField}
+                      sortOrder={sortOrder}
+                      onSort={handleSort}
+                      columnFilters={columnFilters}
+                      onFilterChange={handleColumnFilterChange}
+                      activeDropdown={activeFilterDropdown}
+                      setActiveDropdown={setActiveFilterDropdown}
+                      allValues={getUniqueValuesForField('Cuadrilla')}
+                      alignRight={true}
+                    />
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-800/60">
@@ -1713,45 +2765,154 @@ export default function AdminDashboard() {
             {/* 2. Reporte Funnel Casos 360 (Monitoreo de Chats y Tracking) */}
             {activeTab === 'reporte' && (
               <table className="w-full text-left text-xs text-slate-300 border-collapse">
-                <thead className="bg-slate-950/80 sticky top-0 z-10 border-b border-slate-800 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
+                <thead className="bg-slate-950/80 sticky top-0 z-20 border-b border-slate-800 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
                   <tr>
-                    <th className="py-3 px-4">Acción</th>
-                    <th onClick={() => handleSort('orden_id')} className="py-3 px-4 cursor-pointer hover:text-white select-none whitespace-nowrap">
-                      Orden / Ticket {renderSortIndicator('orden_id')}
-                    </th>
-                    <th onClick={() => handleSort('cliente')} className="py-3 px-4 cursor-pointer hover:text-white select-none">
-                      Cliente {renderSortIndicator('cliente')}
-                    </th>
-                    <th onClick={() => handleSort('telefono')} className="py-3 px-4 cursor-pointer hover:text-white select-none whitespace-nowrap">
-                      Teléfono {renderSortIndicator('telefono')}
-                    </th>
-                    <th onClick={() => handleSort('tipo_operacion')} className="py-3 px-4 cursor-pointer hover:text-white select-none whitespace-nowrap">
-                      Operación / Trabajo {renderSortIndicator('tipo_operacion')}
-                    </th>
-                    <th onClick={() => handleSort('estado_ot')} className="py-3 px-4 cursor-pointer hover:text-white select-none whitespace-nowrap">
-                      Estado OT {renderSortIndicator('estado_ot')}
-                    </th>
-                    <th onClick={() => handleSort('fecha_visita')} className="py-3 px-4 cursor-pointer hover:text-white select-none whitespace-nowrap">
-                      Fecha Visita {renderSortIndicator('fecha_visita')}
-                    </th>
-                    <th onClick={() => handleSort('distrito')} className="py-3 px-4 cursor-pointer hover:text-white select-none">
-                      Distrito / Cuadrilla {renderSortIndicator('distrito')}
-                    </th>
-                    <th onClick={() => handleSort('se_envio_wsp')} className="py-3 px-4 cursor-pointer hover:text-white select-none whitespace-nowrap">
-                      WhatsApp {renderSortIndicator('se_envio_wsp')}
-                    </th>
-                    <th onClick={() => handleSort('ingreso_tracking')} className="py-3 px-4 cursor-pointer hover:text-white select-none whitespace-nowrap">
-                      Tracking / Mapa {renderSortIndicator('ingreso_tracking')}
-                    </th>
-                    <th onClick={() => handleSort('reprogramo')} className="py-3 px-4 cursor-pointer hover:text-white select-none whitespace-nowrap">
-                      Reprogramó {renderSortIndicator('reprogramo')}
-                    </th>
-                    <th onClick={() => handleSort('respondio_encuesta')} className="py-3 px-4 cursor-pointer hover:text-white select-none whitespace-nowrap">
-                      Encuesta {renderSortIndicator('respondio_encuesta')}
-                    </th>
-                    <th onClick={() => handleSort('pulso_soporte')} className="py-3 px-4 cursor-pointer hover:text-white select-none whitespace-nowrap">
-                      Soporte {renderSortIndicator('pulso_soporte')}
-                    </th>
+                    <th className="py-3 px-3">Acción</th>
+                    <ExcelFilterHeader
+                      title="Orden / Ticket"
+                      field="orden_id"
+                      sortField={sortField}
+                      sortOrder={sortOrder}
+                      onSort={handleSort}
+                      columnFilters={columnFilters}
+                      onFilterChange={handleColumnFilterChange}
+                      activeDropdown={activeFilterDropdown}
+                      setActiveDropdown={setActiveFilterDropdown}
+                      allValues={getUniqueValuesForField('orden_id')}
+                    />
+                    <ExcelFilterHeader
+                      title="Cliente"
+                      field="cliente"
+                      sortField={sortField}
+                      sortOrder={sortOrder}
+                      onSort={handleSort}
+                      columnFilters={columnFilters}
+                      onFilterChange={handleColumnFilterChange}
+                      activeDropdown={activeFilterDropdown}
+                      setActiveDropdown={setActiveFilterDropdown}
+                      allValues={getUniqueValuesForField('cliente')}
+                    />
+                    <ExcelFilterHeader
+                      title="Teléfono"
+                      field="telefono"
+                      sortField={sortField}
+                      sortOrder={sortOrder}
+                      onSort={handleSort}
+                      columnFilters={columnFilters}
+                      onFilterChange={handleColumnFilterChange}
+                      activeDropdown={activeFilterDropdown}
+                      setActiveDropdown={setActiveFilterDropdown}
+                      allValues={getUniqueValuesForField('telefono')}
+                    />
+                    <ExcelFilterHeader
+                      title="Operación / Trabajo"
+                      field="tipo_operacion"
+                      sortField={sortField}
+                      sortOrder={sortOrder}
+                      onSort={handleSort}
+                      columnFilters={columnFilters}
+                      onFilterChange={handleColumnFilterChange}
+                      activeDropdown={activeFilterDropdown}
+                      setActiveDropdown={setActiveFilterDropdown}
+                      allValues={getUniqueValuesForField('tipo_operacion')}
+                    />
+                    <ExcelFilterHeader
+                      title="Estado OT"
+                      field="estado_ot"
+                      sortField={sortField}
+                      sortOrder={sortOrder}
+                      onSort={handleSort}
+                      columnFilters={columnFilters}
+                      onFilterChange={handleColumnFilterChange}
+                      activeDropdown={activeFilterDropdown}
+                      setActiveDropdown={setActiveFilterDropdown}
+                      allValues={getUniqueValuesForField('estado_ot')}
+                    />
+                    <ExcelFilterHeader
+                      title="Fecha Visita"
+                      field="fecha_visita"
+                      sortField={sortField}
+                      sortOrder={sortOrder}
+                      onSort={handleSort}
+                      columnFilters={columnFilters}
+                      onFilterChange={handleColumnFilterChange}
+                      activeDropdown={activeFilterDropdown}
+                      setActiveDropdown={setActiveFilterDropdown}
+                      allValues={getUniqueValuesForField('fecha_visita')}
+                    />
+                    <ExcelFilterHeader
+                      title="Distrito / Cuadrilla"
+                      field="distrito"
+                      sortField={sortField}
+                      sortOrder={sortOrder}
+                      onSort={handleSort}
+                      columnFilters={columnFilters}
+                      onFilterChange={handleColumnFilterChange}
+                      activeDropdown={activeFilterDropdown}
+                      setActiveDropdown={setActiveFilterDropdown}
+                      allValues={getUniqueValuesForField('distrito')}
+                    />
+                    <ExcelFilterHeader
+                      title="WhatsApp"
+                      field="se_envio_wsp"
+                      sortField={sortField}
+                      sortOrder={sortOrder}
+                      onSort={handleSort}
+                      columnFilters={columnFilters}
+                      onFilterChange={handleColumnFilterChange}
+                      activeDropdown={activeFilterDropdown}
+                      setActiveDropdown={setActiveFilterDropdown}
+                      allValues={getUniqueValuesForField('se_envio_wsp')}
+                    />
+                    <ExcelFilterHeader
+                      title="Tracking / Mapa"
+                      field="ingreso_tracking"
+                      sortField={sortField}
+                      sortOrder={sortOrder}
+                      onSort={handleSort}
+                      columnFilters={columnFilters}
+                      onFilterChange={handleColumnFilterChange}
+                      activeDropdown={activeFilterDropdown}
+                      setActiveDropdown={setActiveFilterDropdown}
+                      allValues={getUniqueValuesForField('ingreso_tracking')}
+                    />
+                    <ExcelFilterHeader
+                      title="Reprogramó"
+                      field="reprogramo"
+                      sortField={sortField}
+                      sortOrder={sortOrder}
+                      onSort={handleSort}
+                      columnFilters={columnFilters}
+                      onFilterChange={handleColumnFilterChange}
+                      activeDropdown={activeFilterDropdown}
+                      setActiveDropdown={setActiveFilterDropdown}
+                      allValues={getUniqueValuesForField('reprogramo')}
+                    />
+                    <ExcelFilterHeader
+                      title="Encuesta"
+                      field="respondio_encuesta"
+                      sortField={sortField}
+                      sortOrder={sortOrder}
+                      onSort={handleSort}
+                      columnFilters={columnFilters}
+                      onFilterChange={handleColumnFilterChange}
+                      activeDropdown={activeFilterDropdown}
+                      setActiveDropdown={setActiveFilterDropdown}
+                      allValues={getUniqueValuesForField('respondio_encuesta')}
+                    />
+                    <ExcelFilterHeader
+                      title="Soporte"
+                      field="pulso_soporte"
+                      sortField={sortField}
+                      sortOrder={sortOrder}
+                      onSort={handleSort}
+                      columnFilters={columnFilters}
+                      onFilterChange={handleColumnFilterChange}
+                      activeDropdown={activeFilterDropdown}
+                      setActiveDropdown={setActiveFilterDropdown}
+                      allValues={getUniqueValuesForField('pulso_soporte')}
+                      alignRight={true}
+                    />
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-800/60">
@@ -1883,48 +3044,167 @@ export default function AdminDashboard() {
             )}
             {activeTab === 'chats_mantra' && (
               <table className="w-full text-left text-xs text-slate-300 border-collapse">
-                <thead className="bg-slate-950/80 sticky top-0 z-10 border-b border-slate-800 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
+                <thead className="bg-slate-950/80 sticky top-0 z-20 border-b border-slate-800 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
                   <tr>
-                    <th className="py-3 px-4">Acción</th>
-                    <th onClick={() => handleSort('id')} className="py-3 px-4 cursor-pointer hover:text-white select-none whitespace-nowrap">
-                      ID {renderSortIndicator('id')}
-                    </th>
-                    <th onClick={() => handleSort('orden_id')} className="py-3 px-4 cursor-pointer hover:text-white select-none whitespace-nowrap">
-                      Orden ID {renderSortIndicator('orden_id')}
-                    </th>
-                    <th onClick={() => handleSort('ticket')} className="py-3 px-4 cursor-pointer hover:text-white select-none whitespace-nowrap">
-                      Ticket {renderSortIndicator('ticket')}
-                    </th>
-                    <th onClick={() => handleSort('phone')} className="py-3 px-4 cursor-pointer hover:text-white select-none whitespace-nowrap">
-                      Teléfono {renderSortIndicator('phone')}
-                    </th>
-                    <th onClick={() => handleSort('cliente_nombre')} className="py-3 px-4 cursor-pointer hover:text-white select-none">
-                      Cliente {renderSortIndicator('cliente_nombre')}
-                    </th>
-                    <th onClick={() => handleSort('asesor_asignado')} className="py-3 px-4 cursor-pointer hover:text-white select-none whitespace-nowrap">
-                      Usuario {renderSortIndicator('asesor_asignado')}
-                    </th>
-                    <th onClick={() => handleSort('grupo_servicio')} className="py-3 px-4 cursor-pointer hover:text-white select-none whitespace-nowrap">
-                      Grupo Serv. {renderSortIndicator('grupo_servicio')}
-                    </th>
-                    <th onClick={() => handleSort('distrito')} className="py-3 px-4 cursor-pointer hover:text-white select-none">
-                      Distrito / Prov. {renderSortIndicator('distrito')}
-                    </th>
-                    <th onClick={() => handleSort('quien_tiene_la_palabra')} className="py-3 px-4 cursor-pointer hover:text-white select-none whitespace-nowrap">
-                      Palabra {renderSortIndicator('quien_tiene_la_palabra')}
-                    </th>
-                    <th onClick={() => handleSort('estado_chat')} className="py-3 px-4 cursor-pointer hover:text-white select-none whitespace-nowrap">
-                      Estado Chat {renderSortIndicator('estado_chat')}
-                    </th>
-                    <th onClick={() => handleSort('semaforo_sla')} className="py-3 px-4 cursor-pointer hover:text-white select-none whitespace-nowrap">
-                      SLA {renderSortIndicator('semaforo_sla')}
-                    </th>
-                    <th onClick={() => handleSort('ultimo_mensaje_texto')} className="py-3 px-4 cursor-pointer hover:text-white select-none">
-                      Último Mensaje {renderSortIndicator('ultimo_mensaje_texto')}
-                    </th>
-                    <th onClick={() => handleSort('ultimo_mensaje_fecha')} className="py-3 px-4 cursor-pointer hover:text-white select-none whitespace-nowrap">
-                      Fecha Último Msg {renderSortIndicator('ultimo_mensaje_fecha')}
-                    </th>
+                    <th className="py-3 px-3">Acción</th>
+                    <ExcelFilterHeader
+                      title="ID"
+                      field="id"
+                      sortField={sortField}
+                      sortOrder={sortOrder}
+                      onSort={handleSort}
+                      columnFilters={columnFilters}
+                      onFilterChange={handleColumnFilterChange}
+                      activeDropdown={activeFilterDropdown}
+                      setActiveDropdown={setActiveFilterDropdown}
+                      allValues={getUniqueValuesForField('id')}
+                    />
+                    <ExcelFilterHeader
+                      title="Orden ID"
+                      field="orden_id"
+                      sortField={sortField}
+                      sortOrder={sortOrder}
+                      onSort={handleSort}
+                      columnFilters={columnFilters}
+                      onFilterChange={handleColumnFilterChange}
+                      activeDropdown={activeFilterDropdown}
+                      setActiveDropdown={setActiveFilterDropdown}
+                      allValues={getUniqueValuesForField('orden_id')}
+                    />
+                    <ExcelFilterHeader
+                      title="Ticket"
+                      field="ticket"
+                      sortField={sortField}
+                      sortOrder={sortOrder}
+                      onSort={handleSort}
+                      columnFilters={columnFilters}
+                      onFilterChange={handleColumnFilterChange}
+                      activeDropdown={activeFilterDropdown}
+                      setActiveDropdown={setActiveFilterDropdown}
+                      allValues={getUniqueValuesForField('ticket')}
+                    />
+                    <ExcelFilterHeader
+                      title="Teléfono"
+                      field="phone"
+                      sortField={sortField}
+                      sortOrder={sortOrder}
+                      onSort={handleSort}
+                      columnFilters={columnFilters}
+                      onFilterChange={handleColumnFilterChange}
+                      activeDropdown={activeFilterDropdown}
+                      setActiveDropdown={setActiveFilterDropdown}
+                      allValues={getUniqueValuesForField('phone')}
+                    />
+                    <ExcelFilterHeader
+                      title="Cliente"
+                      field="cliente_nombre"
+                      sortField={sortField}
+                      sortOrder={sortOrder}
+                      onSort={handleSort}
+                      columnFilters={columnFilters}
+                      onFilterChange={handleColumnFilterChange}
+                      activeDropdown={activeFilterDropdown}
+                      setActiveDropdown={setActiveFilterDropdown}
+                      allValues={getUniqueValuesForField('cliente_nombre')}
+                    />
+                    <ExcelFilterHeader
+                      title="Usuario"
+                      field="asesor_asignado"
+                      sortField={sortField}
+                      sortOrder={sortOrder}
+                      onSort={handleSort}
+                      columnFilters={columnFilters}
+                      onFilterChange={handleColumnFilterChange}
+                      activeDropdown={activeFilterDropdown}
+                      setActiveDropdown={setActiveFilterDropdown}
+                      allValues={getUniqueValuesForField('asesor_asignado')}
+                    />
+                    <ExcelFilterHeader
+                      title="Grupo Serv."
+                      field="grupo_servicio"
+                      sortField={sortField}
+                      sortOrder={sortOrder}
+                      onSort={handleSort}
+                      columnFilters={columnFilters}
+                      onFilterChange={handleColumnFilterChange}
+                      activeDropdown={activeFilterDropdown}
+                      setActiveDropdown={setActiveFilterDropdown}
+                      allValues={getUniqueValuesForField('grupo_servicio')}
+                    />
+                    <ExcelFilterHeader
+                      title="Distrito / Prov."
+                      field="distrito"
+                      sortField={sortField}
+                      sortOrder={sortOrder}
+                      onSort={handleSort}
+                      columnFilters={columnFilters}
+                      onFilterChange={handleColumnFilterChange}
+                      activeDropdown={activeFilterDropdown}
+                      setActiveDropdown={setActiveFilterDropdown}
+                      allValues={getUniqueValuesForField('distrito')}
+                    />
+                    <ExcelFilterHeader
+                      title="Palabra"
+                      field="quien_tiene_la_palabra"
+                      sortField={sortField}
+                      sortOrder={sortOrder}
+                      onSort={handleSort}
+                      columnFilters={columnFilters}
+                      onFilterChange={handleColumnFilterChange}
+                      activeDropdown={activeFilterDropdown}
+                      setActiveDropdown={setActiveFilterDropdown}
+                      allValues={getUniqueValuesForField('quien_tiene_la_palabra')}
+                    />
+                    <ExcelFilterHeader
+                      title="Estado Chat"
+                      field="estado_chat"
+                      sortField={sortField}
+                      sortOrder={sortOrder}
+                      onSort={handleSort}
+                      columnFilters={columnFilters}
+                      onFilterChange={handleColumnFilterChange}
+                      activeDropdown={activeFilterDropdown}
+                      setActiveDropdown={setActiveFilterDropdown}
+                      allValues={getUniqueValuesForField('estado_chat')}
+                    />
+                    <ExcelFilterHeader
+                      title="SLA"
+                      field="semaforo_sla"
+                      sortField={sortField}
+                      sortOrder={sortOrder}
+                      onSort={handleSort}
+                      columnFilters={columnFilters}
+                      onFilterChange={handleColumnFilterChange}
+                      activeDropdown={activeFilterDropdown}
+                      setActiveDropdown={setActiveFilterDropdown}
+                      allValues={getUniqueValuesForField('semaforo_sla')}
+                    />
+                    <ExcelFilterHeader
+                      title="Último Mensaje"
+                      field="ultimo_mensaje_texto"
+                      sortField={sortField}
+                      sortOrder={sortOrder}
+                      onSort={handleSort}
+                      columnFilters={columnFilters}
+                      onFilterChange={handleColumnFilterChange}
+                      activeDropdown={activeFilterDropdown}
+                      setActiveDropdown={setActiveFilterDropdown}
+                      allValues={getUniqueValuesForField('ultimo_mensaje_texto')}
+                      alignRight={true}
+                    />
+                    <ExcelFilterHeader
+                      title="Fecha Último Msg"
+                      field="ultimo_mensaje_fecha"
+                      sortField={sortField}
+                      sortOrder={sortOrder}
+                      onSort={handleSort}
+                      columnFilters={columnFilters}
+                      onFilterChange={handleColumnFilterChange}
+                      activeDropdown={activeFilterDropdown}
+                      setActiveDropdown={setActiveFilterDropdown}
+                      allValues={getUniqueValuesForField('ultimo_mensaje_fecha')}
+                      alignRight={true}
+                    />
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-800/60">
@@ -1985,15 +3265,16 @@ export default function AdminDashboard() {
                         </td>
                         <td className="py-2.5 px-4">
                           <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold inline-flex items-center gap-1 ${
-                            row.quien_tiene_la_palabra === 'CLIENTE'
+                            row.quien_tiene_la_palabra === 'CONFIRMADO'
+                              ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30'
+                              : row.quien_tiene_la_palabra === 'CLIENTE'
                               ? 'bg-blue-500/15 text-blue-300 border border-blue-500/30'
-                              : row.quien_tiene_la_palabra === 'PLANTILLA' || row.quien_tiene_la_palabra === 'BOT'
+                              : (row.quien_tiene_la_palabra === 'PLANTILLA' || row.quien_tiene_la_palabra === 'BOT')
                               ? 'bg-purple-500/15 text-purple-300 border border-purple-500/30'
                               : 'bg-orange-500/15 text-orange-300 border border-orange-500/30'
                           }`}>
-                            {row.quien_tiene_la_palabra === 'CLIENTE' ? 'CLIENTE' :
-                             (row.quien_tiene_la_palabra === 'PLANTILLA' || row.quien_tiene_la_palabra === 'BOT') ? 'PLANTILLA' :
-                             'ASESOR'}
+                            {row.quien_tiene_la_palabra === 'CONFIRMADO' && <Check className="w-3 h-3 text-emerald-400" />}
+                            {row.quien_tiene_la_palabra || 'ASESOR'}
                           </span>
                         </td>
                         <td className="py-2.5 px-4">
@@ -2195,9 +3476,217 @@ export default function AdminDashboard() {
           </div>
         </div>
         )}
-      </main>
+        </main>
+      </div>
 
-      {/* Modal para ver registro completo + Visor Amigable de Chat (Campos a la izquierda, Chat más grande a la derecha) */}
+
+      {/* Modal Moderno para Crear Usuario */}
+      {isUserModalOpen && (
+        <div className="fixed inset-0 bg-slate-950/85 backdrop-blur-xl z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-[#0F141F] border border-slate-800/90 rounded-3xl w-full max-w-lg shadow-[0_25px_70px_rgba(0,0,0,0.7)] overflow-hidden">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between border-b border-slate-800/70 px-6 py-4 bg-[#141A29]/50">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-orange-500/15 border border-orange-500/30 text-orange-400 flex items-center justify-center">
+                  <UserPlus className="w-4 h-4" />
+                </div>
+                <h3 className="text-base font-bold text-white tracking-tight">Nuevo Usuario</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsUserModalOpen(false)}
+                className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-white hover:bg-slate-800/80 transition-colors cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateUser} className="p-6 space-y-4">
+              {userFormError && (
+                <div className="p-3 bg-rose-500/10 border border-rose-500/30 rounded-xl text-rose-400 text-xs flex items-center gap-2">
+                  <span>⚠️</span>
+                  <span>{userFormError}</span>
+                </div>
+              )}
+
+              {userFormSuccess && (
+                <div className="p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-xl text-emerald-400 text-xs flex items-center gap-2">
+                  <span>✅</span>
+                  <span>{userFormSuccess}</span>
+                </div>
+              )}
+
+              {/* Fila 1: Nombre & Documento */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-400 mb-1.5">Nombre Completo</label>
+                  <div className="relative">
+                    <User className="w-3.5 h-3.5 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="text"
+                      required
+                      placeholder="Juan Pérez"
+                      value={userFormData.Nombre}
+                      onChange={(e) => setUserFormData({ ...userFormData, Nombre: e.target.value })}
+                      className="w-full bg-[#0A0D14] border border-slate-800/90 rounded-xl pl-8 pr-3 py-2 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-orange-500 transition-colors"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-400 mb-1.5">Documento (DNI/CE)</label>
+                  <div className="relative">
+                    <CreditCard className="w-3.5 h-3.5 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="text"
+                      required
+                      placeholder="72345678"
+                      value={userFormData.Documento}
+                      onChange={(e) => setUserFormData({ ...userFormData, Documento: e.target.value })}
+                      className="w-full bg-[#0A0D14] border border-slate-800/90 rounded-xl pl-8 pr-3 py-2 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-orange-500 font-mono transition-colors"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Fila 2: Usuario & Contraseña */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-400 mb-1.5">Usuario (Login)</label>
+                  <div className="relative">
+                    <AtSign className="w-3.5 h-3.5 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="text"
+                      required
+                      placeholder="jperez"
+                      value={userFormData.Usuario}
+                      onChange={(e) => setUserFormData({ ...userFormData, Usuario: e.target.value })}
+                      className="w-full bg-[#0A0D14] border border-slate-800/90 rounded-xl pl-8 pr-3 py-2 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-orange-500 font-mono transition-colors"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-400 mb-1.5">Contraseña</label>
+                  <div className="relative">
+                    <Lock className="w-3.5 h-3.5 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="password"
+                      required
+                      placeholder="••••••••"
+                      value={userFormData.Password}
+                      onChange={(e) => setUserFormData({ ...userFormData, Password: e.target.value })}
+                      className="w-full bg-[#0A0D14] border border-slate-800/90 rounded-xl pl-8 pr-3 py-2 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-orange-500 transition-colors"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Fila 3: Email & Teléfono */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-400 mb-1.5">Email Corporativo</label>
+                  <div className="relative">
+                    <Mail className="w-3.5 h-3.5 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="email"
+                      required
+                      placeholder="jperez@win.pe"
+                      value={userFormData.Email}
+                      onChange={(e) => setUserFormData({ ...userFormData, Email: e.target.value })}
+                      className="w-full bg-[#0A0D14] border border-slate-800/90 rounded-xl pl-8 pr-3 py-2 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-orange-500 transition-colors"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-400 mb-1.5">Teléfono</label>
+                  <div className="relative">
+                    <Phone className="w-3.5 h-3.5 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="text"
+                      placeholder="987654321"
+                      value={userFormData.Telefono}
+                      onChange={(e) => setUserFormData({ ...userFormData, Telefono: e.target.value })}
+                      className="w-full bg-[#0A0D14] border border-slate-800/90 rounded-xl pl-8 pr-3 py-2 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-orange-500 transition-colors"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Selector Moderno de Área */}
+              <div>
+                <label className="block text-[11px] font-semibold text-slate-400 mb-1.5">Área Operativa</label>
+                <div className="grid grid-cols-4 gap-2">
+                  {(['INSTALACION', 'PROVINCIA', 'AVERIAS', 'ADMIN'] as const).map(area => {
+                    const isSel = userFormData.Area === area;
+                    return (
+                      <button
+                        key={area}
+                        type="button"
+                        onClick={() => setUserFormData({ ...userFormData, Area: area })}
+                        className={`py-2 px-1 rounded-xl text-[11px] font-bold border transition-all text-center cursor-pointer ${
+                          isSel
+                            ? 'bg-[#FF5A0A]/20 border-[#FF5A0A] text-[#FF5A0A] shadow-sm shadow-orange-500/20'
+                            : 'bg-[#0A0D14] border-slate-800 text-slate-400 hover:text-white hover:border-slate-700'
+                        }`}
+                      >
+                        {area}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Selector Moderno de Rol */}
+              <div>
+                <label className="block text-[11px] font-semibold text-slate-400 mb-1.5">Rol Asignado</label>
+                <div className="grid grid-cols-4 gap-2">
+                  {(['ADMIN', 'SUPERVISOR', 'COORDINADOR', 'ASESOR'] as const).map(rol => {
+                    const isSel = userFormData.Rol === rol;
+                    return (
+                      <button
+                        key={rol}
+                        type="button"
+                        onClick={() => setUserFormData({ ...userFormData, Rol: rol })}
+                        className={`py-2 px-1 rounded-xl text-[11px] font-bold border transition-all text-center cursor-pointer flex items-center justify-center gap-1 ${
+                          isSel
+                            ? 'bg-amber-500/20 border-amber-400 text-amber-300 shadow-sm shadow-amber-500/20'
+                            : 'bg-[#0A0D14] border-slate-800 text-slate-400 hover:text-white hover:border-slate-700'
+                        }`}
+                      >
+                        {rol === 'ADMIN' && <Shield className="w-3 h-3 text-amber-400 shrink-0" />}
+                        <span>{rol}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Botones de acción */}
+              <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-800/80">
+                <button
+                  type="button"
+                  onClick={() => setIsUserModalOpen(false)}
+                  className="px-4 py-2 bg-slate-800/80 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-semibold transition-colors cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSavingUser}
+                  className="flex items-center gap-2 px-5 py-2 bg-[#FF5A0A] hover:bg-orange-600 disabled:opacity-50 text-white rounded-xl text-xs font-bold transition-all shadow-lg shadow-orange-500/25 cursor-pointer"
+                >
+                  {isSavingUser && <RefreshCw className="w-3.5 h-3.5 animate-spin" />}
+                  <span>Guardar Usuario</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+            {/* Modal para ver registro completo + Visor Amigable de Chat (Campos a la izquierda, Chat más grande a la derecha) */}
       {selectedRow && (
         <div className="fixed inset-0 bg-slate-950/85 backdrop-blur-md z-50 flex items-center justify-center p-2 sm:p-4">
           <div className="bg-slate-900 border border-slate-800 rounded-2xl w-[98vw] max-w-[1720px] h-[94vh] shadow-2xl relative flex flex-col overflow-hidden">

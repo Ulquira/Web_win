@@ -7,20 +7,58 @@ const CAPA_INTERMEDIA_URL = process.env.CAPA_INTERMEDIA_URL || 'http://localhost
 // Ya no usamos fallback estricto aquí por seguridad, depende estrictamente del .env
 const SECRET_API_KEY = process.env.SECRET_API_KEY || '';
 
-export const reprogramar = async (req: Request, res: Response): Promise<any> => {
-  const { token, fecha, turno, motivo } = req.body;
-  if (!token || !fecha || !turno) return res.status(400).json({ success: false, message: 'Faltan datos obligatorios' });
-
+export const getCupos = async (req: Request, res: Response): Promise<any> => {
+  const { token } = req.params;
   try {
-    const query = `INSERT INTO REPROGRAMACIONES (token, fecha_solicitada, turno, motivo) VALUES (?, ?, ?, ?)`;
-    await pool.query(query, [token, fecha, turno, motivo || '']);
-    replicateChange('REPROGRAMACIONES', 'INSERT', { token, fecha_solicitada: fecha, turno, motivo: motivo || '' });
-    res.json({ success: true, message: 'Reprogramación guardada con éxito' });
-  } catch (error) {
-    console.error('Error guardando en BD:', error);
-    res.status(500).json({ success: false, message: 'Error interno guardando la solicitud' });
+    if (!SECRET_API_KEY) console.warn("ALERTA: SECRET_API_KEY no definida en el entorno (.env)");
+
+    const response = await fetch(`${CAPA_INTERMEDIA_URL}/api/v1/terceros/cupos/${token}`, {
+      headers: { 'Authorization': `Bearer ${SECRET_API_KEY}` }
+    });
+
+    const data = await response.json();
+    return res.status(response.status).json(data);
+  } catch (error: any) {
+    console.error('Error consultando cupos en capa intermedia:', error);
+    return res.status(500).json({ success: false, message: 'Error interno consultando cupos', error: error?.message });
   }
 };
+
+export const reprogramar = async (req: Request, res: Response): Promise<any> => {
+  const { token, fecha, turno, motivo, pin } = req.body;
+  if (!token || !fecha || !turno) {
+    return res.status(400).json({ success: false, message: 'Faltan datos obligatorios' });
+  }
+
+  try {
+    if (!SECRET_API_KEY) console.warn("ALERTA: SECRET_API_KEY no definida en el entorno (.env)");
+
+    const response = await fetch(`${CAPA_INTERMEDIA_URL}/api/v1/terceros/reprogramar`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${SECRET_API_KEY}`
+      },
+      body: JSON.stringify({ token, fecha, turno, motivo, pin })
+    });
+
+    const data = await response.json();
+
+    if (response.ok && data.success) {
+      try {
+        replicateChange('REPROGRAMACIONES', 'INSERT', { token, fecha_solicitada: fecha, turno, motivo: motivo || '' });
+      } catch (repErr) {
+        console.warn('Advertencia en replicateChange:', repErr);
+      }
+    }
+
+    return res.status(response.status).json(data);
+  } catch (error: any) {
+    console.error('Error comunicando con capa intermedia para reprogramar:', error);
+    return res.status(500).json({ success: false, message: 'Error interno guardando la solicitud', error: error?.message });
+  }
+};
+
 
 export const guardarEncuesta = async (req: Request, res: Response): Promise<any> => {
   const { 
