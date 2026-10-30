@@ -1687,16 +1687,35 @@ app.get('/api/4dm1n_/data', async (req, res) => {
         tipo_operacion: 'r.tipo_operacion',
         estado_ot: 'r.estado_ot',
         distrito: 'r.distrito',
-        cuadrilla: 'r.cuadrilla'
+        cuadrilla: 'r.cuadrilla',
+        se_envio_wsp: 'r.se_envio_wsp',
+        ingreso_tracking: 'r.ingreso_tracking',
+        reprogramo: 'r.reprogramo',
+        respondio_encuesta: 'r.respondio_encuesta',
+        pulso_soporte: 'r.pulso_soporte',
+        fecha_visita: 'r.fecha_visita'
       };
+
       for (const [colKey, colVal] of Object.entries(colFilters)) {
+        if (!colVal) continue;
+        const searchStr = typeof colVal === 'string' ? colVal.trim() : String((colVal as any).search || '').trim();
+        const selectedArr: string[] = typeof colVal === 'object' && Array.isArray((colVal as any).selected)
+          ? (colVal as any).selected.filter(Boolean)
+          : [];
+        if (!searchStr && selectedArr.length === 0) continue;
+
         const sqlField = allowedColsReporte[colKey];
-        const valStr = String(colVal || '').trim();
-        if (sqlField && valStr) {
-          whereClauses.push(`${sqlField} LIKE ?`);
-          const s = `%${valStr}%`;
-          params.push(s);
-          countParams.push(s);
+        if (sqlField) {
+          if (selectedArr.length > 0) {
+            const placeholders = selectedArr.map(() => '?').join(',');
+            whereClauses.push(`${sqlField} IN (${placeholders})`);
+            params.push(...selectedArr);
+            countParams.push(...selectedArr);
+          } else if (searchStr) {
+            whereClauses.push(`${sqlField} LIKE ?`);
+            params.push(`%${searchStr}%`);
+            countParams.push(`%${searchStr}%`);
+          }
         }
       }
 
@@ -1771,25 +1790,52 @@ app.get('/api/4dm1n_/data', async (req, res) => {
       }
       const allowedColsPrincipal: Record<string, string> = {
         orden_id: 'w.OrdenId',
+        OrdenId: 'w.OrdenId',
         cliente: 'w.Cliente',
+        Cliente: 'w.Cliente',
         documento: 'w.`Número Documento`',
-        tipo_traba: 'w.TipoTraba',
+        NumeroDocumento: 'w.`Número Documento`',
+        'Número Documento': 'w.`Número Documento`',
+        tipo_servicio: 'COALESCE(ts_prod.Tipo, ts_traba.Tipo, w.TipoTraba)',
+        TipoServicioCalculado: 'COALESCE(ts_prod.Tipo, ts_traba.Tipo, w.TipoTraba)',
+        tipo_trabajo: 'w.TipoTraba',
+        TipoTraba: 'w.TipoTraba',
         producto: 'w.Producto',
+        Producto: 'w.Producto',
         estado: 'w.Estado',
+        Estado: 'w.Estado',
+        fecha_visita: 'w.`F.Visita`',
+        FechaVisita: 'w.`F.Visita`',
         direccion: 'w.Direccion',
+        Direccion: 'w.Direccion',
         distrito: 'w.Localidad',
+        Localidad: 'w.Localidad',
         cuadrilla: 'w.Cuadrilla',
+        Cuadrilla: 'w.Cuadrilla',
         pin: 'w.Pin_token',
         token: 'w.token'
       };
+
       for (const [colKey, colVal] of Object.entries(colFilters)) {
+        if (!colVal) continue;
+        const searchStr = typeof colVal === 'string' ? colVal.trim() : String((colVal as any).search || '').trim();
+        const selectedArr: string[] = typeof colVal === 'object' && Array.isArray((colVal as any).selected)
+          ? (colVal as any).selected.filter(Boolean)
+          : [];
+        if (!searchStr && selectedArr.length === 0) continue;
+
         const sqlField = allowedColsPrincipal[colKey];
-        const valStr = String(colVal || '').trim();
-        if (sqlField && valStr) {
-          whereClauses.push(`${sqlField} LIKE ?`);
-          const s = `%${valStr}%`;
-          params.push(s);
-          countParams.push(s);
+        if (sqlField) {
+          if (selectedArr.length > 0) {
+            const placeholders = selectedArr.map(() => '?').join(',');
+            whereClauses.push(`${sqlField} IN (${placeholders})`);
+            params.push(...selectedArr);
+            countParams.push(...selectedArr);
+          } else if (searchStr) {
+            whereClauses.push(`${sqlField} LIKE ?`);
+            params.push(`%${searchStr}%`);
+            countParams.push(`%${searchStr}%`);
+          }
         }
       }
 
@@ -2677,23 +2723,49 @@ app.get('/api/4dm1n_/export', async (req, res) => {
       }
       const allowedColsPrincipal: Record<string, string> = {
         orden_id: 'w.OrdenId',
+        OrdenId: 'w.OrdenId',
         cliente: 'w.Cliente',
+        Cliente: 'w.Cliente',
         documento: 'w.`Número Documento`',
-        tipo_traba: 'w.TipoTraba',
+        NumeroDocumento: 'w.`Número Documento`',
+        'Número Documento': 'w.`Número Documento`',
+        tipo_servicio: 'COALESCE(ts_prod.Tipo, ts_traba.Tipo, w.TipoTraba)',
+        TipoServicioCalculado: 'COALESCE(ts_prod.Tipo, ts_traba.Tipo, w.TipoTraba)',
+        tipo_trabajo: 'w.TipoTraba',
+        TipoTraba: 'w.TipoTraba',
         producto: 'w.Producto',
+        Producto: 'w.Producto',
         estado: 'w.Estado',
+        Estado: 'w.Estado',
+        fecha_visita: 'w.`F.Visita`',
+        FechaVisita: 'w.`F.Visita`',
         direccion: 'w.Direccion',
+        Direccion: 'w.Direccion',
         distrito: 'w.Localidad',
+        Localidad: 'w.Localidad',
         cuadrilla: 'w.Cuadrilla',
+        Cuadrilla: 'w.Cuadrilla',
         pin: 'w.Pin_token',
         token: 'w.token'
       };
       for (const [colKey, colVal] of Object.entries(colFilters)) {
+        if (!colVal) continue;
+        const searchStr = typeof colVal === 'string' ? colVal.trim() : String((colVal as any).search || '').trim();
+        const selectedArr: string[] = typeof colVal === 'object' && Array.isArray((colVal as any).selected)
+          ? (colVal as any).selected.filter(Boolean)
+          : [];
+        if (!searchStr && selectedArr.length === 0) continue;
+
         const sqlField = allowedColsPrincipal[colKey];
-        const valStr = String(colVal || '').trim();
-        if (sqlField && valStr) {
-          whereClauses.push(`${sqlField} LIKE ?`);
-          params.push(`%${valStr}%`);
+        if (sqlField) {
+          if (selectedArr.length > 0) {
+            const placeholders = selectedArr.map(() => '?').join(',');
+            whereClauses.push(`${sqlField} IN (${placeholders})`);
+            params.push(...selectedArr);
+          } else if (searchStr) {
+            whereClauses.push(`${sqlField} LIKE ?`);
+            params.push(`%${searchStr}%`);
+          }
         }
       }
       selectQuery = `

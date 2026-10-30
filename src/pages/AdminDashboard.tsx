@@ -47,6 +47,59 @@ import {
   AtSign
 } from 'lucide-react';
 
+// Mapeo de identificadores de columna a etiquetas amigables
+const COLUMN_FRIENDLY_LABELS: Record<string, string> = {
+  TipoServicioCalculado: 'Tipo Servicio',
+  tipo_servicio: 'Tipo Servicio',
+  TipoTraba: 'Tipo Trabajo',
+  tipo_trabajo: 'Tipo Trabajo',
+  tipo_operacion: 'Operación / Trabajo',
+  Producto: 'Producto',
+  producto: 'Producto',
+  Estado: 'Estado',
+  estado: 'Estado',
+  estado_ot: 'Estado OT',
+  OrdenId: 'Orden ID',
+  orden_id: 'Orden ID',
+  ticket: 'Ticket',
+  Cliente: 'Cliente',
+  cliente: 'Cliente',
+  cliente_nombre: 'Cliente',
+  NumeroDocumento: 'Documento',
+  'Número Documento': 'Documento',
+  documento: 'Documento',
+  FechaVisita: 'Fecha Visita',
+  fecha_visita: 'Fecha Visita',
+  Direccion: 'Dirección',
+  direccion: 'Dirección',
+  Localidad: 'Distrito',
+  distrito: 'Distrito',
+  Cuadrilla: 'Cuadrilla',
+  cuadrilla: 'Cuadrilla',
+  phone: 'Teléfono',
+  telefono: 'Teléfono',
+  asesor_asignado: 'Usuario',
+  grupo_servicio: 'Grupo Serv.',
+  quien_tiene_la_palabra: 'Palabra',
+  estado_chat: 'Estado Chat',
+  semaforo_sla: 'SLA',
+  ultimo_mensaje_texto: 'Último Mensaje',
+  ultimo_mensaje_fecha: 'Fecha Último Msg',
+  se_envio_wsp: 'WhatsApp',
+  ingreso_tracking: 'Tracking / Mapa',
+  reprogramo: 'Reprogramó',
+  respondio_encuesta: 'Encuesta',
+  pulso_soporte: 'Soporte',
+  fecha_solicitada: 'Fecha Solicitada',
+  turno: 'Turno',
+  motivo: 'Motivo',
+  token: 'Token'
+};
+
+const getColumnLabel = (field: string): string => {
+  return COLUMN_FRIENDLY_LABELS[field] || field.replace(/_/g, ' ');
+};
+
 type TabType = 'principal' | 'reporte' | 'dashboard' | 'dashboard_chats' | 'encuestas' | 'reprogramaciones' | 'chats_mantra' | 'usuarios';
 
 const getTodayPeruString = () => {
@@ -848,11 +901,15 @@ export default function AdminDashboard() {
       case 'usuario':
       case 'Usuario':
         return String(row.asesor_asignado ?? row.Usuario ?? '');
-      case 'grupo_servicio':
-      case 'tipo_trabajo':
-      case 'TipoTraba':
       case 'TipoServicioCalculado':
-        return String(row.tipo_trabajo ?? row.grupo_servicio ?? row.TipoServicioCalculado ?? row.TipoTraba ?? '');
+      case 'tipo_servicio':
+        return String(row.TipoServicioCalculado || row.tipo_servicio || row.tipo_trabajo || row.TipoTraba || '');
+      case 'TipoTraba':
+        return String(row.TipoTraba || row.tipo_trabajo || '');
+      case 'tipo_trabajo':
+        return String(row.tipo_trabajo || row.TipoTraba || '');
+      case 'grupo_servicio':
+        return String(row.grupo_servicio || row.tipo_trabajo || '');
       case 'distrito':
       case 'provincia':
       case 'Localidad':
@@ -913,9 +970,19 @@ export default function AdminDashboard() {
 
   const getUniqueValuesForField = (field: string): string[] => {
     const set = new Set<string>();
+    if (field === 'TipoServicioCalculado' || field === 'tipo_servicio') {
+      ['INSTALACION', 'AVERIAS', 'AVERIAS PRV', 'POSTVENTA', 'PROVINCIA'].forEach(t => set.add(t));
+      (filtrosOpciones.tiposClasificados || []).forEach(t => t && set.add(t));
+    } else if (field === 'quien_tiene_la_palabra') {
+      ['CONFIRMADO', 'CLIENTE', 'PLANTILLA', 'ASESOR'].forEach(p => set.add(p));
+    } else if (field === 'estado_chat') {
+      ['Abierto', 'Pendiente', 'Sin Respuesta', 'Cerrado'].forEach(e => set.add(e));
+    } else if (field === 'semaforo_sla') {
+      ['VERDE', 'AMARILLO', 'ROJO'].forEach(s => set.add(s));
+    }
     for (let i = 0; i < data.length; i++) {
       const val = getCellValue(data[i], field).trim();
-      set.add(val || '(Vacío)');
+      if (val) set.add(val);
     }
     return Array.from(set).sort((a, b) => {
       if (a === '(Vacío)') return 1;
@@ -1507,19 +1574,19 @@ export default function AdminDashboard() {
           </div>
         )}
 
-        {/* Chips de Filtros Excel Activos */}
+        {/* Chips de Filtros Activos */}
         {Object.keys(columnFilters).length > 0 && activeTab !== 'dashboard' && activeTab !== 'usuarios' && (
           <div className="flex flex-wrap items-center gap-2 px-3 py-2 bg-slate-900/80 border border-slate-800 rounded-xl text-xs z-20">
             <span className="text-[11px] font-semibold text-slate-400 flex items-center gap-1.5">
               <Filter className="w-3.5 h-3.5 text-orange-400" />
-              Filtros Excel activos ({Object.keys(columnFilters).length}):
+              {Object.keys(columnFilters).length === 1 ? 'Filtro activo:' : `Filtros activos (${Object.keys(columnFilters).length}):`}
             </span>
             {Object.entries(columnFilters).map(([fKey, fVal]) => (
               <span
                 key={fKey}
                 className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-orange-500/15 border border-orange-500/30 text-orange-300 text-[11px] font-mono"
               >
-                <strong className="text-slate-300 capitalize">{fKey.replace(/_/g, ' ')}:</strong>
+                <strong className="text-slate-300 font-sans font-semibold">{getColumnLabel(fKey)}:</strong>
                 <span className="truncate max-w-[140px]">
                   {fVal.selected && fVal.selected.length > 0 ? fVal.selected.join(', ') : fVal.search}
                 </span>
