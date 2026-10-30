@@ -38,7 +38,12 @@ import {
   MapPin,
   Users,
   UserPlus,
-  Shield
+  Shield,
+  Mail,
+  Phone,
+  Lock,
+  CreditCard,
+  AtSign
 } from 'lucide-react';
 
 type TabType = 'principal' | 'reporte' | 'dashboard' | 'encuestas' | 'reprogramaciones' | 'chats_mantra' | 'usuarios';
@@ -706,151 +711,114 @@ export default function AdminDashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans">
-      {/* Header Superior */}
-      <header className="bg-slate-900/90 border-b border-slate-800 backdrop-blur sticky top-0 z-30 px-6 py-4 flex flex-wrap items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div className="p-2.5 bg-gradient-to-tr from-orange-600 to-amber-500 rounded-xl shadow-lg shadow-orange-500/20 text-white">
-            <Database className="w-6 h-6" />
+    <div className="min-h-screen bg-[#0B0F17] text-slate-100 flex font-sans antialiased">
+      {/* Barra Lateral Izquierda (Sidebar) */}
+      <aside className="w-60 bg-[#0F141F] border-r border-slate-800/80 flex flex-col shrink-0 sticky top-0 h-screen z-40 select-none">
+        {/* Brand */}
+        <div className="h-16 px-5 border-b border-slate-800/80 flex items-center gap-3">
+          <div className="w-8 h-8 rounded-xl bg-[#FF5A0A] flex items-center justify-center shadow-lg shadow-orange-500/20 text-white font-black text-sm">
+            W
           </div>
           <div>
-            <h1 className="text-xl font-bold tracking-tight text-white flex items-center gap-2">
-              Panel de Base de Datos <span className="text-xs px-2 py-0.5 rounded-full bg-orange-500/10 text-orange-400 border border-orange-500/30">Admin Local</span>
-            </h1>
-            
+            <span className="font-bold text-sm tracking-tight text-white block leading-tight">Control WIN</span>
+            <span className="text-[10px] text-slate-500 font-mono block">Administración</span>
           </div>
         </div>
 
-        {/* Acciones de exportación */}
-        <div className="flex flex-wrap items-center gap-2">
-          
+        {/* Menú de Navegación Vertical */}
+        <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
+          {[
+            { id: 'principal', label: 'Órdenes', icon: Layers },
+            { id: 'reporte', label: 'Reporte', icon: BarChart3 },
+            { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+            { id: 'encuestas', label: 'Encuestas', icon: CheckCircle2 },
+            { id: 'reprogramaciones', label: 'Reprogramaciones', icon: CalendarClock },
+            { id: 'chats_mantra', label: 'Chats', icon: MessageSquare },
+            { id: 'usuarios', label: 'Usuarios', icon: Users },
+          ].map((item) => {
+            const isActive = activeTab === item.id;
+            const IconComp = item.icon;
+            return (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => {
+                  setActiveTab(item.id as TabType);
+                  if (item.id === 'reporte' && sortField === 'id') setSortField('fecha_visita');
+                }}
+                className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+                  isActive
+                    ? 'bg-[#FF5A0A] text-white shadow-lg shadow-orange-500/25 font-bold'
+                    : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
+                }`}
+              >
+                <IconComp className={`w-4 h-4 shrink-0 ${isActive ? 'text-white' : 'text-slate-400'}`} />
+                <span>{item.label}</span>
+              </button>
+            );
+          })}
+        </nav>
 
-          <button
-            onClick={() => handleDownload('csv')}
-            className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg transition-all shadow-md shadow-emerald-900/30 active:scale-95"
-            title="Descargar en formato CSV compatible con Microsoft Excel"
-          >
-            <FileSpreadsheet className="w-4 h-4" />
-            Descargar CSV
-          </button>
-          <button
-            onClick={() => handleDownload('json')}
-            className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-lg transition-all active:scale-95"
-            title="Descargar JSON estructurado"
-          >
-            <FileCode className="w-4 h-4" />
-            Descargar JSON
-          </button>
+        {/* Footer Sidebar */}
+        <div className="p-4 border-t border-slate-800/80 text-[11px] text-slate-500 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+            <span className="font-mono text-[10px] text-slate-400">BD_Phoenix</span>
+          </div>
+          <span className="text-[10px] text-slate-600 font-mono">v2.1</span>
         </div>
-      </header>
+      </aside>
 
-      {/* Contenedor Principal */}
-      <main className="flex-1 p-6 max-w-[1750px] w-full mx-auto flex flex-col gap-5">
-        {/* Banner de Error si falla la conexión */}
-        {errorMsg && (
-          <div className="bg-rose-500/10 border border-rose-500/30 text-rose-300 px-4 py-3 rounded-2xl flex items-center justify-between gap-3 text-xs">
-            <div className="flex items-center gap-2">
-              <span className="font-bold">⚠️ Error de conexión:</span>
-              <span>{errorMsg}</span>
-            </div>
+      {/* Contenedor Principal (Derecha) */}
+      <div className="flex-1 flex flex-col min-w-0 min-h-screen">
+        {/* Topbar minimalista */}
+        <header className="h-16 bg-[#0F141F]/80 border-b border-slate-800/80 backdrop-blur sticky top-0 z-30 px-6 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <h1 className="text-base font-bold text-white tracking-tight">
+              {activeTab === 'principal' ? 'Órdenes de Trabajo' :
+               activeTab === 'reporte' ? 'Reporte Funnel' :
+               activeTab === 'dashboard' ? 'Dashboard Ejecutivo' :
+               activeTab === 'encuestas' ? 'Encuestas de Satisfacción' :
+               activeTab === 'reprogramaciones' ? 'Reprogramaciones' :
+               activeTab === 'chats_mantra' ? 'Historial de Chats' : 'Usuarios'}
+            </h1>
+          </div>
+
+          <div className="flex items-center gap-2">
             <button
-              onClick={() => fetchData()}
-              className="px-3 py-1 bg-rose-600/30 hover:bg-rose-600 text-white rounded-lg transition-colors font-medium"
+              onClick={() => handleDownload('csv')}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg transition-all shadow-sm active:scale-95 cursor-pointer"
             >
-              Reintentar
+              <FileSpreadsheet className="w-3.5 h-3.5" />
+              <span>CSV</span>
+            </button>
+            <button
+              onClick={() => handleDownload('json')}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-lg transition-all active:scale-95 cursor-pointer"
+            >
+              <FileCode className="w-3.5 h-3.5" />
+              <span>JSON</span>
             </button>
           </div>
-        )}
+        </header>
 
-        {/* Selector de Tablas */}
-        <div className="flex flex-wrap items-center gap-2 border-b border-slate-800 pb-3">
-          <button
-            onClick={() => setActiveTab('principal')}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-medium text-sm transition-all ${
-              activeTab === 'principal'
-                ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/20'
-                : 'bg-slate-900 text-slate-400 hover:text-slate-200 hover:bg-slate-800 border border-slate-800'
-            }`}
-          >
-            <Layers className="w-4 h-4" />
-            <span>Tabla Principal (Órdenes de Trabajo)</span>
-          </button>
-
-          <button
-            onClick={() => {
-              setActiveTab('reporte');
-              if (sortField === 'id') setSortField('fecha_visita');
-            }}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-medium text-sm transition-all ${
-              activeTab === 'reporte'
-                ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/20'
-                : 'bg-slate-900 text-slate-400 hover:text-slate-200 hover:bg-slate-800 border border-slate-800'
-            }`}
-          >
-            <BarChart3 className="w-4 h-4" />
-            <span>Reporte</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('dashboard')}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-medium text-sm transition-all ${
-              activeTab === 'dashboard'
-                ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/20'
-                : 'bg-slate-900 text-slate-400 hover:text-slate-200 hover:bg-slate-800 border border-slate-800'
-            }`}
-          >
-            <LayoutDashboard className="w-4 h-4" />
-            <span>Dashboard</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('encuestas')}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-medium text-sm transition-all ${
-              activeTab === 'encuestas'
-                ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/20'
-                : 'bg-slate-900 text-slate-400 hover:text-slate-200 hover:bg-slate-800 border border-slate-800'
-            }`}
-          >
-            <CheckCircle2 className="w-4 h-4" />
-            <span>Encuestas de Satisfacción</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('reprogramaciones')}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-medium text-sm transition-all ${
-              activeTab === 'reprogramaciones'
-                ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/20'
-                : 'bg-slate-900 text-slate-400 hover:text-slate-200 hover:bg-slate-800 border border-slate-800'
-            }`}
-          >
-            <CalendarClock className="w-4 h-4" />
-            <span>Reprogramaciones</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('chats_mantra')}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-medium text-sm transition-all ${
-              activeTab === 'chats_mantra'
-                ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/20'
-                : 'bg-slate-900 text-slate-400 hover:text-slate-200 hover:bg-slate-800 border border-slate-800'
-            }`}
-          >
-            <MessageSquare className="w-4 h-4" />
-            <span>Historial Chats Mantra</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('usuarios')}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-medium text-sm transition-all ${
-              activeTab === 'usuarios'
-                ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/20'
-                : 'bg-slate-900 text-slate-400 hover:text-slate-200 hover:bg-slate-800 border border-slate-800'
-            }`}
-          >
-            <Users className="w-4 h-4" />
-            <span>Usuarios & Roles</span>
-          </button>
-        </div>
+        {/* Contenido Principal */}
+        <main className="flex-1 p-6 w-full flex flex-col gap-5">
+          {/* Banner de Error si falla la conexión */}
+          {errorMsg && (
+            <div className="bg-rose-500/10 border border-rose-500/30 text-rose-300 px-4 py-3 rounded-2xl flex items-center justify-between gap-3 text-xs">
+              <div className="flex items-center gap-2">
+                <span className="font-bold">⚠️ Error de conexión:</span>
+                <span>{errorMsg}</span>
+              </div>
+              <button
+                onClick={() => fetchData()}
+                className="px-3 py-1 bg-rose-600/30 hover:bg-rose-600 text-white rounded-lg transition-colors font-medium"
+              >
+                Reintentar
+              </button>
+            </div>
+          )}
 
         {/* Barra de Filtros / Barra de Usuarios */}
         {activeTab === 'usuarios' ? (
@@ -861,12 +829,11 @@ export default function AdminDashboard() {
               </div>
               <div>
                 <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                  Gestión de Usuarios y Control por Roles
+                  Usuarios
                   <span className="text-xs px-2 py-0.5 rounded-full bg-slate-800 text-orange-400 border border-slate-700 font-mono">
-                    {usersList.length} registrados
+                    {usersList.length}
                   </span>
                 </h3>
-                <p className="text-xs text-slate-400">Segmentación por Área (INSTALACION, PROVINCIA, AVERIAS, ADMIN) y Rol (ADMIN, SUPERVISOR, COORDINADOR, ASESOR)</p>
               </div>
             </div>
 
@@ -1250,14 +1217,10 @@ export default function AdminDashboard() {
             </div>
           </div>
         ) : (
-          <div className="flex flex-wrap items-center justify-between gap-2 px-1 text-xs text-slate-400">
-            <div className="flex items-center gap-2">
-              <Activity className="w-4 h-4 text-orange-400" />
-              <span className="font-semibold text-slate-200">Panel Ejecutivo de Métricas y Monitoreo Mantra</span>
-            </div>
+          <div className="flex flex-wrap items-center justify-end gap-2 px-1 text-xs text-slate-400">
             {dashboardStats?.kpis && (
               <span className="text-xs text-slate-400">
-                Total Órdenes Evaluadas: <strong className="text-white font-mono">{Number(dashboardStats.kpis.total_ots || 0).toLocaleString()}</strong>
+                Total Evaluadas: <strong className="text-white font-mono">{Number(dashboardStats.kpis.total_ots || 0).toLocaleString()}</strong>
               </span>
             )}
           </div>
@@ -2469,29 +2432,28 @@ export default function AdminDashboard() {
           </div>
         </div>
         )}
-      </main>
+        </main>
+      </div>
 
 
-      {/* Modal para Registrar Nuevo Usuario */}
+      {/* Modal Moderno para Crear Usuario */}
       {isUserModalOpen && (
-        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-            <div className="flex items-center justify-between border-b border-slate-800 px-6 py-4 bg-slate-900/90">
+        <div className="fixed inset-0 bg-slate-950/85 backdrop-blur-xl z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-[#0F141F] border border-slate-800/90 rounded-3xl w-full max-w-lg shadow-[0_25px_70px_rgba(0,0,0,0.7)] overflow-hidden">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between border-b border-slate-800/70 px-6 py-4 bg-[#141A29]/50">
               <div className="flex items-center gap-3">
-                <div className="p-2 bg-orange-500/10 border border-orange-500/20 text-orange-400 rounded-xl">
-                  <UserPlus className="w-5 h-5" />
+                <div className="w-9 h-9 rounded-xl bg-orange-500/15 border border-orange-500/30 text-orange-400 flex items-center justify-center">
+                  <UserPlus className="w-4 h-4" />
                 </div>
-                <div>
-                  <h3 className="text-base font-bold text-white">Registrar Nuevo Usuario</h3>
-                  <p className="text-xs text-slate-400">Asigna credenciales, área operativa y rol de acceso</p>
-                </div>
+                <h3 className="text-base font-bold text-white tracking-tight">Nuevo Usuario</h3>
               </div>
               <button
                 type="button"
                 onClick={() => setIsUserModalOpen(false)}
-                className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors cursor-pointer"
+                className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-white hover:bg-slate-800/80 transition-colors cursor-pointer"
               >
-                <X className="w-5 h-5" />
+                <X className="w-4 h-4" />
               </button>
             </div>
 
@@ -2510,125 +2472,166 @@ export default function AdminDashboard() {
                 </div>
               )}
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {/* Fila 1: Nombre & Documento */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                 <div>
-                  <label className="block text-[11px] font-semibold text-slate-400 uppercase mb-1">Nombre Completo *</label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="Ej. Juan Pérez"
-                    value={userFormData.Nombre}
-                    onChange={(e) => setUserFormData({ ...userFormData, Nombre: e.target.value })}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-orange-500"
-                  />
+                  <label className="block text-[11px] font-semibold text-slate-400 mb-1.5">Nombre Completo</label>
+                  <div className="relative">
+                    <User className="w-3.5 h-3.5 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="text"
+                      required
+                      placeholder="Juan Pérez"
+                      value={userFormData.Nombre}
+                      onChange={(e) => setUserFormData({ ...userFormData, Nombre: e.target.value })}
+                      className="w-full bg-[#0A0D14] border border-slate-800/90 rounded-xl pl-8 pr-3 py-2 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-orange-500 transition-colors"
+                    />
+                  </div>
                 </div>
 
                 <div>
-                  <label className="block text-[11px] font-semibold text-slate-400 uppercase mb-1">Documento (DNI/CE) *</label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="Ej. 72345678"
-                    value={userFormData.Documento}
-                    onChange={(e) => setUserFormData({ ...userFormData, Documento: e.target.value })}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-orange-500 font-mono"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-[11px] font-semibold text-slate-400 uppercase mb-1">Usuario (Login) *</label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="Ej. jperez"
-                    value={userFormData.Usuario}
-                    onChange={(e) => setUserFormData({ ...userFormData, Usuario: e.target.value })}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-orange-500 font-mono"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-[11px] font-semibold text-slate-400 uppercase mb-1">Contraseña *</label>
-                  <input
-                    type="password"
-                    required
-                    placeholder="Contraseña segura"
-                    value={userFormData.Password}
-                    onChange={(e) => setUserFormData({ ...userFormData, Password: e.target.value })}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-orange-500"
-                  />
+                  <label className="block text-[11px] font-semibold text-slate-400 mb-1.5">Documento (DNI/CE)</label>
+                  <div className="relative">
+                    <CreditCard className="w-3.5 h-3.5 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="text"
+                      required
+                      placeholder="72345678"
+                      value={userFormData.Documento}
+                      onChange={(e) => setUserFormData({ ...userFormData, Documento: e.target.value })}
+                      className="w-full bg-[#0A0D14] border border-slate-800/90 rounded-xl pl-8 pr-3 py-2 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-orange-500 font-mono transition-colors"
+                    />
+                  </div>
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {/* Fila 2: Usuario & Contraseña */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                 <div>
-                  <label className="block text-[11px] font-semibold text-slate-400 uppercase mb-1">Email Corporativo *</label>
-                  <input
-                    type="email"
-                    required
-                    placeholder="jperez@win.pe"
-                    value={userFormData.Email}
-                    onChange={(e) => setUserFormData({ ...userFormData, Email: e.target.value })}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-orange-500"
-                  />
+                  <label className="block text-[11px] font-semibold text-slate-400 mb-1.5">Usuario (Login)</label>
+                  <div className="relative">
+                    <AtSign className="w-3.5 h-3.5 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="text"
+                      required
+                      placeholder="jperez"
+                      value={userFormData.Usuario}
+                      onChange={(e) => setUserFormData({ ...userFormData, Usuario: e.target.value })}
+                      className="w-full bg-[#0A0D14] border border-slate-800/90 rounded-xl pl-8 pr-3 py-2 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-orange-500 font-mono transition-colors"
+                    />
+                  </div>
                 </div>
 
                 <div>
-                  <label className="block text-[11px] font-semibold text-slate-400 uppercase mb-1">Teléfono</label>
-                  <input
-                    type="text"
-                    placeholder="Ej. 987654321"
-                    value={userFormData.Telefono}
-                    onChange={(e) => setUserFormData({ ...userFormData, Telefono: e.target.value })}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-orange-500"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
-                <div>
-                  <label className="block text-[11px] font-semibold text-slate-400 uppercase mb-1">Área Operativa *</label>
-                  <select
-                    value={userFormData.Area}
-                    onChange={(e: any) => setUserFormData({ ...userFormData, Area: e.target.value })}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-orange-500 font-semibold"
-                  >
-                    <option value="INSTALACION">INSTALACION</option>
-                    <option value="PROVINCIA">PROVINCIA</option>
-                    <option value="AVERIAS">AVERIAS</option>
-                    <option value="ADMIN">ADMIN</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-[11px] font-semibold text-slate-400 uppercase mb-1">Rol *</label>
-                  <select
-                    value={userFormData.Rol}
-                    onChange={(e: any) => setUserFormData({ ...userFormData, Rol: e.target.value })}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-orange-500 font-semibold"
-                  >
-                    <option value="ADMIN">ADMIN</option>
-                    <option value="SUPERVISOR">SUPERVISOR</option>
-                    <option value="COORDINADOR">COORDINADOR</option>
-                    <option value="ASESOR">ASESOR</option>
-                  </select>
+                  <label className="block text-[11px] font-semibold text-slate-400 mb-1.5">Contraseña</label>
+                  <div className="relative">
+                    <Lock className="w-3.5 h-3.5 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="password"
+                      required
+                      placeholder="••••••••"
+                      value={userFormData.Password}
+                      onChange={(e) => setUserFormData({ ...userFormData, Password: e.target.value })}
+                      className="w-full bg-[#0A0D14] border border-slate-800/90 rounded-xl pl-8 pr-3 py-2 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-orange-500 transition-colors"
+                    />
+                  </div>
                 </div>
               </div>
 
-              <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-800">
+              {/* Fila 3: Email & Teléfono */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-400 mb-1.5">Email Corporativo</label>
+                  <div className="relative">
+                    <Mail className="w-3.5 h-3.5 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="email"
+                      required
+                      placeholder="jperez@win.pe"
+                      value={userFormData.Email}
+                      onChange={(e) => setUserFormData({ ...userFormData, Email: e.target.value })}
+                      className="w-full bg-[#0A0D14] border border-slate-800/90 rounded-xl pl-8 pr-3 py-2 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-orange-500 transition-colors"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-400 mb-1.5">Teléfono</label>
+                  <div className="relative">
+                    <Phone className="w-3.5 h-3.5 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="text"
+                      placeholder="987654321"
+                      value={userFormData.Telefono}
+                      onChange={(e) => setUserFormData({ ...userFormData, Telefono: e.target.value })}
+                      className="w-full bg-[#0A0D14] border border-slate-800/90 rounded-xl pl-8 pr-3 py-2 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-orange-500 transition-colors"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Selector Moderno de Área */}
+              <div>
+                <label className="block text-[11px] font-semibold text-slate-400 mb-1.5">Área Operativa</label>
+                <div className="grid grid-cols-4 gap-2">
+                  {(['INSTALACION', 'PROVINCIA', 'AVERIAS', 'ADMIN'] as const).map(area => {
+                    const isSel = userFormData.Area === area;
+                    return (
+                      <button
+                        key={area}
+                        type="button"
+                        onClick={() => setUserFormData({ ...userFormData, Area: area })}
+                        className={`py-2 px-1 rounded-xl text-[11px] font-bold border transition-all text-center cursor-pointer ${
+                          isSel
+                            ? 'bg-[#FF5A0A]/20 border-[#FF5A0A] text-[#FF5A0A] shadow-sm shadow-orange-500/20'
+                            : 'bg-[#0A0D14] border-slate-800 text-slate-400 hover:text-white hover:border-slate-700'
+                        }`}
+                      >
+                        {area}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Selector Moderno de Rol */}
+              <div>
+                <label className="block text-[11px] font-semibold text-slate-400 mb-1.5">Rol Asignado</label>
+                <div className="grid grid-cols-4 gap-2">
+                  {(['ADMIN', 'SUPERVISOR', 'COORDINADOR', 'ASESOR'] as const).map(rol => {
+                    const isSel = userFormData.Rol === rol;
+                    return (
+                      <button
+                        key={rol}
+                        type="button"
+                        onClick={() => setUserFormData({ ...userFormData, Rol: rol })}
+                        className={`py-2 px-1 rounded-xl text-[11px] font-bold border transition-all text-center cursor-pointer flex items-center justify-center gap-1 ${
+                          isSel
+                            ? 'bg-amber-500/20 border-amber-400 text-amber-300 shadow-sm shadow-amber-500/20'
+                            : 'bg-[#0A0D14] border-slate-800 text-slate-400 hover:text-white hover:border-slate-700'
+                        }`}
+                      >
+                        {rol === 'ADMIN' && <Shield className="w-3 h-3 text-amber-400 shrink-0" />}
+                        <span>{rol}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Botones de acción */}
+              <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-800/80">
                 <button
                   type="button"
                   onClick={() => setIsUserModalOpen(false)}
-                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-semibold transition-colors cursor-pointer"
+                  className="px-4 py-2 bg-slate-800/80 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-semibold transition-colors cursor-pointer"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
                   disabled={isSavingUser}
-                  className="flex items-center gap-2 px-5 py-2 bg-orange-500 hover:bg-orange-600 disabled:opacity-50 text-white rounded-xl text-xs font-bold transition-all shadow-lg shadow-orange-500/25 cursor-pointer"
+                  className="flex items-center gap-2 px-5 py-2 bg-[#FF5A0A] hover:bg-orange-600 disabled:opacity-50 text-white rounded-xl text-xs font-bold transition-all shadow-lg shadow-orange-500/25 cursor-pointer"
                 >
                   {isSavingUser && <RefreshCw className="w-3.5 h-3.5 animate-spin" />}
                   <span>Guardar Usuario</span>
