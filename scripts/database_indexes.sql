@@ -1,35 +1,29 @@
 -- ==============================================================================
 -- SCRIPT DE INDEXACIÓN PARA PRODUCCIÓN (AZURE MYSQL / BD_Phoenix)
 -- Fase 3: Optimización de Rendimiento e Indexación Compuesta
+-- Verificado y aplicado en Azure MySQL Flexible Server (phx-win-mysql-9508)
 -- ==============================================================================
 
--- 1. Tabla de Logs de Seguimiento (Alto volumen de inserciones y lecturas rápidas por token)
--- Optimiza la verificación de primera_visita y carga de eventos en tracking
-ALTER TABLE LOGS_TRAKING ADD INDEX idx_logs_token_evento (token, evento);
-ALTER TABLE LOGS_TRAKING ADD INDEX idx_logs_created_at (created_at);
+-- 1. Tabla de Órdenes de Trabajo (vw_winordetraba es tabla física con millones de registros)
+-- Resuelve cuellos de botella críticos en filtros por Fecha de Visita y Tipo de Trabajo
+ALTER TABLE `vw_winordetraba` ADD INDEX `idx_f_visita` (`F.Visita`);
+ALTER TABLE `vw_winordetraba` ADD INDEX `idx_visita_prod_traba` (`F.Visita`, `Producto`, `TipoTraba`);
 
--- 2. Tabla de Reprogramaciones y Encuestas
--- Optimiza la verificación de estados antes de mostrar el mapa / tracking al cliente
-ALTER TABLE REPROGRAMACIONES ADD INDEX idx_reprog_token (token);
-ALTER TABLE REPROGRAMACIONES ADD INDEX idx_reprog_fecha_sol (fecha_solicitada);
+-- 2. Tabla de Logs de Tracking (logs_traking)
+-- Acelera los subqueries de embudo y verificación de ingreso al mapa
+ALTER TABLE `logs_traking` ADD INDEX `idx_logs_token_evento` (`token`, `evento`);
+ALTER TABLE `logs_traking` ADD INDEX `idx_logs_ordenid` (`OrdenId`);
 
-ALTER TABLE Encuesta_app ADD INDEX idx_encuesta_app_token (token);
-ALTER TABLE ENCUESTAS ADD INDEX idx_encuestas_token (token);
+-- 3. Tabla de Reporte de Plantillas Mantra (reporte_plantillas_mantra)
+-- Optimiza cruces por token y orden_id en la vista 360 y reportes
+ALTER TABLE `reporte_plantillas_mantra` ADD INDEX `idx_rpm_token` (`token`);
+ALTER TABLE `reporte_plantillas_mantra` ADD INDEX `idx_rpm_orden_id` (`orden_id`);
 
--- 3. Tabla de Historial Chats Mantra
--- Acelera los reportes analíticos del Dashboard Chat, filtros por fecha y agregaciones
-ALTER TABLE historial_chats_mantra ADD INDEX idx_chats_fecha_grupo_estado (fecha_mensaje, grupo_servicio, estado_wsp);
-ALTER TABLE historial_chats_mantra ADD INDEX idx_chats_orden_ticket (orden_id, ticket);
-ALTER TABLE historial_chats_mantra ADD INDEX idx_chats_estado_chat (estado_chat);
+-- 4. Tablas de Reprogramaciones y Encuestas
+-- Optimiza cruces de estado en el embudo operativo
+ALTER TABLE `reprogramaciones` ADD INDEX `idx_reprog_token` (`token`);
+ALTER TABLE `encuestas` ADD INDEX `idx_encuestas_token` (`token`);
 
--- 4. Tabla de Usuarios del Sistema (Login y unicidad)
-ALTER TABLE user ADD UNIQUE INDEX uq_user_usuario (Usuario);
-ALTER TABLE user ADD INDEX idx_user_area_rol (Area, Rol, Activo);
-
--- 5. Índices sobre las tablas base de Órdenes de Trabajo (subyacentes a vw_winordetraba)
--- Si la vista vw_winordetraba consulta una tabla física como `win_ordenes` o `ordenes_trabajo`:
--- (Ejecutar sobre la tabla física base correspondiente en el esquema de producción):
--- ALTER TABLE <tabla_ordenes_base> ADD INDEX idx_ordenes_token (token);
--- ALTER TABLE <tabla_ordenes_base> ADD INDEX idx_ordenes_fecha_visita (FechaVisita);
--- ALTER TABLE <tabla_ordenes_base> ADD INDEX idx_ordenes_doc (NumeroDocumento);
--- ALTER TABLE <tabla_ordenes_base> ADD INDEX idx_ordenes_prod_traba (Producto, TipoTraba);
+-- 5. Tabla de Historial Chats Mantra (historial_chats_mantra)
+-- Acelera el Dashboard de Chats por fecha de gestión y grupo de servicio
+ALTER TABLE `historial_chats_mantra` ADD INDEX `idx_chats_fecha_grupo` (`fecha_gestion_dia`, `grupo_servicio`);
