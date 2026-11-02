@@ -1,4 +1,5 @@
 import React from 'react';
+import { formatTipoServicioLabel } from '../../lib/utils';
 import { 
   Database, 
   Send, 
@@ -448,7 +449,7 @@ export const DashboardWinEnrutaView: React.FC<DashboardWinEnrutaViewProps> = ({
                             return (
                               <div key={oIdx} className="p-3 bg-slate-950/70 rounded-xl border border-slate-800 space-y-1.5">
                                 <div className="flex items-center justify-between text-xs">
-                                  <span className="font-bold text-white truncate max-w-[150px]">{op.operacion}</span>
+                                  <span className="font-bold text-white truncate max-w-[150px]">{formatTipoServicioLabel(op.operacion)}</span>
                                   <span className="font-mono text-slate-300 font-bold">{opTotal.toLocaleString()} ({pctOp}%)</span>
                                 </div>
                                 <div className="flex items-center justify-between text-[10px] text-slate-400">

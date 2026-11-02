@@ -4,6 +4,7 @@ import { DashboardChatsView } from '@/components/admin/DashboardChatsView';
 import { UsersManagementView } from '@/components/admin/UsersManagementView';
 import { RecordDetailView } from '@/components/admin/RecordDetailView';
 import { ExcelFilterHeader, ColumnFilterState } from '../components/ExcelFilterHeader';
+import { formatTipoServicioLabel } from '../lib/utils';
 import { 
   Database, 
   Search, 
@@ -1407,7 +1408,7 @@ export default function AdminDashboard() {
                   {grupoServicio.length === 0
                     ? 'Todos los grupos'
                     : grupoServicio.length === 1
-                      ? grupoServicio[0]
+                      ? formatTipoServicioLabel(grupoServicio[0])
                       : `${grupoServicio.length} grupos seleccionados`}
                 </span>
                 <ChevronDown className={`w-3.5 h-3.5 text-slate-400 shrink-0 transition-transform ${grupoDropdownOpen ? 'rotate-180 text-orange-400' : ''}`} />
@@ -1464,7 +1465,7 @@ export default function AdminDashboard() {
                             }`}>
                               {isChecked && <Check className="w-2.5 h-2.5 text-white stroke-[3]" />}
                             </div>
-                            <span className="truncate text-[11px]">{g}</span>
+                            <span className="truncate text-[11px]">{formatTipoServicioLabel(g)}</span>
                           </div>
                         );
                       })}
@@ -1603,7 +1604,7 @@ export default function AdminDashboard() {
               >
                 <strong className="text-slate-300 font-sans font-semibold">{getColumnLabel(fKey)}:</strong>
                 <span className="truncate max-w-[140px]">
-                  {fVal.selected && fVal.selected.length > 0 ? fVal.selected.join(', ') : fVal.search}
+                  {fVal.selected && fVal.selected.length > 0 ? fVal.selected.map(v => fKey === 'TipoServicioCalculado' ? formatTipoServicioLabel(v) : v).join(', ') : fVal.search}
                 </span>
                 <button
                   type="button"
@@ -1740,6 +1741,7 @@ export default function AdminDashboard() {
                       activeDropdown={activeFilterDropdown}
                       setActiveDropdown={setActiveFilterDropdown}
                       allValues={getUniqueValuesForField('TipoServicioCalculado')}
+                      formatLabel={formatTipoServicioLabel}
                     />
                     <ExcelFilterHeader
                       title="Cliente"
@@ -1902,30 +1904,42 @@ export default function AdminDashboard() {
 
                         {/* 3. Tipo Servicio */}
                         <td className="py-2.5 px-3 whitespace-nowrap">
-                          <span className={`px-2.5 py-0.5 rounded-full font-bold text-[10px] tracking-wide uppercase inline-flex items-center gap-1.5 border shadow-sm ${
-                            row.TipoServicioCalculado === 'INSTALACION' 
-                              ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'
-                              : row.TipoServicioCalculado === 'AVERIAS' || row.TipoServicioCalculado === 'AVERIAS PRV'
-                              ? 'bg-rose-500/15 text-rose-300 border-rose-500/30'
-                              : row.TipoServicioCalculado === 'POSTVENTA'
-                              ? 'bg-cyan-500/15 text-cyan-300 border-cyan-500/30'
-                              : row.TipoServicioCalculado === 'PROVINCIA'
-                              ? 'bg-purple-500/15 text-purple-300 border-purple-500/30'
-                              : 'bg-amber-500/15 text-amber-300 border-amber-500/30'
-                          }`}>
-                            <span className={`w-1.5 h-1.5 rounded-full ${
-                              row.TipoServicioCalculado === 'INSTALACION' 
-                                ? 'bg-emerald-400 shadow-[0_0_6px_#10b981]'
-                                : row.TipoServicioCalculado === 'AVERIAS' || row.TipoServicioCalculado === 'AVERIAS PRV'
-                                ? 'bg-rose-400 shadow-[0_0_6px_#f43f5e]'
-                                : row.TipoServicioCalculado === 'POSTVENTA'
-                                ? 'bg-cyan-400 shadow-[0_0_6px_#06b6d4]'
-                                : row.TipoServicioCalculado === 'PROVINCIA'
-                                ? 'bg-purple-400 shadow-[0_0_6px_#a855f7]'
-                                : 'bg-amber-400 shadow-[0_0_6px_#f59e0b]'
-                            }`} />
-                            {row.TipoServicioCalculado || row.TipoTraba || '-'}
-                          </span>
+                          {(() => {
+                            const rawTipo = row.TipoServicioCalculado || row.TipoTraba;
+                            const displayTipo = formatTipoServicioLabel(rawTipo);
+                            const isInstaLima = displayTipo === 'INSTA - LIMA' || rawTipo === 'INSTALACION';
+                            const isInstaProv = displayTipo === 'INSTA - PROV' || rawTipo === 'PROVINCIA';
+                            const isAverLima = displayTipo === 'AVER - LIMA' || rawTipo === 'AVERIAS';
+                            const isAverProv = displayTipo === 'AVER - PROV' || rawTipo === 'AVERIAS PRV';
+                            const isPostVenta = displayTipo === 'POSTVENTA';
+
+                            return (
+                              <span className={`px-2.5 py-0.5 rounded-full font-bold text-[10px] tracking-wide uppercase inline-flex items-center gap-1.5 border shadow-sm ${
+                                isInstaLima 
+                                  ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'
+                                  : isAverLima || isAverProv
+                                  ? 'bg-rose-500/15 text-rose-300 border-rose-500/30'
+                                  : isPostVenta
+                                  ? 'bg-cyan-500/15 text-cyan-300 border-cyan-500/30'
+                                  : isInstaProv
+                                  ? 'bg-purple-500/15 text-purple-300 border-purple-500/30'
+                                  : 'bg-amber-500/15 text-amber-300 border-amber-500/30'
+                              }`}>
+                                <span className={`w-1.5 h-1.5 rounded-full ${
+                                  isInstaLima 
+                                    ? 'bg-emerald-400 shadow-[0_0_6px_#10b981]'
+                                    : isAverLima || isAverProv
+                                    ? 'bg-rose-400 shadow-[0_0_6px_#f43f5e]'
+                                    : isPostVenta
+                                    ? 'bg-cyan-400 shadow-[0_0_6px_#06b6d4]'
+                                    : isInstaProv
+                                    ? 'bg-purple-400 shadow-[0_0_6px_#a855f7]'
+                                    : 'bg-amber-400 shadow-[0_0_6px_#f59e0b]'
+                                }`} />
+                                {displayTipo}
+                              </span>
+                            );
+                          })()}
                         </td>
 
                         {/* 4. Cliente */}
@@ -2240,7 +2254,7 @@ export default function AdminDashboard() {
                         </td>
                         <td className="py-2.5 px-4 whitespace-nowrap">
                           <span className="px-2 py-0.5 rounded-md bg-slate-800 text-[10px] font-semibold text-slate-200 border border-slate-700">
-                            {row.tipo_operacion || row.TipoServicioCalculado || row.tipo_trabajo || row.TipoTraba || row.producto || row.Producto || '-'}
+                            {formatTipoServicioLabel(row.tipo_operacion || row.TipoServicioCalculado || row.tipo_trabajo || row.TipoTraba || row.producto || row.Producto)}
                           </span>
                         </td>
                         <td className="py-2.5 px-4 whitespace-nowrap">

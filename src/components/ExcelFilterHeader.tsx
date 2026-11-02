@@ -20,6 +20,7 @@ interface ExcelFilterHeaderProps {
   align?: 'left' | 'right' | 'center';
   alignRight?: boolean;
   className?: string;
+  formatLabel?: (val: string) => string;
 }
 
 export const ExcelFilterHeader: React.FC<ExcelFilterHeaderProps> = ({
@@ -35,7 +36,8 @@ export const ExcelFilterHeader: React.FC<ExcelFilterHeaderProps> = ({
   allValues,
   align = 'left',
   alignRight = false,
-  className = ''
+  className = '',
+  formatLabel
 }) => {
   const isOpen = activeDropdown === field;
   const currentFilter = columnFilters[field];
@@ -59,8 +61,11 @@ export const ExcelFilterHeader: React.FC<ExcelFilterHeaderProps> = ({
   const filteredOptions = useMemo(() => {
     if (!localSearch.trim()) return allValues;
     const term = localSearch.toLowerCase().trim();
-    return allValues.filter(v => v.toLowerCase().includes(term));
-  }, [allValues, localSearch]);
+    return allValues.filter(v => {
+      const display = formatLabel ? formatLabel(v) : v;
+      return v.toLowerCase().includes(term) || display.toLowerCase().includes(term);
+    });
+  }, [allValues, localSearch, formatLabel]);
 
   const selectedSet = useMemo(() => new Set(localSelected), [localSelected]);
   const isAllChecked = filteredOptions.length > 0 && filteredOptions.every(opt => selectedSet.has(opt));
@@ -229,7 +234,7 @@ export const ExcelFilterHeader: React.FC<ExcelFilterHeaderProps> = ({
                       onChange={() => handleToggleOption(opt)}
                       className="rounded border-slate-700 bg-slate-950 text-orange-500 focus:ring-0 cursor-pointer w-3.5 h-3.5"
                     />
-                    <span className="truncate font-mono text-[11px]">{opt}</span>
+                    <span className="truncate font-mono text-[11px]">{formatLabel ? formatLabel(opt) : opt}</span>
                   </label>
                 );
               })}

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { formatTipoServicioLabel } from '../../lib/utils';
 import { 
   User, 
   MapPin, 
@@ -75,20 +76,31 @@ export const RecordDetailView: React.FC<RecordDetailViewProps> = ({
           </div>
 
           {/* Tipo de Servicio */}
-          <span className={`px-3 py-1 rounded-full font-bold text-xs uppercase tracking-wide inline-flex items-center gap-1.5 border shadow-sm ${
-            tipoServicio === 'INSTALACION' 
-              ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'
-              : tipoServicio.includes('AVERIAS')
-              ? 'bg-rose-500/15 text-rose-300 border-rose-500/30'
-              : tipoServicio === 'POSTVENTA'
-              ? 'bg-cyan-500/15 text-cyan-300 border-cyan-500/30'
-              : tipoServicio === 'PROVINCIA'
-              ? 'bg-purple-500/15 text-purple-300 border-purple-500/30'
-              : 'bg-amber-500/15 text-amber-300 border-amber-500/30'
-          }`}>
-            <span className="w-2 h-2 rounded-full bg-current animate-pulse" />
-            {tipoServicio}
-          </span>
+          {(() => {
+            const display = formatTipoServicioLabel(tipoServicio);
+            const isInstaLima = display === 'INSTA - LIMA' || tipoServicio === 'INSTALACION';
+            const isInstaProv = display === 'INSTA - PROV' || tipoServicio === 'PROVINCIA';
+            const isAverLima = display === 'AVER - LIMA' || tipoServicio === 'AVERIAS';
+            const isAverProv = display === 'AVER - PROV' || tipoServicio === 'AVERIAS PRV';
+            const isPost = display === 'POSTVENTA';
+
+            return (
+              <span className={`px-3 py-1 rounded-full font-bold text-xs uppercase tracking-wide inline-flex items-center gap-1.5 border shadow-sm ${
+                isInstaLima 
+                  ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'
+                  : isAverLima || isAverProv
+                  ? 'bg-rose-500/15 text-rose-300 border-rose-500/30'
+                  : isPost
+                  ? 'bg-cyan-500/15 text-cyan-300 border-cyan-500/30'
+                  : isInstaProv
+                  ? 'bg-purple-500/15 text-purple-300 border-purple-500/30'
+                  : 'bg-amber-500/15 text-amber-300 border-amber-500/30'
+              }`}>
+                <span className="w-2 h-2 rounded-full bg-current animate-pulse" />
+                {display}
+              </span>
+            );
+          })()}
 
           {/* Estado OT */}
           <span className="px-3 py-1 rounded-full font-semibold text-xs inline-flex items-center gap-1.5 bg-slate-900 text-slate-200 border border-slate-800">
