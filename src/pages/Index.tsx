@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { motion } from "framer-motion";
-import pantallaWinEnRutaImg from "@/assets/pantalla_win_en_ruta.png";
+import pantallaWinEnRutaImg from "@/assets/pantalla_win_en_ruta.webp";
 
 const Index = () => {
   const navigate = useNavigate();

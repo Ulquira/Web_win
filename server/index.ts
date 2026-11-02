@@ -38,6 +38,9 @@ setInterval(() => {
 // URLs para los servicios internos (Ajustado para entorno de producción si es necesario)
 const CAPA_INTERMEDIA_URL = process.env.CAPA_INTERMEDIA_URL || 'http://localhost:4001';
 const SECRET_API_KEY = process.env.SECRET_API_KEY || "LLAVE_SECRETA_DEL_TERCERO_123";
+if (!process.env.SECRET_API_KEY && process.env.NODE_ENV === 'production') {
+  console.warn('[SECURITY WARNING] SECRET_API_KEY no definida en variables de entorno de producción; usando fallback inseguro.');
+}
 
 // Seguridad y Confianza (Cloud Run)
 app.set('trust proxy', 1);
@@ -2243,7 +2246,10 @@ app.get('/api/4dm1n_/mantra-chat', async (req, res) => {
     }
 
     // Configuración dinámica según catálogo de plantillas config_plantillas_mantra
-    let config = { GROUP_ID: '685dc70e53dd0ac2492c69ca', API_KEY: '3d0d59f1-f3ea-47be-b5b0-d7ffca33817d' };
+    let config = {
+      GROUP_ID: process.env.MANTRA_DEFAULT_GROUP_ID || '',
+      API_KEY: process.env.MANTRA_DEFAULT_API_KEY || ''
+    };
     try {
       const [cfgRows]: any = await pool.query(
         `SELECT group_id, api_key FROM config_plantillas_mantra 
@@ -2253,10 +2259,24 @@ app.get('/api/4dm1n_/mantra-chat', async (req, res) => {
       if (cfgRows && cfgRows.length > 0 && cfgRows[0].group_id && cfgRows[0].api_key) {
         config = { GROUP_ID: cfgRows[0].group_id, API_KEY: cfgRows[0].api_key };
       } else if (grupoServicio.toLowerCase().includes('averia')) {
-        config = { GROUP_ID: '68508b455ba42fd0a6660300', API_KEY: '618684ea-0e61-478f-9b22-bc0fd8b8a934' };
+        config = {
+          GROUP_ID: process.env.MANTRA_AVERIAS_GROUP_ID || config.GROUP_ID,
+          API_KEY: process.env.MANTRA_AVERIAS_API_KEY || config.API_KEY
+        };
       }
     } catch (e) {
       console.warn('Error resolviendo config dinámica de Mantra:', e);
+    }
+
+    if (!config.GROUP_ID || !config.API_KEY) {
+      const isAveria = grupoServicio.toLowerCase().includes('averia');
+      config = {
+        GROUP_ID: isAveria ? '68508b455ba42fd0a6660300' : '685dc70e53dd0ac2492c69ca',
+        API_KEY: isAveria ? '618684ea-0e61-478f-9b22-bc0fd8b8a934' : '3d0d59f1-f3ea-47be-b5b0-d7ffca33817d'
+      };
+      if (process.env.NODE_ENV === 'production') {
+        console.warn('[SECURITY WARNING] Credenciales de Mantra obtenidas de fallback estático. Configure MANTRA_DEFAULT_* o la tabla config_plantillas_mantra.');
+      }
     }
 
     const mantraRes = await fetch('https://wbpback2pro2.mantra.chat/contacts/chats/historial', {
@@ -2371,6 +2391,8 @@ app.get('/api/4dm1n_/export', async (req, res) => {
 
     const maxExportRows = 5000;
     const params: any[] = [];
+    const countParams: any[] = [];
+    let countQuery = '';
     let selectQuery = '';
 
     if (tabla === 'encuestas') {

@@ -21,6 +21,9 @@ app.use(express.json());
 
 // Un token súper secreto que viene de las variables de entorno
 const SECRET_API_KEY = process.env.SECRET_API_KEY || "LLAVE_SECRETA_DEL_TERCERO_123";
+if (!process.env.SECRET_API_KEY && process.env.NODE_ENV === 'production') {
+  console.warn('[SECURITY WARNING] SECRET_API_KEY no definida en variables de entorno de producción; usando fallback inseguro.');
+}
 
 // Cache en memoria ultra-rápido para mitigar carga masiva en DB (TTL: 4 segundos)
 const memoryCache = new Map<string, { data: any, expiresAt: number }>();
