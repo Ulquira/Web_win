@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { DashboardWinEnrutaView } from '@/components/admin/DashboardWinEnrutaView';
 import { DashboardChatsView } from '@/components/admin/DashboardChatsView';
 import { UsersManagementView } from '@/components/admin/UsersManagementView';
+import { RecordDetailView } from '@/components/admin/RecordDetailView';
 import { ExcelFilterHeader, ColumnFilterState } from '../components/ExcelFilterHeader';
 import { 
   Database, 
@@ -2867,83 +2868,14 @@ export default function AdminDashboard() {
             {/* Cuerpo del Modal: Campos a la Izquierda | Chat Expandido a la Derecha */}
             <div className="flex-1 p-3 sm:p-4 overflow-hidden flex flex-col md:flex-row gap-4 min-h-0 bg-slate-950/60">
               
-              {/* COLUMNA IZQUIERDA: Campos y Metadatos de BD (Ancho ergonómico fijo en desktop con scroll independiente) */}
-              <div className={`${activeTab === 'chats_mantra' ? 'w-full md:w-[380px] lg:w-[420px] xl:w-[460px] flex-shrink-0' : 'w-full'} flex flex-col min-h-0 bg-slate-900/80 border border-slate-800/90 rounded-2xl p-4 shadow-sm`}>
-                <div className="flex items-center justify-between border-b border-slate-800 pb-3 mb-3 flex-shrink-0">
-                  <div className="flex items-center gap-2">
-                    <Database className="w-4 h-4 text-orange-400" />
-                    <h4 className="text-xs font-bold text-white uppercase tracking-wider">
-                      Campos y Metadatos ({Object.keys(selectedRow).length})
-                    </h4>
-                  </div>
-                  {selectedRow.estado_chat && (
-                    <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-slate-700 font-medium">
-                      {selectedRow.estado_chat}
-                    </span>
-                  )}
-                </div>
-
-                {selectedRow.link_tracking && (
-                  <div className="p-3 mb-3 bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-transparent border border-orange-500/30 rounded-xl flex items-center justify-between gap-3 flex-shrink-0">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <Navigation className="w-4 h-4 text-orange-400 flex-shrink-0" />
-                      <div className="min-w-0">
-                        <div className="text-xs font-semibold text-white">Enlace de Seguimiento en Vivo</div>
-                        <div className="text-[10px] text-slate-400 font-mono truncate">{selectedRow.link_tracking}</div>
-                      </div>
-                    </div>
-                    <a
-                      href={selectedRow.link_tracking}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-orange-600 hover:bg-orange-500 text-white rounded-lg text-xs font-medium transition-all shadow-md active:scale-95 flex-shrink-0"
-                    >
-                      <span>Abrir Seguimiento</span>
-                      <ExternalLink className="w-3.5 h-3.5" />
-                    </a>
-                  </div>
-                )}
-
-                <div className="flex-1 overflow-y-auto space-y-2 pr-1.5 scrollbar-thin scrollbar-thumb-slate-700 min-h-0">
-                  {Object.entries(selectedRow).map(([key, value]: [string, any]) => {
-                    // Si hay chat formateado a la derecha, ocultar el JSON gigante de la lista izquierda
-                    if (key === 'ultimos_mensajes_json' && parsedChatMessages.length > 0) {
-                      return null;
-                    }
-                    return (
-                      <div key={key} className="flex flex-col p-2.5 bg-slate-950/70 rounded-xl border border-slate-800/80 gap-1 hover:border-slate-700 transition-colors">
-                        <div className="flex items-center justify-between">
-                          <span className="text-[11px] font-semibold text-orange-400/90 font-mono tracking-wide">{key}</span>
-                          {key === 'TipoServicioCalculado' && (
-                            <span className="text-[9px] px-1.5 py-0.5 rounded bg-orange-500/20 text-orange-300 font-bold">CRUZADO</span>
-                          )}
-                          {key === 'semaforo_sla' && (
-                            <span className={`text-[9px] px-2 py-0.5 rounded-full font-bold ${
-                              value === 'VERDE' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' :
-                              value === 'AMARILLO' ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' :
-                              'bg-rose-500/20 text-rose-400 border border-rose-500/30'
-                            }`}>
-                              {value}
-                            </span>
-                          )}
-                        </div>
-                        <span className="text-xs text-slate-100 font-mono break-all select-all">
-                          {value === null || value === undefined || value === '' ? (
-                            <span className="text-slate-600 italic">null</span>
-                          ) : typeof value === 'object' ? (
-                            <pre className="text-[10px] bg-slate-900 p-2 rounded-lg text-emerald-400 overflow-x-auto max-h-40 border border-slate-800 font-mono">
-                              {JSON.stringify(value, null, 2)}
-                            </pre>
-                          ) : key.toLowerCase().includes('fecha') || key === 'F.Visita' || key === 'F.Soli' ? (
-                            formatDate(value)
-                          ) : (
-                            String(value)
-                          )}
-                        </span>
-                      </div>
-                    );
-                  })}
-                </div>
+              {/* COLUMNA DE DATOS Y FICHA TÉCNICA (RecordDetailView) */}
+              <div className={`${activeTab === 'chats_mantra' ? 'w-full md:w-[380px] lg:w-[420px] xl:w-[460px] flex-shrink-0' : 'w-full'} flex flex-col min-h-0 bg-slate-900/80 border border-slate-800/90 rounded-2xl p-3 sm:p-4 shadow-sm`}>
+                <RecordDetailView
+                  row={selectedRow}
+                  activeTab={activeTab}
+                  formatDate={formatDate}
+                  formatDateOnly={formatDateOnly}
+                />
               </div>
 
               {/* COLUMNA DERECHA: Ventana de Chat Expandida (WhatsApp Mantra) */}
