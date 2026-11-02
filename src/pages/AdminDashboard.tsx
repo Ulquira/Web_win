@@ -38,6 +38,8 @@ import {
   LayoutDashboard,
   TrendingUp,
   Users,
+  MapPin,
+  Calendar,
 } from 'lucide-react';
 
 // Mapeo de identificadores de columna a etiquetas amigables
@@ -69,6 +71,11 @@ const COLUMN_FRIENDLY_LABELS: Record<string, string> = {
   distrito: 'Distrito',
   Cuadrilla: 'Cuadrilla',
   cuadrilla: 'Cuadrilla',
+  Cuadrilla_nombre: 'Técnico',
+  tecnico: 'Técnico',
+  Zona: 'Distrito',
+  Pin_token: 'PIN',
+  pin: 'PIN',
   phone: 'Teléfono',
   telefono: 'Teléfono',
   asesor_asignado: 'Usuario',
@@ -861,7 +868,14 @@ export default function AdminDashboard() {
       case 'distrito':
       case 'provincia':
       case 'Localidad':
-        return String(row.distrito ?? row.provincia ?? row.Localidad ?? '');
+      case 'Zona':
+        return String(row.Zona || row.distrito || row.Localidad || row.provincia || '');
+      case 'Cuadrilla_nombre':
+      case 'tecnico':
+        return String(row.Cuadrilla_nombre || row.tecnico || '');
+      case 'Pin_token':
+      case 'pin':
+        return String(row.Pin_token || row.pin || '');
       case 'quien_tiene_la_palabra':
         return String(row.quien_tiene_la_palabra ?? '');
       case 'estado_chat':
@@ -1678,9 +1692,9 @@ export default function AdminDashboard() {
               {/* 1. Tabla Principal */}
               {activeTab === 'principal' && (
                 <table className="w-full text-left text-xs text-slate-300 border-collapse">
-                <thead className="bg-slate-950/80 sticky top-0 z-20 border-b border-slate-800 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
+                <thead className="bg-slate-950/90 backdrop-blur-md sticky top-0 z-20 border-b border-slate-800 text-[11px] font-semibold text-slate-400 uppercase tracking-wider shadow-sm">
                   <tr>
-                    <th className="py-3 px-3">Acción</th>
+                    <th className="py-3 px-3 w-[70px] text-center">Acción</th>
                     <ExcelFilterHeader
                       title="Orden ID"
                       field="OrdenId"
@@ -1791,7 +1805,7 @@ export default function AdminDashboard() {
                     />
                     <ExcelFilterHeader
                       title="Distrito"
-                      field="Localidad"
+                      field="Zona"
                       sortField={sortField}
                       sortOrder={sortOrder}
                       onSort={handleSort}
@@ -1799,7 +1813,7 @@ export default function AdminDashboard() {
                       onFilterChange={handleColumnFilterChange}
                       activeDropdown={activeFilterDropdown}
                       setActiveDropdown={setActiveFilterDropdown}
-                      allValues={getUniqueValuesForField('Localidad')}
+                      allValues={getUniqueValuesForField('Zona')}
                     />
                     <ExcelFilterHeader
                       title="Cuadrilla"
@@ -1812,39 +1826,78 @@ export default function AdminDashboard() {
                       activeDropdown={activeFilterDropdown}
                       setActiveDropdown={setActiveFilterDropdown}
                       allValues={getUniqueValuesForField('Cuadrilla')}
-                      alignRight={true}
                     />
+                    <ExcelFilterHeader
+                      title="Técnico"
+                      field="Cuadrilla_nombre"
+                      sortField={sortField}
+                      sortOrder={sortOrder}
+                      onSort={handleSort}
+                      columnFilters={columnFilters}
+                      onFilterChange={handleColumnFilterChange}
+                      activeDropdown={activeFilterDropdown}
+                      setActiveDropdown={setActiveFilterDropdown}
+                      allValues={getUniqueValuesForField('Cuadrilla_nombre')}
+                    />
+                    <ExcelFilterHeader
+                      title="PIN"
+                      field="Pin_token"
+                      sortField={sortField}
+                      sortOrder={sortOrder}
+                      onSort={handleSort}
+                      columnFilters={columnFilters}
+                      onFilterChange={handleColumnFilterChange}
+                      activeDropdown={activeFilterDropdown}
+                      setActiveDropdown={setActiveFilterDropdown}
+                      allValues={getUniqueValuesForField('Pin_token')}
+                    />
+                    <th className="py-3 px-3 text-center">Seguimiento</th>
                   </tr>
                 </thead>
                 {displayData.length === 0 && !loading ? (
                   <tbody className="divide-y divide-slate-800/60">
                     <tr>
-                      <td colSpan={13} className="py-12 text-center text-slate-500">
-                        No se encontraron registros con los filtros seleccionados
+                      <td colSpan={15} className="py-16 text-center text-slate-500">
+                        <div className="flex flex-col items-center justify-center gap-2">
+                          <Database className="w-8 h-8 text-slate-600" />
+                          <p className="text-xs font-medium text-slate-400">No se encontraron registros con los filtros seleccionados</p>
+                        </div>
                       </td>
                     </tr>
                   </tbody>
                 ) : (
                   <VirtualizedTableBody
                     data={displayData}
-                    rowHeight={44}
+                    rowHeight={46}
                     overscan={8}
-                    totalColumns={13}
+                    totalColumns={15}
                     scrollElementRef={tableContainerRef}
                     renderRow={(row, idx) => (
-                      <tr key={row.OrdenId || row.id || idx} className="hover:bg-slate-800/40 transition-colors">
-                        <td className="py-2.5 px-4">
+                      <tr 
+                        key={row.OrdenId || row.id || idx} 
+                        className="hover:bg-slate-800/40 transition-colors border-b border-slate-800/40 group"
+                      >
+                        {/* 1. Acción */}
+                        <td className="py-2.5 px-3 text-center whitespace-nowrap">
                           <button
                             onClick={() => setSelectedRow(row)}
-                            className="p-1.5 bg-slate-800 hover:bg-orange-500/20 hover:text-orange-400 text-slate-400 rounded-lg transition-colors"
+                            className="p-1.5 bg-slate-800/90 hover:bg-orange-500/20 hover:text-orange-400 text-slate-400 rounded-lg transition-colors border border-slate-700/50 shadow-sm"
                             title="Ver detalle completo"
                           >
                             <Eye className="w-3.5 h-3.5" />
                           </button>
                         </td>
-                        <td className="py-2.5 px-4 font-mono font-medium text-white">{row.OrdenId}</td>
-                        <td className="py-2.5 px-4">
-                          <span className={`px-2.5 py-1 rounded-lg font-bold text-[10px] tracking-wide uppercase border ${
+
+                        {/* 2. Orden ID */}
+                        <td className="py-2.5 px-3 whitespace-nowrap">
+                          <span className="font-mono font-bold text-white tracking-wider text-[11px] bg-slate-950/70 border border-slate-800 px-2 py-0.5 rounded-md inline-block">
+                            {row.OrdenId}
+                          </span>
+                        </td>
+
+                        {/* 3. Tipo Servicio */}
+                        <td className="py-2.5 px-3 whitespace-nowrap">
+                          <span className={`px-2.5 py-0.5 rounded-full font-bold text-[10px] tracking-wide uppercase inline-flex items-center gap-1.5 border shadow-sm ${
                             row.TipoServicioCalculado === 'INSTALACION' 
                               ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'
                               : row.TipoServicioCalculado === 'AVERIAS' || row.TipoServicioCalculado === 'AVERIAS PRV'
@@ -1855,44 +1908,133 @@ export default function AdminDashboard() {
                               ? 'bg-purple-500/15 text-purple-300 border-purple-500/30'
                               : 'bg-amber-500/15 text-amber-300 border-amber-500/30'
                           }`}>
+                            <span className={`w-1.5 h-1.5 rounded-full ${
+                              row.TipoServicioCalculado === 'INSTALACION' 
+                                ? 'bg-emerald-400 shadow-[0_0_6px_#10b981]'
+                                : row.TipoServicioCalculado === 'AVERIAS' || row.TipoServicioCalculado === 'AVERIAS PRV'
+                                ? 'bg-rose-400 shadow-[0_0_6px_#f43f5e]'
+                                : row.TipoServicioCalculado === 'POSTVENTA'
+                                ? 'bg-cyan-400 shadow-[0_0_6px_#06b6d4]'
+                                : row.TipoServicioCalculado === 'PROVINCIA'
+                                ? 'bg-purple-400 shadow-[0_0_6px_#a855f7]'
+                                : 'bg-amber-400 shadow-[0_0_6px_#f59e0b]'
+                            }`} />
                             {row.TipoServicioCalculado || row.TipoTraba || '-'}
                           </span>
                         </td>
-                        <td className="py-2.5 px-4 font-medium text-slate-100 max-w-[200px] truncate" title={row.Cliente}>
-                          {row.Cliente}
+
+                        {/* 4. Cliente */}
+                        <td className="py-2.5 px-3 max-w-[210px] truncate" title={row.Cliente}>
+                          <span className="font-semibold text-slate-100 group-hover:text-white transition-colors">
+                            {row.Cliente}
+                          </span>
                         </td>
-                        <td className="py-2.5 px-4 font-mono">{row.NumeroDocumento || row['Número Documento'] || '-'}</td>
-                        <td className="py-2.5 px-4 whitespace-nowrap text-amber-300/90">{formatDate(row.FechaVisita || row['F.Visita'])}</td>
-                        <td className="py-2.5 px-4">
-                          <span className="px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20 text-[10px]">
+
+                        {/* 5. Documento */}
+                        <td className="py-2.5 px-3 whitespace-nowrap">
+                          <span className="font-mono text-slate-400 text-[11px]">
+                            {row.NumeroDocumento || row['Número Documento'] || '-'}
+                          </span>
+                        </td>
+
+                        {/* 6. Fecha Visita */}
+                        <td className="py-2.5 px-3 whitespace-nowrap">
+                          <div className="flex items-center gap-1.5 text-amber-300/90 font-mono text-[11px]">
+                            <Calendar className="w-3 h-3 text-amber-400/70" />
+                            <span>{formatDate(row.FechaVisita || row['F.Visita'])}</span>
+                          </div>
+                        </td>
+
+                        {/* 7. Tipo Trabajo */}
+                        <td className="py-2.5 px-3 whitespace-nowrap">
+                          <span className="px-2 py-0.5 rounded-md bg-blue-500/10 text-blue-300 border border-blue-500/25 text-[10px] font-medium tracking-wide">
                             {row.TipoTraba || '-'}
                           </span>
                         </td>
-                        <td className="py-2.5 px-4 max-w-[180px] truncate" title={row.Producto}>{row.Producto || '-'}</td>
-                        <td className="py-2.5 px-4">
-                          <span className="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px]">
+
+                        {/* 8. Producto */}
+                        <td className="py-2.5 px-3 max-w-[170px] truncate" title={row.Producto}>
+                          <span className="text-slate-300 font-medium">{row.Producto || '-'}</span>
+                        </td>
+
+                        {/* 9. Estado */}
+                        <td className="py-2.5 px-3 whitespace-nowrap">
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold inline-flex items-center gap-1.5 border ${
+                            row.Estado === 'Iniciada' || row.Estado === 'Completada'
+                              ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                              : row.Estado === 'Agendada'
+                              ? 'bg-sky-500/10 text-sky-400 border-sky-500/20'
+                              : row.Estado === 'Cancelada'
+                              ? 'bg-rose-500/10 text-rose-400 border-rose-500/20'
+                              : 'bg-slate-800 text-slate-300 border-slate-700'
+                          }`}>
+                            <span className={`w-1.5 h-1.5 rounded-full ${
+                              row.Estado === 'Iniciada' || row.Estado === 'Completada'
+                                ? 'bg-emerald-400'
+                                : row.Estado === 'Agendada'
+                                ? 'bg-sky-400'
+                                : row.Estado === 'Cancelada'
+                                ? 'bg-rose-400'
+                                : 'bg-slate-400'
+                            }`} />
                             {row.Estado || '-'}
                           </span>
                         </td>
-                        <td className="py-2.5 px-4 max-w-[150px] truncate" title={`${row.Localidad || ''} - ${row.Zona || ''}`}>
-                          {row.Localidad || row.Zona || '-'}
+
+                        {/* 10. Dirección */}
+                        <td className="py-2.5 px-3 max-w-[220px] truncate" title={row.Direccion || '-'}>
+                          <div className="flex items-center gap-1 text-slate-300 text-[11px]">
+                            <MapPin className="w-3 h-3 text-slate-500 flex-shrink-0" />
+                            <span className="truncate">{row.Direccion || '-'}</span>
+                          </div>
                         </td>
-                        <td className="py-2.5 px-4 text-slate-400">{row.Cuadrilla_nombre || '-'}</td>
-                        <td className="py-2.5 px-4 font-mono font-bold text-orange-400">{row.Pin_token || '-'}</td>
-                        <td className="py-2.5 px-4">
+
+                        {/* 11. Distrito */}
+                        <td className="py-2.5 px-3 whitespace-nowrap">
+                          <span className="px-2 py-0.5 rounded-md bg-cyan-500/10 text-cyan-300 border border-cyan-500/20 text-[10px] font-medium">
+                            {row.Zona || row.Localidad || '-'}
+                          </span>
+                        </td>
+
+                        {/* 12. Cuadrilla completa sin limpiar */}
+                        <td className="py-2.5 px-3 max-w-[240px] truncate" title={row.Cuadrilla || '-'}>
+                          <div className="flex items-center gap-1.5 text-slate-200 font-medium text-[11px]">
+                            <Users className="w-3 h-3 text-indigo-400/80 flex-shrink-0" />
+                            <span className="truncate">{row.Cuadrilla || '-'}</span>
+                          </div>
+                        </td>
+
+                        {/* 13. Técnico */}
+                        <td className="py-2.5 px-3 whitespace-nowrap">
+                          <div className="flex items-center gap-1 text-slate-300 text-[11px] font-medium" title={row.Cuadrilla_nombre || '-'}>
+                            <User className="w-3 h-3 text-orange-400/80 flex-shrink-0" />
+                            <span>{row.Cuadrilla_nombre || '-'}</span>
+                          </div>
+                        </td>
+
+                        {/* 14. PIN */}
+                        <td className="py-2.5 px-3 text-center whitespace-nowrap">
+                          <span className="px-2 py-0.5 rounded-md bg-amber-500/15 text-amber-300 border border-amber-500/30 font-mono font-bold text-[11px] tracking-wider">
+                            {row.Pin_token || '-'}
+                          </span>
+                        </td>
+
+                        {/* 15. Seguimiento */}
+                        <td className="py-2.5 px-3 text-center whitespace-nowrap">
                           {row.token ? (
                             <a
                               href={`/seguimiento/${row.token}`}
                               target="_blank"
                               rel="noreferrer"
-                              className="inline-flex items-center gap-1 font-mono text-[11px] text-orange-400 hover:text-orange-300 underline"
+                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-orange-500/15 hover:bg-orange-500/25 text-orange-400 border border-orange-500/30 text-[10px] font-mono font-semibold transition-all hover:scale-105"
                               title="Abrir vista de seguimiento"
                             >
+                              <Navigation className="w-3 h-3" />
                               <span>{row.token.slice(0, 8)}...</span>
-                              <ExternalLink className="w-3 h-3" />
+                              <ExternalLink className="w-2.5 h-2.5" />
                             </a>
                           ) : (
-                            <span className="text-slate-600">-</span>
+                            <span className="text-slate-600 font-mono text-[10px]">-</span>
                           )}
                         </td>
                       </tr>

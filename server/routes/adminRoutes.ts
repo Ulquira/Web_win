@@ -694,10 +694,10 @@ router.get('/data', async (req, res) => {
         countParams.push(...serviceCond.values);
       }
       if (search) {
-        whereClauses.push('(w.OrdenId LIKE ? OR w.Cliente LIKE ? OR w.`Número Documento` LIKE ? OR w.token LIKE ? OR w.CodiSegui LIKE ? OR w.Direccion LIKE ?)');
+        whereClauses.push('(w.OrdenId LIKE ? OR w.Cliente LIKE ? OR w.N\xfamero Documento LIKE ? OR w.token LIKE ? OR w.CodiSegui LIKE ? OR w.Direccion LIKE ? OR w.Zona LIKE ? OR w.Cuadrilla LIKE ? OR w.Cuadrilla_nombre LIKE ? OR w.Pin_token LIKE ?)');
         const s = `%${search}%`;
-        params.push(s, s, s, s, s, s);
-        countParams.push(s, s, s, s, s, s);
+        params.push(s, s, s, s, s, s, s, s, s, s);
+        countParams.push(s, s, s, s, s, s, s, s, s, s);
       }
       const gruposPrincipal = parseGrupoServicio(grupoServicio);
       const grupoPrinCond = buildGrupoServicioPrincipalFilter(gruposPrincipal);
@@ -726,11 +726,15 @@ router.get('/data', async (req, res) => {
         FechaVisita: 'w.`F.Visita`',
         direccion: 'w.Direccion',
         Direccion: 'w.Direccion',
-        distrito: 'w.Localidad',
-        Localidad: 'w.Localidad',
+        distrito: 'COALESCE(NULLIF(TRIM(w.Zona), \'\'), w.Localidad)',
+        Localidad: 'COALESCE(NULLIF(TRIM(w.Zona), \'\'), w.Localidad)',
+        Zona: 'COALESCE(NULLIF(TRIM(w.Zona), \'\'), w.Localidad)',
         cuadrilla: 'w.Cuadrilla',
         Cuadrilla: 'w.Cuadrilla',
+        tecnico: 'w.Cuadrilla_nombre',
+        Cuadrilla_nombre: 'w.Cuadrilla_nombre',
         pin: 'w.Pin_token',
+        Pin_token: 'w.Pin_token',
         token: 'w.token'
       };
 
@@ -1726,11 +1730,15 @@ router.get('/export', async (req, res) => {
         FechaVisita: 'w.`F.Visita`',
         direccion: 'w.Direccion',
         Direccion: 'w.Direccion',
-        distrito: 'w.Localidad',
-        Localidad: 'w.Localidad',
+        distrito: 'COALESCE(NULLIF(TRIM(w.Zona), \'\'), w.Localidad)',
+        Localidad: 'COALESCE(NULLIF(TRIM(w.Zona), \'\'), w.Localidad)',
+        Zona: 'COALESCE(NULLIF(TRIM(w.Zona), \'\'), w.Localidad)',
         cuadrilla: 'w.Cuadrilla',
         Cuadrilla: 'w.Cuadrilla',
+        tecnico: 'w.Cuadrilla_nombre',
+        Cuadrilla_nombre: 'w.Cuadrilla_nombre',
         pin: 'w.Pin_token',
+        Pin_token: 'w.Pin_token',
         token: 'w.token'
       };
       for (const [colKey, colVal] of Object.entries(colFilters)) {
