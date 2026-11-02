@@ -2,7 +2,6 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { DashboardWinEnrutaView } from '@/components/admin/DashboardWinEnrutaView';
 import { DashboardChatsView } from '@/components/admin/DashboardChatsView';
 import { UsersManagementView } from '@/components/admin/UsersManagementView';
-import { VirtualizedTableBody } from '@/components/admin/VirtualizedTableBody';
 import { ExcelFilterHeader, ColumnFilterState } from '../components/ExcelFilterHeader';
 import { 
   Database, 
@@ -1088,6 +1087,28 @@ export default function AdminDashboard() {
     window.open(`${apiUrl}/api/4dm1n_/export?${params.toString()}`, '_blank');
   };
 
+  const formatDateOnly = (val: any) => {
+    if (!val) return '-';
+    try {
+      if (typeof val === 'string') {
+        const clean = val.split('T')[0].split(' ')[0];
+        const parts = clean.split('-');
+        if (parts.length === 3) {
+          return `${parts[2]}/${parts[1]}/${parts[0]}`;
+        }
+      }
+      const d = new Date(val);
+      if (isNaN(d.getTime())) return String(val);
+      return d.toLocaleDateString('es-PE', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit'
+      });
+    } catch {
+      return String(val);
+    }
+  };
+
   const formatDate = (val: any) => {
     if (!val) return '-';
     try {
@@ -1688,7 +1709,7 @@ export default function AdminDashboard() {
               </div>
             )}
 
-            <div ref={tableContainerRef} className="overflow-x-auto max-h-[650px] scrollbar-thin scrollbar-thumb-slate-700">
+            <div ref={tableContainerRef} className="overflow-x-auto scrollbar-thin scrollbar-thumb-slate-700">
               {/* 1. Tabla Principal */}
               {activeTab === 'principal' && (
                 <table className="w-full text-left text-xs text-slate-300 border-collapse">
@@ -1828,18 +1849,6 @@ export default function AdminDashboard() {
                       allValues={getUniqueValuesForField('Cuadrilla')}
                     />
                     <ExcelFilterHeader
-                      title="Técnico"
-                      field="Cuadrilla_nombre"
-                      sortField={sortField}
-                      sortOrder={sortOrder}
-                      onSort={handleSort}
-                      columnFilters={columnFilters}
-                      onFilterChange={handleColumnFilterChange}
-                      activeDropdown={activeFilterDropdown}
-                      setActiveDropdown={setActiveFilterDropdown}
-                      allValues={getUniqueValuesForField('Cuadrilla_nombre')}
-                    />
-                    <ExcelFilterHeader
                       title="PIN"
                       field="Pin_token"
                       sortField={sortField}
@@ -1857,7 +1866,7 @@ export default function AdminDashboard() {
                 {displayData.length === 0 && !loading ? (
                   <tbody className="divide-y divide-slate-800/60">
                     <tr>
-                      <td colSpan={15} className="py-16 text-center text-slate-500">
+                      <td colSpan={14} className="py-16 text-center text-slate-500">
                         <div className="flex flex-col items-center justify-center gap-2">
                           <Database className="w-8 h-8 text-slate-600" />
                           <p className="text-xs font-medium text-slate-400">No se encontraron registros con los filtros seleccionados</p>
@@ -1866,13 +1875,8 @@ export default function AdminDashboard() {
                     </tr>
                   </tbody>
                 ) : (
-                  <VirtualizedTableBody
-                    data={displayData}
-                    rowHeight={46}
-                    overscan={8}
-                    totalColumns={15}
-                    scrollElementRef={tableContainerRef}
-                    renderRow={(row, idx) => (
+                  <tbody className="divide-y divide-slate-800/60 font-medium">
+                    {displayData.map((row, idx) => (
                       <tr 
                         key={row.OrdenId || row.id || idx} 
                         className="hover:bg-slate-800/40 transition-colors border-b border-slate-800/40 group"
@@ -1937,11 +1941,11 @@ export default function AdminDashboard() {
                           </span>
                         </td>
 
-                        {/* 6. Fecha Visita */}
+                        {/* 6. Fecha Visita (Solo Fecha, sin hora) */}
                         <td className="py-2.5 px-3 whitespace-nowrap">
                           <div className="flex items-center gap-1.5 text-amber-300/90 font-mono text-[11px]">
                             <Calendar className="w-3 h-3 text-amber-400/70" />
-                            <span>{formatDate(row.FechaVisita || row['F.Visita'])}</span>
+                            <span>{formatDateOnly(row.FechaVisita || row['F.Visita'])}</span>
                           </div>
                         </td>
 
@@ -1997,29 +2001,21 @@ export default function AdminDashboard() {
                         </td>
 
                         {/* 12. Cuadrilla completa sin limpiar */}
-                        <td className="py-2.5 px-3 max-w-[240px] truncate" title={row.Cuadrilla || '-'}>
+                        <td className="py-2.5 px-3 max-w-[280px] truncate" title={row.Cuadrilla || '-'}>
                           <div className="flex items-center gap-1.5 text-slate-200 font-medium text-[11px]">
                             <Users className="w-3 h-3 text-indigo-400/80 flex-shrink-0" />
                             <span className="truncate">{row.Cuadrilla || '-'}</span>
                           </div>
                         </td>
 
-                        {/* 13. Técnico */}
-                        <td className="py-2.5 px-3 whitespace-nowrap">
-                          <div className="flex items-center gap-1 text-slate-300 text-[11px] font-medium" title={row.Cuadrilla_nombre || '-'}>
-                            <User className="w-3 h-3 text-orange-400/80 flex-shrink-0" />
-                            <span>{row.Cuadrilla_nombre || '-'}</span>
-                          </div>
-                        </td>
-
-                        {/* 14. PIN */}
+                        {/* 13. PIN */}
                         <td className="py-2.5 px-3 text-center whitespace-nowrap">
                           <span className="px-2 py-0.5 rounded-md bg-amber-500/15 text-amber-300 border border-amber-500/30 font-mono font-bold text-[11px] tracking-wider">
                             {row.Pin_token || '-'}
                           </span>
                         </td>
 
-                        {/* 15. Seguimiento */}
+                        {/* 14. Seguimiento */}
                         <td className="py-2.5 px-3 text-center whitespace-nowrap">
                           {row.token ? (
                             <a
@@ -2038,8 +2034,8 @@ export default function AdminDashboard() {
                           )}
                         </td>
                       </tr>
-                    )}
-                  />
+                    ))}
+                  </tbody>
                 )}
               </table>
             )}
