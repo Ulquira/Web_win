@@ -2772,7 +2772,7 @@ export default function AdminDashboard() {
                 </div>
                 <div className="min-w-0">
                   <h3 className="text-base font-bold text-white flex items-center gap-2 truncate">
-                    {activeTab === 'chats_mantra' ? 'Ficha Técnica & Conversación Mantra' : activeTab === 'reporte' ? 'Ficha Técnica Funnel 360°' : `Detalle Completo del Registro (${activeTab})`}
+                    {activeTab === 'chats_mantra' ? 'Ficha Técnica & Conversación Mantra' : activeTab === 'reporte' ? 'Ficha Técnica Funnel 360°' : 'Detalle de Orden'}
                     <span className="text-xs px-2.5 py-0.5 rounded-full bg-slate-800 text-orange-400 border border-slate-700 font-mono">
                       #{selectedRow.id || selectedRow.OrdenId || selectedRow.orden_id}
                     </span>

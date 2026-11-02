@@ -12,7 +12,9 @@ import {
   Navigation,
   Phone, 
   Mail, 
-  Shield 
+  Shield,
+  Building2,
+  FileText
 } from 'lucide-react';
 
 interface RecordDetailViewProps {
@@ -56,7 +58,7 @@ export const RecordDetailView: React.FC<RecordDetailViewProps> = ({
 
   return (
     <div className="flex-1 flex flex-col min-h-0 space-y-3.5">
-      {/* 1. HERO BAR: Resumen Ejecutivo Superior */}
+      {/* 1. BARRA SUPERIOR CON ACCIONES CLAVE */}
       <div className="bg-slate-950/80 border border-slate-800/90 rounded-2xl p-3 sm:p-4 shadow-md backdrop-blur flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-2.5">
           {/* Orden ID */}
@@ -140,28 +142,28 @@ export const RecordDetailView: React.FC<RecordDetailViewProps> = ({
         )}
       </div>
 
-      {/* Selector de Vista: Resumen Organizado vs Todos los Metadatos */}
+      {/* Selector de Vista: Cuadrícula Resumida vs Todos los Campos */}
       <div className="flex items-center justify-between border-b border-slate-800/80 pb-2 flex-shrink-0">
         <div className="flex items-center gap-2">
           <button
             onClick={() => setActiveSubTab('resumen')}
-            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all ${
               activeSubTab === 'resumen'
                 ? 'bg-orange-500 text-white shadow-sm'
                 : 'bg-slate-900/60 text-slate-400 hover:text-white border border-slate-800'
             }`}
           >
-            Vista Organizada por Bloques
+            Vista Principal
           </button>
           <button
             onClick={() => setActiveSubTab('todos')}
-            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all ${
               activeSubTab === 'todos'
                 ? 'bg-orange-500 text-white shadow-sm'
                 : 'bg-slate-900/60 text-slate-400 hover:text-white border border-slate-800'
             }`}
           >
-            Todos los Campos ({Object.keys(row).length})
+            Todos los Metadatos ({Object.keys(row).length})
           </button>
         </div>
 
@@ -179,212 +181,197 @@ export const RecordDetailView: React.FC<RecordDetailViewProps> = ({
         )}
       </div>
 
-      {/* CONTENIDO PRINCIPAL */}
+      {/* CONTENIDO PRINCIPAL: DISEÑO 2x2 CUADRADO MODERNO */}
       <div className="flex-1 overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-slate-700 min-h-0">
         {activeSubTab === 'resumen' ? (
-          <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-4 gap-3.5">
-            {/* BLOQUE 1: DATOS DEL CLIENTE */}
-            <div className="bg-slate-950/70 border border-slate-800/90 rounded-2xl p-4 shadow-sm space-y-3">
-              <div className="flex items-center gap-2 border-b border-slate-800/80 pb-2.5">
-                <div className="p-1.5 bg-blue-500/10 text-blue-400 rounded-lg">
-                  <User className="w-4 h-4" />
-                </div>
-                <h4 className="text-xs font-bold text-white uppercase tracking-wider">Cliente & Contacto</h4>
-              </div>
-
-              <div className="space-y-2 text-xs">
-                <div>
-                  <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block">Nombre / Razón Social</span>
-                  <div className="font-bold text-slate-100 text-sm mt-0.5">
-                    {row.Cliente || row.ClienteFinal || row.cliente || row.cliente_nombre || '-'}
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-2 pt-1 border-t border-slate-800/40">
-                  <div>
-                    <span className="text-[10px] text-slate-400 uppercase block">Documento</span>
-                    <span className="font-mono text-slate-200 font-medium">
-                      {row.NumeroDocumento || row['Número Documento'] || row.documento || '-'}
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-[10px] text-slate-400 uppercase block">Tipo Cliente</span>
-                    <span className="text-slate-200 font-medium">{row.Tipo || row.tipo_cliente || 'Residencial'}</span>
-                  </div>
-                </div>
-
-                <div className="pt-1 border-t border-slate-800/40 space-y-1.5">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10px] text-slate-400 uppercase flex items-center gap-1">
-                      <Phone className="w-3 h-3 text-emerald-400" /> Móvil:
-                    </span>
-                    <span className="font-mono font-bold text-emerald-400">
-                      {row.TeleMovilNume || row.telefono || row.phone || '-'}
-                    </span>
-                  </div>
-                  {row.TeleFijoNume && (
-                    <div className="flex items-center justify-between">
-                      <span className="text-[10px] text-slate-400 uppercase">Fijo:</span>
-                      <span className="font-mono text-slate-300">{row.TeleFijoNume}</span>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pb-2">
+            {/* PANEL 1: CLIENTE & CONTACTO */}
+            <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 shadow-sm backdrop-blur flex flex-col justify-between space-y-4">
+              <div>
+                <div className="flex items-center justify-between border-b border-slate-800 pb-3 mb-3">
+                  <div className="flex items-center gap-2">
+                    <div className="p-1.5 bg-blue-500/10 text-blue-400 rounded-lg border border-blue-500/20">
+                      <User className="w-4 h-4" />
                     </div>
-                  )}
-                  {row.Email && (
-                    <div className="flex items-center justify-between">
-                      <span className="text-[10px] text-slate-400 uppercase flex items-center gap-1">
-                        <Mail className="w-3 h-3 text-cyan-400" /> Email:
+                    <h4 className="text-xs font-bold text-white uppercase tracking-wider">Cliente & Contacto</h4>
+                  </div>
+                  <span className="text-[10px] px-2 py-0.5 rounded-full font-medium bg-slate-800 text-slate-300 border border-slate-700">
+                    {row.Tipo || row.tipo_cliente || 'Residencial'}
+                  </span>
+                </div>
+
+                <div className="space-y-3">
+                  <div>
+                    <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block">Nombre / Razón Social</span>
+                    <div className="font-bold text-white text-base mt-0.5 leading-snug">
+                      {row.Cliente || row.ClienteFinal || row.cliente || row.cliente_nombre || '-'}
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3 pt-2 border-t border-slate-800/60">
+                    <div>
+                      <span className="text-[10px] text-slate-400 uppercase block font-semibold">Documento</span>
+                      <span className="font-mono text-slate-200 font-bold text-sm">
+                        {row.NumeroDocumento || row['Número Documento'] || row.documento || '-'}
                       </span>
-                      <span className="text-slate-300 truncate max-w-[160px]" title={row.Email}>{row.Email}</span>
                     </div>
-                  )}
-                  {row.CodiClien && (
-                    <div className="flex items-center justify-between">
-                      <span className="text-[10px] text-slate-400 uppercase">Cód. Cliente:</span>
-                      <span className="font-mono text-slate-400">{row.CodiClien}</span>
+                    <div>
+                      <span className="text-[10px] text-slate-400 uppercase block font-semibold">Móvil / WhatsApp</span>
+                      <div className="flex items-center gap-1.5 mt-0.5">
+                        <Phone className="w-3.5 h-3.5 text-emerald-400" />
+                        <span className="font-mono font-bold text-emerald-400 text-sm">
+                          {row.TeleMovilNume || row.telefono || row.phone || '-'}
+                        </span>
+                      </div>
                     </div>
-                  )}
+                  </div>
                 </div>
               </div>
+
+              {row.Email && (
+                <div className="pt-2 border-t border-slate-800/60 flex items-center gap-2 text-xs text-slate-300 bg-slate-950/40 p-2.5 rounded-xl border border-slate-800/40">
+                  <Mail className="w-3.5 h-3.5 text-cyan-400 flex-shrink-0" />
+                  <span className="truncate select-all" title={row.Email}>{row.Email}</span>
+                </div>
+              )}
             </div>
 
-            {/* BLOQUE 2: DIRECCIÓN Y UBICACIÓN */}
-            <div className="bg-slate-950/70 border border-slate-800/90 rounded-2xl p-4 shadow-sm space-y-3">
-              <div className="flex items-center gap-2 border-b border-slate-800/80 pb-2.5">
-                <div className="p-1.5 bg-rose-500/10 text-rose-400 rounded-lg">
-                  <MapPin className="w-4 h-4" />
-                </div>
-                <h4 className="text-xs font-bold text-white uppercase tracking-wider">Dirección & Zona</h4>
-              </div>
-
-              <div className="space-y-2 text-xs">
-                <div>
-                  <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block">Dirección de Instalación</span>
-                  <div className="font-medium text-slate-200 mt-0.5 leading-relaxed bg-slate-900/60 p-2 rounded-xl border border-slate-800/60 break-words" title={row.Direccion || '-'}>
-                    {row.Direccion || row.direccion || '-'}
+            {/* PANEL 2: DIRECCIÓN & ZONA */}
+            <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 shadow-sm backdrop-blur flex flex-col justify-between space-y-4">
+              <div>
+                <div className="flex items-center justify-between border-b border-slate-800 pb-3 mb-3">
+                  <div className="flex items-center gap-2">
+                    <div className="p-1.5 bg-rose-500/10 text-rose-400 rounded-lg border border-rose-500/20">
+                      <MapPin className="w-4 h-4" />
+                    </div>
+                    <h4 className="text-xs font-bold text-white uppercase tracking-wider">Dirección & Zona</h4>
                   </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-2 pt-1 border-t border-slate-800/40">
-                  <div>
-                    <span className="text-[10px] text-slate-400 uppercase block">Distrito / Zona</span>
-                    <span className="font-bold text-cyan-300">{row.Zona || row.distrito || '-'}</span>
-                  </div>
-                  <div>
-                    <span className="text-[10px] text-slate-400 uppercase block">Provincia</span>
-                    <span className="text-slate-300 font-medium">{row.Provincia || row.provincia || row.Localidad || '-'}</span>
-                  </div>
-                </div>
-
-                <div className="pt-1 border-t border-slate-800/40 space-y-1.5">
                   {row['Sector Operativo'] && (
-                    <div className="flex items-center justify-between">
-                      <span className="text-[10px] text-slate-400 uppercase">Sector:</span>
-                      <span className="font-semibold text-amber-300">{row['Sector Operativo']}</span>
-                    </div>
-                  )}
-                  {row.Region && (
-                    <div className="flex items-center justify-between">
-                      <span className="text-[10px] text-slate-400 uppercase">Región:</span>
-                      <span className="text-slate-300">{row.Region}</span>
-                    </div>
-                  )}
-                  {row.Georeferencia && (
-                    <div>
-                      <span className="text-[10px] text-slate-400 uppercase block">Georreferencia:</span>
-                      <span className="font-mono text-[10px] text-slate-400 truncate block mt-0.5">{row.Georeferencia}</span>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {/* BLOQUE 3: CUADRILLA Y OPERACIÓN */}
-            <div className="bg-slate-950/70 border border-slate-800/90 rounded-2xl p-4 shadow-sm space-y-3">
-              <div className="flex items-center gap-2 border-b border-slate-800/80 pb-2.5">
-                <div className="p-1.5 bg-indigo-500/10 text-indigo-400 rounded-lg">
-                  <Users className="w-4 h-4" />
-                </div>
-                <h4 className="text-xs font-bold text-white uppercase tracking-wider">Cuadrilla & Asignación</h4>
-              </div>
-
-              <div className="space-y-2 text-xs">
-                <div>
-                  <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block">Cuadrilla Completa</span>
-                  <div className="font-bold text-slate-100 mt-0.5 bg-slate-900/60 p-2 rounded-xl border border-slate-800/60 leading-snug">
-                    {row.Cuadrilla || row.cuadrilla || '-'}
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-2 pt-1 border-t border-slate-800/40">
-                  <div>
-                    <span className="text-[10px] text-slate-400 uppercase block">Técnico Principal</span>
-                    <span className="font-medium text-orange-300">{row.Cuadrilla_nombre || '-'}</span>
-                  </div>
-                  <div>
-                    <span className="text-[10px] text-slate-400 uppercase block">Proveedor / Contratista</span>
-                    <span className="text-slate-300 font-medium truncate block">{row.Proveedeor || row.Empresa || '-'}</span>
-                  </div>
-                </div>
-
-                <div className="pt-1 border-t border-slate-800/40 space-y-1.5">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10px] text-slate-400 uppercase">F. Visita:</span>
-                    <span className="font-mono font-bold text-amber-300">{formatDateOnly(row.FechaVisita || row['F.Visita'] || row.fecha_visita)}</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10px] text-slate-400 uppercase">F. Solicitud:</span>
-                    <span className="font-mono text-slate-300">{formatDate(row['F.Soli'] || row.fecha_solicitud)}</span>
-                  </div>
-                  {row['Usuario Asignó'] && (
-                    <div className="flex items-center justify-between">
-                      <span className="text-[10px] text-slate-400 uppercase">Asignado por:</span>
-                      <span className="text-slate-400 text-[11px] truncate">{row['Usuario Asignó']}</span>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {/* BLOQUE 4: SERVICIO Y DIAGNÓSTICO */}
-            <div className="bg-slate-950/70 border border-slate-800/90 rounded-2xl p-4 shadow-sm space-y-3">
-              <div className="flex items-center gap-2 border-b border-slate-800/80 pb-2.5">
-                <div className="p-1.5 bg-emerald-500/10 text-emerald-400 rounded-lg">
-                  <Layers className="w-4 h-4" />
-                </div>
-                <h4 className="text-xs font-bold text-white uppercase tracking-wider">Servicio & Detalles</h4>
-              </div>
-
-              <div className="space-y-2 text-xs">
-                <div>
-                  <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block">Producto Contratado</span>
-                  <div className="font-bold text-slate-100 mt-0.5">{row.Producto || row.producto || '-'}</div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-2 pt-1 border-t border-slate-800/40">
-                  <div>
-                    <span className="text-[10px] text-slate-400 uppercase block">Tipo Trabajo</span>
-                    <span className="px-2 py-0.5 rounded-md bg-blue-500/10 text-blue-300 border border-blue-500/20 text-[10px] font-medium inline-block mt-0.5">
-                      {row.TipoTraba || row.tipo_trabajo || '-'}
+                    <span className="text-[10px] px-2.5 py-0.5 rounded-full font-bold bg-amber-500/10 text-amber-300 border border-amber-500/20">
+                      {row['Sector Operativo']}
                     </span>
-                  </div>
-                  <div>
-                    <span className="text-[10px] text-slate-400 uppercase block">Ticket</span>
-                    <span className="font-mono text-slate-200 font-medium">{row.ticket || row.CodiSegui || '-'}</span>
-                  </div>
+                  )}
                 </div>
 
-                <div className="pt-1 border-t border-slate-800/40 space-y-1.5">
+                <div className="space-y-3">
                   <div>
-                    <span className="text-[10px] text-slate-400 uppercase block">Motivo de Trabajo</span>
-                    <span className="text-slate-300 text-[11px] leading-tight block mt-0.5">
-                      {row['Motivo Trabajo'] || row.motivo_trabajo || row.Motivo || '-'}
-                    </span>
+                    <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block">Dirección de Instalación</span>
+                    <div className="font-medium text-slate-100 mt-1 text-xs leading-relaxed bg-slate-950/60 p-3 rounded-xl border border-slate-800/70 select-all">
+                      {row.Direccion || row.direccion || '-'}
+                    </div>
                   </div>
-                  {(row['Observaciones OT'] || row['Diagnóstico Técnico']) && (
+
+                  <div className="grid grid-cols-2 gap-3 pt-2 border-t border-slate-800/60">
                     <div>
-                      <span className="text-[10px] text-slate-400 uppercase block">Observaciones / Diagnóstico</span>
-                      <span className="text-slate-400 text-[11px] line-clamp-2 block mt-0.5">
-                        {row['Observaciones OT'] || row['Diagnóstico Técnico']}
+                      <span className="text-[10px] text-slate-400 uppercase block font-semibold">Distrito / Zona</span>
+                      <span className="font-bold text-cyan-300 text-sm">
+                        {row.Zona || row.distrito || '-'}
                       </span>
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-slate-400 uppercase block font-semibold">Provincia</span>
+                      <span className="text-slate-200 font-semibold text-sm">
+                        {row.Provincia || row.provincia || row.Localidad || '-'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {row.Georeferencia && (
+                <div className="pt-2 border-t border-slate-800/60 flex items-center justify-between text-[11px] text-slate-400 font-mono">
+                  <span>Coordenadas:</span>
+                  <span className="text-slate-300 select-all">{row.Georeferencia}</span>
+                </div>
+              )}
+            </div>
+
+            {/* PANEL 3: CUADRILLA & OPERACIÓN (LIMPIO, SIN TÉCNICO NI ASIGNADO POR) */}
+            <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 shadow-sm backdrop-blur flex flex-col justify-between space-y-4">
+              <div>
+                <div className="flex items-center justify-between border-b border-slate-800 pb-3 mb-3">
+                  <div className="flex items-center gap-2">
+                    <div className="p-1.5 bg-indigo-500/10 text-indigo-400 rounded-lg border border-indigo-500/20">
+                      <Users className="w-4 h-4" />
+                    </div>
+                    <h4 className="text-xs font-bold text-white uppercase tracking-wider">Cuadrilla Asignada</h4>
+                  </div>
+                  <div className="flex items-center gap-1.5 text-xs text-amber-300 font-mono">
+                    <Calendar className="w-3.5 h-3.5 text-amber-400" />
+                    <span>{formatDateOnly(row.FechaVisita || row['F.Visita'] || row.fecha_visita)}</span>
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  <div>
+                    <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block">Cuadrilla Completa</span>
+                    <div className="font-bold text-amber-300 text-sm mt-1 bg-slate-950/60 p-3 rounded-xl border border-slate-800/70 select-all">
+                      {row.Cuadrilla || row.cuadrilla || '-'}
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3 pt-2 border-t border-slate-800/60">
+                    <div>
+                      <span className="text-[10px] text-slate-400 uppercase block font-semibold">Contratista / Empresa</span>
+                      <div className="flex items-center gap-1.5 mt-0.5">
+                        <Building2 className="w-3.5 h-3.5 text-slate-400" />
+                        <span className="text-slate-200 font-bold text-xs truncate">
+                          {row.Proveedeor || row.Empresa || '-'}
+                        </span>
+                      </div>
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-slate-400 uppercase block font-semibold">Fecha Solicitud</span>
+                      <span className="font-mono text-slate-300 text-xs">
+                        {formatDate(row['F.Soli'] || row.fecha_solicitud)}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* PANEL 4: SERVICIO & DETALLES */}
+            <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 shadow-sm backdrop-blur flex flex-col justify-between space-y-4">
+              <div>
+                <div className="flex items-center justify-between border-b border-slate-800 pb-3 mb-3">
+                  <div className="flex items-center gap-2">
+                    <div className="p-1.5 bg-emerald-500/10 text-emerald-400 rounded-lg border border-emerald-500/20">
+                      <Layers className="w-4 h-4" />
+                    </div>
+                    <h4 className="text-xs font-bold text-white uppercase tracking-wider">Servicio & Detalles</h4>
+                  </div>
+                  {row.ticket && (
+                    <div className="flex items-center gap-1 font-mono text-[10px] bg-slate-800 text-slate-300 px-2 py-0.5 rounded-lg border border-slate-700">
+                      <FileText className="w-3 h-3 text-orange-400" />
+                      <span>{row.ticket}</span>
+                    </div>
+                  )}
+                </div>
+
+                <div className="space-y-3">
+                  <div>
+                    <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block">Producto Contratado</span>
+                    <div className="font-bold text-white text-sm mt-0.5">
+                      {row.Producto || row.producto || '-'}
+                    </div>
+                  </div>
+
+                  <div className="pt-2 border-t border-slate-800/60">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-[10px] text-slate-400 uppercase font-semibold">Tipo Trabajo</span>
+                      <span className="px-2.5 py-0.5 rounded-lg bg-blue-500/10 text-blue-300 border border-blue-500/20 text-xs font-bold">
+                        {row.TipoTraba || row.tipo_trabajo || '-'}
+                      </span>
+                    </div>
+                  </div>
+
+                  {(row['Motivo Trabajo'] || row.motivo_trabajo || row.Motivo) && (
+                    <div className="pt-2 border-t border-slate-800/60">
+                      <span className="text-[10px] text-slate-400 uppercase block font-semibold">Motivo Trabajo</span>
+                      <p className="text-slate-300 text-xs leading-relaxed mt-0.5">
+                        {row['Motivo Trabajo'] || row.motivo_trabajo || row.Motivo}
+                      </p>
                     </div>
                   )}
                 </div>
@@ -392,7 +379,7 @@ export const RecordDetailView: React.FC<RecordDetailViewProps> = ({
             </div>
           </div>
         ) : (
-          /* PESTAÑA: TODOS LOS METADATOS TÉCNICOS (Micro-grid compacto) */
+          /* METADATOS TÉCNICOS EN CUADRÍCULA COMPACTA */
           <div className="bg-slate-950/70 border border-slate-800/90 rounded-2xl p-4 shadow-sm">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2.5">
               {allEntries.map(([k, v]) => (
