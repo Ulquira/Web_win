@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import { createOpaqueToken, decodeOpaqueToken } from './opaqueToken.js';
 import express from 'express';
 import cors from 'cors';
@@ -51,47 +52,89 @@ app.use(express.json());
 // Registrar rutas de replicación en tiempo real (puede actuar como receptor)
 app.use(replicationRouter);
 
-// Endpoint para guardar reprogramaciones en BD
-const reprogramarSchema = z.object({
-  token: z.string().min(5).max(150),
-  fecha: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-  turno: z.string().min(1).max(100),
-  motivo: z.string().max(500).optional().default(''),
-  motivoSeleccionado: z.string().max(200).optional().default('')
+// Endpoint para consultar disponibilidad de cupos en tiempo real
+app.get('/api/cupos/:token', async (req, res) => {
+  const { token } = req.params;
+  try {
+    const response = await fetch(`${CAPA_INTERMEDIA_URL}/api/v1/terceros/cupos/${token}`, {
+      headers: { 'Authorization': `Bearer ${SECRET_API_KEY}` }
+    });
+    const data = await response.json();
+    return res.status(response.status).json(data);
+  } catch (error: any) {
+    console.error('Error consultando cupos en capa intermedia:', error);
+    return res.status(500).json({ success: false, message: 'Error interno consultando cupos', error: error?.message });
+  }
 });
 
+// Endpoint para guardar reprogramaciones delegando a la capa intermedia y CRM
 app.post('/api/reprogramar', async (req, res) => {
-  const parseResult = reprogramarSchema.safeParse(req.body);
-
-  if (!parseResult.success) {
-    return res.status(400).json({ success: false, message: 'Datos inválidos', errors: parseResult.error.format() });
+  const { token, fecha, turno, motivo, motivoSeleccionado, pin } = req.body;
+  if (!token || !fecha || !turno) {
+    return res.status(400).json({ success: false, message: 'Faltan datos obligatorios' });
   }
 
-  const { token, fecha, turno, motivo, motivoSeleccionado } = parseResult.data;
-  const motivoDetalle = [motivoSeleccionado, motivo].filter(Boolean).join(' - ') || 'Sin motivo';
+  const motivoDetalle = [motivoSeleccionado, motivo].filter(Boolean).join(' - ') || 'Reprogramación - Solicitud del Cliente';
 
   try {
-    const query = `
-      INSERT INTO REPROGRAMACIONES (token, fecha_solicitada, turno, motivo)
-      VALUES (?, ?, ?, ?)
-    `;
-    await pool.query(query, [token, fecha, turno, motivoDetalle]);
-
-    // Invalidar caché inmediato para que el cliente vea el cambio sin espera
-    apiCache.delete(`inst_${token}`);
-
-    // Replicar cambio a la base de datos secundaria en tiempo real
-    replicateChange('REPROGRAMACIONES', 'INSERT', {
-      token,
-      fecha_solicitada: fecha,
-      turno,
-      motivo: motivoDetalle
+    const response = await fetch(`${CAPA_INTERMEDIA_URL}/api/v1/terceros/reprogramar`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${SECRET_API_KEY}`
+      },
+      body: JSON.stringify({
+        token,
+        fecha,
+        turno,
+        motivo: motivoDetalle,
+        pin
+      })
     });
 
-    res.json({ success: true, message: 'Reprogramación guardada con éxito' });
-  } catch (error) {
-    console.error('Error guardando en BD:', error);
-    res.status(500).json({ success: false, message: 'Error interno guardando la solicitud' });
+    const data = await response.json();
+
+    if (response.ok && data.success) {
+      apiCache.delete(`inst_${token}`);
+
+      // Inserción directa redundante en BD local con formato YYYY-MM-DD
+      const formatYmd = (dStr: string) => {
+        if (!dStr) return dStr;
+        const c = dStr.trim();
+        if (/^\d{4}-\d{2}-\d{2}$/.test(c)) return c;
+        if (/^\d{2}-\d{2}-\d{4}$/.test(c)) {
+          const [d, m, y] = c.split('-');
+          return `${y}-${m}-${d}`;
+        }
+        return c;
+      };
+      const mysqlDate = formatYmd(fecha);
+
+      try {
+        await pool.query(
+          `INSERT INTO REPROGRAMACIONES (token, fecha_solicitada, turno, motivo) VALUES (?, ?, ?, ?)`,
+          [token, mysqlDate, turno.trim(), motivoDetalle]
+        );
+      } catch (dbInsertErr) {
+        console.warn('Advertencia insertando en REPROGRAMACIONES desde server:', dbInsertErr);
+      }
+
+      try {
+        replicateChange('REPROGRAMACIONES', 'INSERT', {
+          token,
+          fecha_solicitada: mysqlDate,
+          turno,
+          motivo: motivoDetalle
+        });
+      } catch (repErr) {
+        console.warn('Advertencia en replicateChange:', repErr);
+      }
+    }
+
+    return res.status(response.status).json(data);
+  } catch (error: any) {
+    console.error('Error comunicando con capa intermedia para reprogramar:', error);
+    return res.status(500).json({ success: false, message: 'Error interno guardando la solicitud', error: error?.message });
   }
 });
 
@@ -533,8 +576,19 @@ app.get('/api/instalaciones/:token', async (req, res) => {
       const op = rows[0];
       const tipoServicioUpper = (op.tipo_servicio || '').toUpperCase().trim();
       const productoUpper = (op.producto || '').toUpperCase().trim();
+      const tipoTrabajoUpper = (op.tipo_trabajo || '').toUpperCase().trim();
+      const codiSeguiUpper = String(op.codisegui || '').toUpperCase().trim();
+      const codiSeguiClienUpper = String(op.codiseguiclien || '').toUpperCase().trim();
       const isPostventa = tipoServicioUpper === 'POSTVENTA' || productoUpper.includes('POSTVENTA');
-      const isTicket = tipoServicioUpper === 'AVERIAS' || productoUpper.includes('AVERIA') || productoUpper === 'MOTOWIN';
+      const isTicket = 
+        tipoServicioUpper === 'AVERIAS' || 
+        tipoServicioUpper.includes('POST') ||
+        productoUpper.includes('AVERIA') || 
+        productoUpper.includes('POST') ||
+        productoUpper === 'MOTOWIN' ||
+        /^[A-Z]/.test(codiSeguiUpper) ||
+        /^[A-Z]/.test(codiSeguiClienUpper) ||
+        (tipoTrabajoUpper !== '' && tipoTrabajoUpper !== 'INSTALACION' && !tipoTrabajoUpper.includes('INSTALA'));
 
       let statusFront = 'programada';
       const estadoDB = (op.Estado || '').toUpperCase().trim();
@@ -625,6 +679,23 @@ app.get('/api/instalaciones/:token', async (req, res) => {
     }
 
     if (data && data.data) {
+      // Si la consulta inicial por token arrojó false, pero la orden tiene token_inicio distinto o caso vinculado,
+      // verificar si alguna orden de la misma cadena ya fue reprogramada en BD
+      if (!reprogramadaBD) {
+        try {
+          const alternateTokens = [data.data.token_inicio, token].filter(Boolean);
+          const [altReprog]: any = await pool.query(
+            `SELECT id FROM REPROGRAMACIONES WHERE token IN (?) LIMIT 1`,
+            [alternateTokens]
+          );
+          if (altReprog && altReprog.length > 0) {
+            reprogramadaBD = true;
+          }
+        } catch (e) {
+          console.warn('Error verificando reprogramacion alterna:', e);
+        }
+      }
+
       data.data.reprogramada = reprogramadaBD;
       data.data.encuesta_completada = encuestaCompletadaBD;
 
@@ -1366,42 +1437,42 @@ app.get('/api/4dm1n_/data', async (req, res) => {
           countParams.push(grupoServicio);
         }
       }
-      const allowedColsChats: Record<string, string> = {
-        id: 'h.id',
-        orden_id: 'h.orden_id',
-        ticket: 'h.ticket',
-        phone: 'h.phone',
-        cliente: 'h.cliente_nombre',
-        asesor: 'h.asesor_asignado',
-        tipo_trabajo: 'h.tipo_trabajo',
-        distrito: 'h.distrito',
-        palabra: 'h.quien_tiene_la_palabra',
-        estado_chat: 'h.estado_chat',
-        mensaje: 'h.ultimo_mensaje_texto'
-      };
-      for (const [colKey, colVal] of Object.entries(colFilters)) {
-        const sqlField = allowedColsChats[colKey];
-        const valStr = String(colVal || '').trim();
-        if (sqlField && valStr) {
-          whereClauses.push(`${sqlField} LIKE ?`);
-          const s = `%${valStr}%`;
-          params.push(s);
-          countParams.push(s);
-        }
-      }
-      if (search) {
-        whereClauses.push('(h.orden_id LIKE ? OR h.ticket LIKE ? OR h.phone LIKE ? OR h.cliente_nombre LIKE ? OR h.ultimo_mensaje_texto LIKE ? OR h.asesor_asignado LIKE ?)');
-        const s = `%${search}%`;
-        params.push(s, s, s, s, s, s);
-        countParams.push(s, s, s, s, s, s);
-      }
+
+      const confirmacionCond = `(
+        LOWER(TRIM(h.ultimo_mensaje_texto)) LIKE 'si, confirmo%'
+        OR LOWER(TRIM(h.ultimo_mensaje_texto)) LIKE 'sí, confirmo%'
+        OR LOWER(TRIM(h.ultimo_mensaje_texto)) LIKE 'confirmado%'
+        OR LOWER(TRIM(h.ultimo_mensaje_texto)) LIKE 'confirmar%'
+        OR LOWER(TRIM(h.ultimo_mensaje_texto)) LIKE 'si, conforme%'
+        OR LOWER(TRIM(h.ultimo_mensaje_texto)) LIKE 'si conforme%'
+        OR LOWER(TRIM(h.ultimo_mensaje_texto)) LIKE 'si todo conforme%'
+        OR LOWER(TRIM(h.ultimo_mensaje_texto)) = 'si'
+        OR LOWER(TRIM(h.ultimo_mensaje_texto)) = 'sí'
+        OR LOWER(TRIM(h.ultimo_mensaje_texto)) = '1'
+        OR LOWER(TRIM(h.ultimo_mensaje_texto)) = 'conforme'
+      )`;
 
       const plantillaCond = `(
         h.quien_tiene_la_palabra = 'BOT' 
+        OR LOWER(TRIM(h.ultimo_mensaje_texto)) LIKE 'entiendo, gracias%'
+        OR LOWER(TRIM(h.ultimo_mensaje_texto)) LIKE 'entiendo gracias%'
+        OR LOWER(TRIM(h.ultimo_mensaje_texto)) LIKE 'otras opciones%'
+        OR LOWER(TRIM(h.ultimo_mensaje_texto)) = 'ok'
+        OR LOWER(TRIM(h.ultimo_mensaje_texto)) = 'ok.'
+        OR LOWER(TRIM(h.ultimo_mensaje_texto)) = 'ok!'
+        OR LOWER(TRIM(h.ultimo_mensaje_texto)) = 'okey'
+        OR LOWER(TRIM(h.ultimo_mensaje_texto)) = 'oki'
+        OR LOWER(TRIM(h.ultimo_mensaje_texto)) = 'todo ok'
+        OR LOWER(TRIM(h.ultimo_mensaje_texto)) = 'de acuerdo'
+        OR LOWER(TRIM(h.ultimo_mensaje_texto)) LIKE 'ok gracias%'
+        OR LOWER(TRIM(h.ultimo_mensaje_texto)) LIKE 'ok, gracias%'
+        OR LOWER(TRIM(h.ultimo_mensaje_texto)) LIKE 'gracias por su respuesta%'
+        OR LOWER(TRIM(h.ultimo_mensaje_texto)) LIKE 'se informa, muchas gracias%'
         OR h.ultimo_mensaje_texto LIKE '%Trak_%' 
         OR h.ultimo_mensaje_texto LIKE '%Adelanto%' 
         OR h.ultimo_mensaje_texto LIKE '%Blindaje%' 
         OR h.ultimo_mensaje_texto LIKE '%Confirmación%'
+        OR h.ultimo_mensaje_texto LIKE '%Confirmacion%'
         OR h.ultimo_mensaje_texto LIKE '%enruta.win.pe%'
         OR h.ultimo_mensaje_texto LIKE '%| [%'
         OR h.ultimo_mensaje_texto LIKE '%Ad. Inc.%'
@@ -1409,17 +1480,114 @@ app.get('/api/4dm1n_/data', async (req, res) => {
         OR h.ultimo_mensaje_texto LIKE '%TRAKING%'
         OR h.ultimo_mensaje_texto LIKE '%Seguimiento de VT%'
         OR h.ultimo_mensaje_texto LIKE '%programaci%'
+        OR h.ultimo_mensaje_texto LIKE '%gracias por confirmar%'
       )`;
+
+      const allowedColsChats: Record<string, string> = {
+        id: 'h.id',
+        orden_id: 'h.orden_id',
+        ticket: 'h.ticket',
+        phone: 'h.phone',
+        cliente: 'h.cliente_nombre',
+        cliente_nombre: 'h.cliente_nombre',
+        asesor: 'h.asesor_asignado',
+        asesor_asignado: 'h.asesor_asignado',
+        usuario: 'h.asesor_asignado',
+        tipo_trabajo: 'h.tipo_trabajo',
+        grupo_servicio: 'h.grupo_servicio',
+        distrito: 'h.distrito',
+        palabra: 'h.quien_tiene_la_palabra',
+        quien_tiene_la_palabra: 'h.quien_tiene_la_palabra',
+        estado_chat: 'h.estado_chat',
+        semaforo_sla: 'h.semaforo_sla',
+        mensaje: 'h.ultimo_mensaje_texto',
+        ultimo_mensaje_texto: 'h.ultimo_mensaje_texto',
+        ultimo_mensaje_fecha: 'h.ultimo_mensaje_fecha'
+      };
+
+      for (const [colKey, rawVal] of Object.entries(colFilters)) {
+        let searchStr = '';
+        let selectedArr: string[] = [];
+        if (typeof rawVal === 'string') {
+          searchStr = rawVal.trim();
+        } else if (rawVal && typeof rawVal === 'object') {
+          searchStr = String((rawVal as any).search || '').trim();
+          if (Array.isArray((rawVal as any).selected)) {
+            selectedArr = (rawVal as any).selected.map(String).filter(Boolean);
+          }
+        }
+
+        if (colKey === 'quien_tiene_la_palabra' || colKey === 'palabra') {
+          if (selectedArr.length > 0) {
+            const orParts: string[] = [];
+            if (selectedArr.includes('CONFIRMADO')) orParts.push(`(${confirmacionCond})`);
+            if (selectedArr.includes('PLANTILLA')) orParts.push(`(${plantillaCond} AND NOT ${confirmacionCond})`);
+            if (selectedArr.includes('CLIENTE')) orParts.push(`(h.quien_tiene_la_palabra = 'CLIENTE' AND NOT ${confirmacionCond} AND NOT ${plantillaCond})`);
+            if (selectedArr.includes('ASESOR')) orParts.push(`(h.quien_tiene_la_palabra != 'CLIENTE' AND NOT ${plantillaCond} AND NOT ${confirmacionCond})`);
+            if (orParts.length > 0) {
+              whereClauses.push(`(${orParts.join(' OR ')})`);
+            }
+          } else if (searchStr) {
+            if (searchStr.toUpperCase().includes('CONFIRM')) {
+              whereClauses.push(`(${confirmacionCond})`);
+            } else {
+              whereClauses.push(`h.quien_tiene_la_palabra LIKE ?`);
+              params.push(`%${searchStr}%`);
+              countParams.push(`%${searchStr}%`);
+            }
+          }
+          continue;
+        }
+
+        if (colKey === 'estado_chat') {
+          if (selectedArr.length > 0) {
+            const orParts: string[] = [];
+            if (selectedArr.includes('Cerrado')) orParts.push(`(h.estado_chat = 'Cerrado' OR ${confirmacionCond})`);
+            if (selectedArr.includes('Abierto')) orParts.push(`((h.estado_chat != 'Cerrado' OR h.estado_chat IS NULL) AND h.quien_tiene_la_palabra = 'CLIENTE' AND NOT ${confirmacionCond} AND NOT ${plantillaCond})`);
+            if (selectedArr.includes('Pendiente')) orParts.push(`((h.estado_chat != 'Cerrado' OR h.estado_chat IS NULL) AND ${plantillaCond} AND NOT ${confirmacionCond})`);
+            if (selectedArr.includes('Sin Respuesta')) orParts.push(`((h.estado_chat != 'Cerrado' OR h.estado_chat IS NULL) AND h.quien_tiene_la_palabra != 'CLIENTE' AND NOT ${plantillaCond} AND NOT ${confirmacionCond})`);
+            if (orParts.length > 0) {
+              whereClauses.push(`(${orParts.join(' OR ')})`);
+            }
+          } else if (searchStr) {
+            whereClauses.push(`h.estado_chat LIKE ?`);
+            params.push(`%${searchStr}%`);
+            countParams.push(`%${searchStr}%`);
+          }
+          continue;
+        }
+
+        const sqlField = allowedColsChats[colKey];
+        if (sqlField) {
+          if (selectedArr.length > 0) {
+            const placeholders = selectedArr.map(() => '?').join(',');
+            whereClauses.push(`${sqlField} IN (${placeholders})`);
+            params.push(...selectedArr);
+            countParams.push(...selectedArr);
+          } else if (searchStr) {
+            whereClauses.push(`${sqlField} LIKE ?`);
+            params.push(`%${searchStr}%`);
+            countParams.push(`%${searchStr}%`);
+          }
+        }
+      }
+
+      if (search) {
+        whereClauses.push('(h.orden_id LIKE ? OR h.ticket LIKE ? OR h.phone LIKE ? OR h.cliente_nombre LIKE ? OR h.ultimo_mensaje_texto LIKE ? OR h.asesor_asignado LIKE ?)');
+        const s = `%${search}%`;
+        params.push(s, s, s, s, s, s);
+        countParams.push(s, s, s, s, s, s);
+      }
 
       if (estadoChat) {
         if (estadoChat === 'Cerrado') {
-          whereClauses.push("h.estado_chat = 'Cerrado'");
+          whereClauses.push(`(h.estado_chat = 'Cerrado' OR ${confirmacionCond})`);
         } else if (estadoChat === 'Abierto') {
-          whereClauses.push("(h.estado_chat != 'Cerrado' OR h.estado_chat IS NULL) AND h.quien_tiene_la_palabra = 'CLIENTE'");
+          whereClauses.push(`(h.estado_chat != 'Cerrado' OR h.estado_chat IS NULL) AND h.quien_tiene_la_palabra = 'CLIENTE' AND NOT ${confirmacionCond} AND NOT ${plantillaCond}`);
         } else if (estadoChat === 'Pendiente') {
-          whereClauses.push(`(h.estado_chat != 'Cerrado' OR h.estado_chat IS NULL) AND ${plantillaCond}`);
+          whereClauses.push(`(h.estado_chat != 'Cerrado' OR h.estado_chat IS NULL) AND ${plantillaCond} AND NOT ${confirmacionCond}`);
         } else if (estadoChat === 'Sin Respuesta') {
-          whereClauses.push(`(h.estado_chat != 'Cerrado' OR h.estado_chat IS NULL) AND h.quien_tiene_la_palabra != 'CLIENTE' AND NOT ${plantillaCond}`);
+          whereClauses.push(`(h.estado_chat != 'Cerrado' OR h.estado_chat IS NULL) AND h.quien_tiene_la_palabra != 'CLIENTE' AND NOT ${plantillaCond} AND NOT ${confirmacionCond}`);
         }
       }
 
@@ -1432,6 +1600,7 @@ app.get('/api/4dm1n_/data', async (req, res) => {
         asesor_asignado: 'h.asesor_asignado',
         usuario: 'h.asesor_asignado',
         grupo_servicio: 'h.grupo_servicio',
+        tipo_trabajo: 'h.tipo_trabajo',
         distrito: 'h.distrito',
         provincia: 'h.provincia',
         quien_tiene_la_palabra: 'h.quien_tiene_la_palabra',
@@ -1450,40 +1619,21 @@ app.get('/api/4dm1n_/data', async (req, res) => {
         SELECT 
           h.*,
           CASE 
+            WHEN ${confirmacionCond} THEN 'CONFIRMADO'
+            WHEN ${plantillaCond} THEN 'PLANTILLA'
             WHEN h.quien_tiene_la_palabra = 'CLIENTE' THEN 'CLIENTE'
-            WHEN h.quien_tiene_la_palabra = 'BOT' 
-              OR h.ultimo_mensaje_texto LIKE '%Trak_%' 
-              OR h.ultimo_mensaje_texto LIKE '%Adelanto%' 
-              OR h.ultimo_mensaje_texto LIKE '%Blindaje%' 
-              OR h.ultimo_mensaje_texto LIKE '%Confirmación%'
-              OR h.ultimo_mensaje_texto LIKE '%enruta.win.pe%'
-              OR h.ultimo_mensaje_texto LIKE '%| [%'
-              OR h.ultimo_mensaje_texto LIKE '%Ad. Inc.%'
-              OR h.ultimo_mensaje_texto LIKE '%Velocidad%'
-              OR h.ultimo_mensaje_texto LIKE '%TRAKING%'
-              OR h.ultimo_mensaje_texto LIKE '%Seguimiento de VT%'
-              OR h.ultimo_mensaje_texto LIKE '%programaci%'
-              THEN 'PLANTILLA'
             ELSE 'ASESOR'
           END AS quien_tiene_la_palabra,
           CASE
-            WHEN h.estado_chat = 'Cerrado' THEN 'Cerrado'
+            WHEN h.estado_chat = 'Cerrado' OR ${confirmacionCond} THEN 'Cerrado'
+            WHEN ${plantillaCond} THEN 'Pendiente'
             WHEN h.quien_tiene_la_palabra = 'CLIENTE' THEN 'Abierto'
-            WHEN h.quien_tiene_la_palabra = 'BOT' 
-              OR h.ultimo_mensaje_texto LIKE '%Trak_%' 
-              OR h.ultimo_mensaje_texto LIKE '%Adelanto%' 
-              OR h.ultimo_mensaje_texto LIKE '%Blindaje%' 
-              OR h.ultimo_mensaje_texto LIKE '%Confirmación%'
-              OR h.ultimo_mensaje_texto LIKE '%enruta.win.pe%'
-              OR h.ultimo_mensaje_texto LIKE '%| [%'
-              OR h.ultimo_mensaje_texto LIKE '%Ad. Inc.%'
-              OR h.ultimo_mensaje_texto LIKE '%Velocidad%'
-              OR h.ultimo_mensaje_texto LIKE '%TRAKING%'
-              OR h.ultimo_mensaje_texto LIKE '%Seguimiento de VT%'
-              OR h.ultimo_mensaje_texto LIKE '%programaci%'
-              THEN 'Pendiente'
             ELSE 'Sin Respuesta'
-          END AS estado_chat
+          END AS estado_chat,
+          CASE
+            WHEN ${confirmacionCond} OR h.estado_chat = 'Cerrado' OR ${plantillaCond} THEN 'VERDE'
+            ELSE COALESCE(h.semaforo_sla, 'VERDE')
+          END AS semaforo_sla
         FROM historial_chats_mantra h
         WHERE ${whereSql}
         ORDER BY ${orderCol} ${sortOrder}, h.id DESC
@@ -1504,6 +1654,12 @@ app.get('/api/4dm1n_/data', async (req, res) => {
         countParams.push(`${fechaFin} 23:59:59`);
       }
       const serviceCond = buildServiceFilterSql(serviceFilters, 'reporte');
+      if (grupoServicio) {
+        whereClauses.push('(r.tipo_operacion LIKE ? OR r.tipo_trabajo LIKE ? OR r.producto LIKE ?)');
+        const gs = '%' + grupoServicio + '%';
+        params.push(gs, gs, gs);
+        countParams.push(gs, gs, gs);
+      }
       if (serviceCond) {
         whereClauses.push(serviceCond.sql);
         params.push(...serviceCond.values);
@@ -1549,16 +1705,35 @@ app.get('/api/4dm1n_/data', async (req, res) => {
         tipo_operacion: 'r.tipo_operacion',
         estado_ot: 'r.estado_ot',
         distrito: 'r.distrito',
-        cuadrilla: 'r.cuadrilla'
+        cuadrilla: 'r.cuadrilla',
+        se_envio_wsp: 'r.se_envio_wsp',
+        ingreso_tracking: 'r.ingreso_tracking',
+        reprogramo: 'r.reprogramo',
+        respondio_encuesta: 'r.respondio_encuesta',
+        pulso_soporte: 'r.pulso_soporte',
+        fecha_visita: 'r.fecha_visita'
       };
+
       for (const [colKey, colVal] of Object.entries(colFilters)) {
+        if (!colVal) continue;
+        const searchStr = typeof colVal === 'string' ? colVal.trim() : String((colVal as any).search || '').trim();
+        const selectedArr: string[] = typeof colVal === 'object' && Array.isArray((colVal as any).selected)
+          ? (colVal as any).selected.filter(Boolean)
+          : [];
+        if (!searchStr && selectedArr.length === 0) continue;
+
         const sqlField = allowedColsReporte[colKey];
-        const valStr = String(colVal || '').trim();
-        if (sqlField && valStr) {
-          whereClauses.push(`${sqlField} LIKE ?`);
-          const s = `%${valStr}%`;
-          params.push(s);
-          countParams.push(s);
+        if (sqlField) {
+          if (selectedArr.length > 0) {
+            const placeholders = selectedArr.map(() => '?').join(',');
+            whereClauses.push(`${sqlField} IN (${placeholders})`);
+            params.push(...selectedArr);
+            countParams.push(...selectedArr);
+          } else if (searchStr) {
+            whereClauses.push(`${sqlField} LIKE ?`);
+            params.push(`%${searchStr}%`);
+            countParams.push(`%${searchStr}%`);
+          }
         }
       }
 
@@ -1625,27 +1800,60 @@ app.get('/api/4dm1n_/data', async (req, res) => {
         params.push(s, s, s, s, s, s);
         countParams.push(s, s, s, s, s, s);
       }
+      if (grupoServicio) {
+        whereClauses.push('(w.TipoTraba LIKE ? OR ts.Tipo LIKE ? OR w.Producto LIKE ?)');
+        const gs = '%' + grupoServicio + '%';
+        params.push(gs, gs, gs);
+        countParams.push(gs, gs, gs);
+      }
       const allowedColsPrincipal: Record<string, string> = {
         orden_id: 'w.OrdenId',
+        OrdenId: 'w.OrdenId',
         cliente: 'w.Cliente',
+        Cliente: 'w.Cliente',
         documento: 'w.`Número Documento`',
-        tipo_traba: 'w.TipoTraba',
+        NumeroDocumento: 'w.`Número Documento`',
+        'Número Documento': 'w.`Número Documento`',
+        tipo_servicio: 'COALESCE(ts_prod.Tipo, ts_traba.Tipo, w.TipoTraba)',
+        TipoServicioCalculado: 'COALESCE(ts_prod.Tipo, ts_traba.Tipo, w.TipoTraba)',
+        tipo_trabajo: 'w.TipoTraba',
+        TipoTraba: 'w.TipoTraba',
         producto: 'w.Producto',
+        Producto: 'w.Producto',
         estado: 'w.Estado',
+        Estado: 'w.Estado',
+        fecha_visita: 'w.`F.Visita`',
+        FechaVisita: 'w.`F.Visita`',
         direccion: 'w.Direccion',
+        Direccion: 'w.Direccion',
         distrito: 'w.Localidad',
+        Localidad: 'w.Localidad',
         cuadrilla: 'w.Cuadrilla',
+        Cuadrilla: 'w.Cuadrilla',
         pin: 'w.Pin_token',
         token: 'w.token'
       };
+
       for (const [colKey, colVal] of Object.entries(colFilters)) {
+        if (!colVal) continue;
+        const searchStr = typeof colVal === 'string' ? colVal.trim() : String((colVal as any).search || '').trim();
+        const selectedArr: string[] = typeof colVal === 'object' && Array.isArray((colVal as any).selected)
+          ? (colVal as any).selected.filter(Boolean)
+          : [];
+        if (!searchStr && selectedArr.length === 0) continue;
+
         const sqlField = allowedColsPrincipal[colKey];
-        const valStr = String(colVal || '').trim();
-        if (sqlField && valStr) {
-          whereClauses.push(`${sqlField} LIKE ?`);
-          const s = `%${valStr}%`;
-          params.push(s);
-          countParams.push(s);
+        if (sqlField) {
+          if (selectedArr.length > 0) {
+            const placeholders = selectedArr.map(() => '?').join(',');
+            whereClauses.push(`${sqlField} IN (${placeholders})`);
+            params.push(...selectedArr);
+            countParams.push(...selectedArr);
+          } else if (searchStr) {
+            whereClauses.push(`${sqlField} LIKE ?`);
+            params.push(`%${searchStr}%`);
+            countParams.push(`%${searchStr}%`);
+          }
         }
       }
 
@@ -1697,6 +1905,7 @@ app.get('/api/4dm1n_/dashboard-stats', async (req, res) => {
     const search = String(req.query.search || '').trim();
     const fechaInicio = String(req.query.fechaInicio || '').trim();
     const fechaFin = String(req.query.fechaFin || '').trim();
+    const grupoServicio = String(req.query.grupoServicio || '').trim();
     const serviceFilters = parseAdminServiceFilters(req.query.tipoServicio);
 
     const whereClauses: string[] = ['1=1'];
@@ -1709,6 +1918,11 @@ app.get('/api/4dm1n_/dashboard-stats', async (req, res) => {
     if (fechaFin) {
       whereClauses.push('r.fecha_visita <= ?');
       params.push(`${fechaFin} 23:59:59`);
+    }
+    if (grupoServicio) {
+      whereClauses.push('(r.tipo_operacion LIKE ? OR r.tipo_trabajo LIKE ? OR r.producto LIKE ?)');
+      const gs = '%' + grupoServicio + '%';
+      params.push(gs, gs, gs);
     }
     const serviceCond = buildServiceFilterSql(serviceFilters, 'reporte');
     if (serviceCond) {
@@ -1835,6 +2049,186 @@ app.get('/api/4dm1n_/dashboard-stats', async (req, res) => {
     res.status(500).json({ success: false, message: 'Error consultando métricas del dashboard' });
   }
 });
+
+// 2.4 Métricas Analíticas Especializadas para Dashboard de Chats
+app.get('/api/4dm1n_/chats-dashboard-stats', async (req, res) => {
+  try {
+    const search = String(req.query.search || '').trim();
+    const fechaInicio = String(req.query.fechaInicio || '').trim();
+    const fechaFin = String(req.query.fechaFin || '').trim();
+    const grupoServicio = String(req.query.grupoServicio || '').trim();
+
+    const whereClauses: string[] = ['1=1'];
+    const params: any[] = [];
+
+    if (fechaInicio) {
+      whereClauses.push('(h.fecha_gestion_dia >= ? OR DATE(CONVERT_TZ(h.ultimo_mensaje_fecha, "+00:00", "-05:00")) >= ?)');
+      params.push(fechaInicio, fechaInicio);
+    }
+    if (fechaFin) {
+      whereClauses.push('(h.fecha_gestion_dia <= ? OR DATE(CONVERT_TZ(h.ultimo_mensaje_fecha, "+00:00", "-05:00")) <= ?)');
+      params.push(fechaFin, fechaFin);
+    }
+    if (grupoServicio) {
+      if (grupoServicio === 'Instalacion' || grupoServicio === 'Averias') {
+        whereClauses.push('h.grupo_servicio = ?');
+        params.push(grupoServicio);
+      } else {
+        whereClauses.push('h.tipo_trabajo = ?');
+        params.push(grupoServicio);
+      }
+    }
+    if (search) {
+      whereClauses.push('(h.orden_id LIKE ? OR h.ticket LIKE ? OR h.phone LIKE ? OR h.cliente_nombre LIKE ? OR h.ultimo_mensaje_texto LIKE ? OR h.asesor_asignado LIKE ?)');
+      const s = `%${search}%`;
+      params.push(s, s, s, s, s, s);
+    }
+
+    const whereSql = whereClauses.join(' AND ');
+
+    const confirmCond = `(
+        LOWER(TRIM(h.ultimo_mensaje_texto)) LIKE 'si, confirmo%'
+        OR LOWER(TRIM(h.ultimo_mensaje_texto)) LIKE 'sí, confirmo%'
+        OR LOWER(TRIM(h.ultimo_mensaje_texto)) LIKE 'confirmado%'
+        OR LOWER(TRIM(h.ultimo_mensaje_texto)) LIKE 'confirmar%'
+        OR LOWER(TRIM(h.ultimo_mensaje_texto)) LIKE 'si, conforme%'
+        OR LOWER(TRIM(h.ultimo_mensaje_texto)) LIKE 'si conforme%'
+        OR LOWER(TRIM(h.ultimo_mensaje_texto)) LIKE 'si todo conforme%'
+        OR LOWER(TRIM(h.ultimo_mensaje_texto)) = 'si'
+        OR LOWER(TRIM(h.ultimo_mensaje_texto)) = 'sí'
+        OR LOWER(TRIM(h.ultimo_mensaje_texto)) = '1'
+        OR LOWER(TRIM(h.ultimo_mensaje_texto)) = 'conforme'
+      )`;
+
+    const plantCond = `(
+        h.quien_tiene_la_palabra = 'BOT' 
+        OR LOWER(TRIM(h.ultimo_mensaje_texto)) LIKE 'entiendo, gracias%'
+        OR LOWER(TRIM(h.ultimo_mensaje_texto)) LIKE 'entiendo gracias%'
+        OR LOWER(TRIM(h.ultimo_mensaje_texto)) LIKE 'otras opciones%'
+        OR LOWER(TRIM(h.ultimo_mensaje_texto)) = 'ok'
+        OR LOWER(TRIM(h.ultimo_mensaje_texto)) = 'ok.'
+        OR LOWER(TRIM(h.ultimo_mensaje_texto)) = 'ok!'
+        OR LOWER(TRIM(h.ultimo_mensaje_texto)) = 'okey'
+        OR LOWER(TRIM(h.ultimo_mensaje_texto)) = 'oki'
+        OR LOWER(TRIM(h.ultimo_mensaje_texto)) = 'todo ok'
+        OR LOWER(TRIM(h.ultimo_mensaje_texto)) = 'de acuerdo'
+        OR LOWER(TRIM(h.ultimo_mensaje_texto)) LIKE 'ok gracias%'
+        OR LOWER(TRIM(h.ultimo_mensaje_texto)) LIKE 'ok, gracias%'
+        OR LOWER(TRIM(h.ultimo_mensaje_texto)) LIKE 'gracias por su respuesta%'
+        OR LOWER(TRIM(h.ultimo_mensaje_texto)) LIKE 'se informa, muchas gracias%'
+        OR h.ultimo_mensaje_texto LIKE '%Trak_%' 
+        OR h.ultimo_mensaje_texto LIKE '%Adelanto%' 
+        OR h.ultimo_mensaje_texto LIKE '%Blindaje%' 
+        OR h.ultimo_mensaje_texto LIKE '%Confirmación%'
+        OR h.ultimo_mensaje_texto LIKE '%Confirmacion%'
+        OR h.ultimo_mensaje_texto LIKE '%enruta.win.pe%'
+        OR h.ultimo_mensaje_texto LIKE '%| [%'
+        OR h.ultimo_mensaje_texto LIKE '%Ad. Inc.%'
+        OR h.ultimo_mensaje_texto LIKE '%Velocidad%'
+        OR h.ultimo_mensaje_texto LIKE '%TRAKING%'
+        OR h.ultimo_mensaje_texto LIKE '%Seguimiento de VT%'
+        OR h.ultimo_mensaje_texto LIKE '%programaci%'
+        OR h.ultimo_mensaje_texto LIKE '%gracias por confirmar%'
+      )`;
+
+    const kpiQuery = `
+      SELECT 
+        COUNT(*) as totalChats,
+        SUM(CASE WHEN ${confirmCond} THEN 1 ELSE 0 END) as totalConfirmados,
+        SUM(CASE WHEN h.quien_tiene_la_palabra = 'CLIENTE' AND NOT ${confirmCond} AND NOT ${plantCond} AND (h.estado_chat != 'Cerrado' OR h.estado_chat IS NULL) THEN 1 ELSE 0 END) as chatsAbiertos,
+        SUM(CASE WHEN h.estado_chat = 'Cerrado' OR ${confirmCond} THEN 1 ELSE 0 END) as chatsCerrados,
+        SUM(CASE WHEN ${plantCond} AND NOT ${confirmCond} AND (h.estado_chat != 'Cerrado' OR h.estado_chat IS NULL) THEN 1 ELSE 0 END) as chatsPendientes,
+        SUM(CASE WHEN h.quien_tiene_la_palabra NOT IN ('CLIENTE', 'BOT') AND NOT ${confirmCond} AND NOT ${plantCond} THEN 1 ELSE 0 END) as chatsAsesorUltimo,
+        SUM(CASE WHEN ${confirmCond} OR ${plantCond} OR h.estado_chat = 'Cerrado' OR COALESCE(h.semaforo_sla, 'VERDE') = 'VERDE' THEN 1 ELSE 0 END) as slaVerde,
+        SUM(CASE WHEN COALESCE(h.semaforo_sla, 'VERDE') = 'AMARILLO' AND NOT ${confirmCond} AND NOT ${plantCond} AND (h.estado_chat != 'Cerrado' OR h.estado_chat IS NULL) THEN 1 ELSE 0 END) as slaAmarillo,
+        SUM(CASE WHEN COALESCE(h.semaforo_sla, 'VERDE') = 'ROJO' AND NOT ${confirmCond} AND NOT ${plantCond} AND (h.estado_chat != 'Cerrado' OR h.estado_chat IS NULL) THEN 1 ELSE 0 END) as slaRojo
+      FROM historial_chats_mantra h
+      WHERE ${whereSql}
+    `;
+
+    const palabraQuery = `
+      SELECT 
+        CASE
+          WHEN ${confirmCond} THEN 'CONFIRMADO'
+          WHEN ${plantCond} THEN 'PLANTILLA'
+          WHEN h.quien_tiene_la_palabra = 'CLIENTE' THEN 'CLIENTE'
+          ELSE 'ASESOR'
+        END as palabra,
+        COUNT(*) as total
+      FROM historial_chats_mantra h
+      WHERE ${whereSql}
+      GROUP BY palabra
+      ORDER BY total DESC
+    `;
+
+    const estadosQuery = `
+      SELECT 
+        CASE
+          WHEN h.estado_chat = 'Cerrado' OR ${confirmCond} THEN 'Cerrado'
+          WHEN ${plantCond} THEN 'Pendiente'
+          WHEN h.quien_tiene_la_palabra = 'CLIENTE' THEN 'Abierto'
+          ELSE 'Sin Respuesta'
+        END as estado,
+        COUNT(*) as total
+      FROM historial_chats_mantra h
+      WHERE ${whereSql}
+      GROUP BY estado
+      ORDER BY total DESC
+    `;
+
+    const asesoresQuery = `
+      SELECT 
+        COALESCE(NULLIF(TRIM(h.asesor_asignado), ''), 'Sin Asignar') as asesor,
+        COUNT(*) as total,
+        SUM(CASE WHEN ${confirmCond} OR ${plantCond} OR h.estado_chat = 'Cerrado' OR h.quien_tiene_la_palabra NOT IN ('CLIENTE', 'BOT') THEN 1 ELSE 0 END) as atendidos,
+        SUM(CASE WHEN h.quien_tiene_la_palabra = 'CLIENTE' AND NOT ${confirmCond} AND NOT ${plantCond} AND (h.estado_chat != 'Cerrado' OR h.estado_chat IS NULL) THEN 1 ELSE 0 END) as abiertos,
+        SUM(CASE WHEN ${confirmCond} OR ${plantCond} OR h.estado_chat = 'Cerrado' OR COALESCE(h.semaforo_sla, 'VERDE') = 'VERDE' THEN 1 ELSE 0 END) as verdes,
+        SUM(CASE WHEN COALESCE(h.semaforo_sla, 'VERDE') = 'ROJO' AND NOT ${confirmCond} AND NOT ${plantCond} AND (h.estado_chat != 'Cerrado' OR h.estado_chat IS NULL) THEN 1 ELSE 0 END) as rojos
+      FROM historial_chats_mantra h
+      WHERE ${whereSql}
+      GROUP BY asesor
+      ORDER BY total DESC
+      LIMIT 15
+    `;
+
+    const gruposQuery = `
+      SELECT 
+        COALESCE(NULLIF(TRIM(h.tipo_trabajo), ''), NULLIF(TRIM(h.grupo_servicio), ''), 'OTROS') as grupo,
+        COUNT(*) as total
+      FROM historial_chats_mantra h
+      WHERE ${whereSql}
+      GROUP BY grupo
+      ORDER BY total DESC
+    `;
+
+    const [
+      [kpiRows],
+      [palabraRows],
+      [estadosRows],
+      [asesoresRows],
+      [gruposRows]
+    ]: any = await Promise.all([
+      pool.query(kpiQuery, params),
+      pool.query(palabraQuery, params),
+      pool.query(estadosQuery, params),
+      pool.query(asesoresQuery, params),
+      pool.query(gruposQuery, params)
+    ]);
+
+    res.json({
+      success: true,
+      kpis: kpiRows[0] || {},
+      palabra: palabraRows || [],
+      estados: estadosRows || [],
+      asesores: asesoresRows || [],
+      grupos: gruposRows || []
+    });
+  } catch (error: any) {
+    console.error('Error en /api/4dm1n_/chats-dashboard-stats:', error);
+    res.status(500).json({ success: false, message: 'Error consultando métricas del dashboard de chats' });
+  }
+});
+
 
 // 2.5 Consultar historial en vivo de Mantra con división estricta en 3 segmentos: CLIENTE / ASESOR / PLANTILLA
 app.get('/api/4dm1n_/mantra-chat', async (req, res) => {
@@ -2044,56 +2438,64 @@ app.get('/api/4dm1n_/export', async (req, res) => {
       `;
     } else if (tabla === 'chats_mantra' || tabla === 'historial_chats_mantra') {
       let whereClauses: string[] = ['1=1'];
+
       if (fechaInicio) {
         whereClauses.push('(h.fecha_gestion_dia >= ? OR DATE(CONVERT_TZ(h.ultimo_mensaje_fecha, "+00:00", "-05:00")) >= ?)');
         params.push(fechaInicio, fechaInicio);
+        countParams.push(fechaInicio, fechaInicio);
       }
       if (fechaFin) {
         whereClauses.push('(h.fecha_gestion_dia <= ? OR DATE(CONVERT_TZ(h.ultimo_mensaje_fecha, "+00:00", "-05:00")) <= ?)');
         params.push(fechaFin, fechaFin);
+        countParams.push(fechaFin, fechaFin);
       }
       if (grupoServicio) {
         if (grupoServicio === 'Instalacion' || grupoServicio === 'Averias') {
           whereClauses.push('h.grupo_servicio = ?');
           params.push(grupoServicio);
+          countParams.push(grupoServicio);
         } else {
           whereClauses.push('h.tipo_trabajo = ?');
           params.push(grupoServicio);
+          countParams.push(grupoServicio);
         }
       }
-      for (const [colKey, colVal] of Object.entries(colFilters)) {
-        const allowedColsChats: Record<string, string> = {
-          id: 'h.id',
-          orden_id: 'h.orden_id',
-          ticket: 'h.ticket',
-          phone: 'h.phone',
-          cliente: 'h.cliente_nombre',
-          asesor: 'h.asesor_asignado',
-          tipo_trabajo: 'h.tipo_trabajo',
-          distrito: 'h.distrito',
-          palabra: 'h.quien_tiene_la_palabra',
-          estado_chat: 'h.estado_chat',
-          mensaje: 'h.ultimo_mensaje_texto'
-        };
-        const sqlField = allowedColsChats[colKey];
-        const valStr = String(colVal || '').trim();
-        if (sqlField && valStr) {
-          whereClauses.push(`${sqlField} LIKE ?`);
-          params.push(`%${valStr}%`);
-        }
-      }
-      if (search) {
-        whereClauses.push('(h.orden_id LIKE ? OR h.ticket LIKE ? OR h.phone LIKE ? OR h.cliente_nombre LIKE ? OR h.ultimo_mensaje_texto LIKE ? OR h.asesor_asignado LIKE ?)');
-        const s = `%${search}%`;
-        params.push(s, s, s, s, s, s);
-      }
+
+      const confirmacionCond = `(
+        LOWER(TRIM(h.ultimo_mensaje_texto)) LIKE 'si, confirmo%'
+        OR LOWER(TRIM(h.ultimo_mensaje_texto)) LIKE 'sí, confirmo%'
+        OR LOWER(TRIM(h.ultimo_mensaje_texto)) LIKE 'confirmado%'
+        OR LOWER(TRIM(h.ultimo_mensaje_texto)) LIKE 'confirmar%'
+        OR LOWER(TRIM(h.ultimo_mensaje_texto)) LIKE 'si, conforme%'
+        OR LOWER(TRIM(h.ultimo_mensaje_texto)) LIKE 'si conforme%'
+        OR LOWER(TRIM(h.ultimo_mensaje_texto)) LIKE 'si todo conforme%'
+        OR LOWER(TRIM(h.ultimo_mensaje_texto)) = 'si'
+        OR LOWER(TRIM(h.ultimo_mensaje_texto)) = 'sí'
+        OR LOWER(TRIM(h.ultimo_mensaje_texto)) = '1'
+        OR LOWER(TRIM(h.ultimo_mensaje_texto)) = 'conforme'
+      )`;
 
       const plantillaCond = `(
         h.quien_tiene_la_palabra = 'BOT' 
+        OR LOWER(TRIM(h.ultimo_mensaje_texto)) LIKE 'entiendo, gracias%'
+        OR LOWER(TRIM(h.ultimo_mensaje_texto)) LIKE 'entiendo gracias%'
+        OR LOWER(TRIM(h.ultimo_mensaje_texto)) LIKE 'otras opciones%'
+        OR LOWER(TRIM(h.ultimo_mensaje_texto)) = 'ok'
+        OR LOWER(TRIM(h.ultimo_mensaje_texto)) = 'ok.'
+        OR LOWER(TRIM(h.ultimo_mensaje_texto)) = 'ok!'
+        OR LOWER(TRIM(h.ultimo_mensaje_texto)) = 'okey'
+        OR LOWER(TRIM(h.ultimo_mensaje_texto)) = 'oki'
+        OR LOWER(TRIM(h.ultimo_mensaje_texto)) = 'todo ok'
+        OR LOWER(TRIM(h.ultimo_mensaje_texto)) = 'de acuerdo'
+        OR LOWER(TRIM(h.ultimo_mensaje_texto)) LIKE 'ok gracias%'
+        OR LOWER(TRIM(h.ultimo_mensaje_texto)) LIKE 'ok, gracias%'
+        OR LOWER(TRIM(h.ultimo_mensaje_texto)) LIKE 'gracias por su respuesta%'
+        OR LOWER(TRIM(h.ultimo_mensaje_texto)) LIKE 'se informa, muchas gracias%'
         OR h.ultimo_mensaje_texto LIKE '%Trak_%' 
         OR h.ultimo_mensaje_texto LIKE '%Adelanto%' 
         OR h.ultimo_mensaje_texto LIKE '%Blindaje%' 
         OR h.ultimo_mensaje_texto LIKE '%Confirmación%'
+        OR h.ultimo_mensaje_texto LIKE '%Confirmacion%'
         OR h.ultimo_mensaje_texto LIKE '%enruta.win.pe%'
         OR h.ultimo_mensaje_texto LIKE '%| [%'
         OR h.ultimo_mensaje_texto LIKE '%Ad. Inc.%'
@@ -2101,19 +2503,117 @@ app.get('/api/4dm1n_/export', async (req, res) => {
         OR h.ultimo_mensaje_texto LIKE '%TRAKING%'
         OR h.ultimo_mensaje_texto LIKE '%Seguimiento de VT%'
         OR h.ultimo_mensaje_texto LIKE '%programaci%'
+        OR h.ultimo_mensaje_texto LIKE '%gracias por confirmar%'
       )`;
+
+      const allowedColsChats: Record<string, string> = {
+        id: 'h.id',
+        orden_id: 'h.orden_id',
+        ticket: 'h.ticket',
+        phone: 'h.phone',
+        cliente: 'h.cliente_nombre',
+        cliente_nombre: 'h.cliente_nombre',
+        asesor: 'h.asesor_asignado',
+        asesor_asignado: 'h.asesor_asignado',
+        usuario: 'h.asesor_asignado',
+        tipo_trabajo: 'h.tipo_trabajo',
+        grupo_servicio: 'h.grupo_servicio',
+        distrito: 'h.distrito',
+        palabra: 'h.quien_tiene_la_palabra',
+        quien_tiene_la_palabra: 'h.quien_tiene_la_palabra',
+        estado_chat: 'h.estado_chat',
+        semaforo_sla: 'h.semaforo_sla',
+        mensaje: 'h.ultimo_mensaje_texto',
+        ultimo_mensaje_texto: 'h.ultimo_mensaje_texto',
+        ultimo_mensaje_fecha: 'h.ultimo_mensaje_fecha'
+      };
+
+      for (const [colKey, rawVal] of Object.entries(colFilters)) {
+        let searchStr = '';
+        let selectedArr: string[] = [];
+        if (typeof rawVal === 'string') {
+          searchStr = rawVal.trim();
+        } else if (rawVal && typeof rawVal === 'object') {
+          searchStr = String((rawVal as any).search || '').trim();
+          if (Array.isArray((rawVal as any).selected)) {
+            selectedArr = (rawVal as any).selected.map(String).filter(Boolean);
+          }
+        }
+
+        if (colKey === 'quien_tiene_la_palabra' || colKey === 'palabra') {
+          if (selectedArr.length > 0) {
+            const orParts: string[] = [];
+            if (selectedArr.includes('CONFIRMADO')) orParts.push(`(${confirmacionCond})`);
+            if (selectedArr.includes('PLANTILLA')) orParts.push(`(${plantillaCond} AND NOT ${confirmacionCond})`);
+            if (selectedArr.includes('CLIENTE')) orParts.push(`(h.quien_tiene_la_palabra = 'CLIENTE' AND NOT ${confirmacionCond} AND NOT ${plantillaCond})`);
+            if (selectedArr.includes('ASESOR')) orParts.push(`(h.quien_tiene_la_palabra != 'CLIENTE' AND NOT ${plantillaCond} AND NOT ${confirmacionCond})`);
+            if (orParts.length > 0) {
+              whereClauses.push(`(${orParts.join(' OR ')})`);
+            }
+          } else if (searchStr) {
+            if (searchStr.toUpperCase().includes('CONFIRM')) {
+              whereClauses.push(`(${confirmacionCond})`);
+            } else {
+              whereClauses.push(`h.quien_tiene_la_palabra LIKE ?`);
+              params.push(`%${searchStr}%`);
+              countParams.push(`%${searchStr}%`);
+            }
+          }
+          continue;
+        }
+
+        if (colKey === 'estado_chat') {
+          if (selectedArr.length > 0) {
+            const orParts: string[] = [];
+            if (selectedArr.includes('Cerrado')) orParts.push(`(h.estado_chat = 'Cerrado' OR ${confirmacionCond})`);
+            if (selectedArr.includes('Abierto')) orParts.push(`((h.estado_chat != 'Cerrado' OR h.estado_chat IS NULL) AND h.quien_tiene_la_palabra = 'CLIENTE' AND NOT ${confirmacionCond} AND NOT ${plantillaCond})`);
+            if (selectedArr.includes('Pendiente')) orParts.push(`((h.estado_chat != 'Cerrado' OR h.estado_chat IS NULL) AND ${plantillaCond} AND NOT ${confirmacionCond})`);
+            if (selectedArr.includes('Sin Respuesta')) orParts.push(`((h.estado_chat != 'Cerrado' OR h.estado_chat IS NULL) AND h.quien_tiene_la_palabra != 'CLIENTE' AND NOT ${plantillaCond} AND NOT ${confirmacionCond})`);
+            if (orParts.length > 0) {
+              whereClauses.push(`(${orParts.join(' OR ')})`);
+            }
+          } else if (searchStr) {
+            whereClauses.push(`h.estado_chat LIKE ?`);
+            params.push(`%${searchStr}%`);
+            countParams.push(`%${searchStr}%`);
+          }
+          continue;
+        }
+
+        const sqlField = allowedColsChats[colKey];
+        if (sqlField) {
+          if (selectedArr.length > 0) {
+            const placeholders = selectedArr.map(() => '?').join(',');
+            whereClauses.push(`${sqlField} IN (${placeholders})`);
+            params.push(...selectedArr);
+            countParams.push(...selectedArr);
+          } else if (searchStr) {
+            whereClauses.push(`${sqlField} LIKE ?`);
+            params.push(`%${searchStr}%`);
+            countParams.push(`%${searchStr}%`);
+          }
+        }
+      }
+
+      if (search) {
+        whereClauses.push('(h.orden_id LIKE ? OR h.ticket LIKE ? OR h.phone LIKE ? OR h.cliente_nombre LIKE ? OR h.ultimo_mensaje_texto LIKE ? OR h.asesor_asignado LIKE ?)');
+        const s = `%${search}%`;
+        params.push(s, s, s, s, s, s);
+        countParams.push(s, s, s, s, s, s);
+      }
 
       if (estadoChat) {
         if (estadoChat === 'Cerrado') {
-          whereClauses.push("h.estado_chat = 'Cerrado'");
+          whereClauses.push(`(h.estado_chat = 'Cerrado' OR ${confirmacionCond})`);
         } else if (estadoChat === 'Abierto') {
-          whereClauses.push("(h.estado_chat != 'Cerrado' OR h.estado_chat IS NULL) AND h.quien_tiene_la_palabra = 'CLIENTE'");
+          whereClauses.push(`(h.estado_chat != 'Cerrado' OR h.estado_chat IS NULL) AND h.quien_tiene_la_palabra = 'CLIENTE' AND NOT ${confirmacionCond} AND NOT ${plantillaCond}`);
         } else if (estadoChat === 'Pendiente') {
-          whereClauses.push(`(h.estado_chat != 'Cerrado' OR h.estado_chat IS NULL) AND ${plantillaCond}`);
+          whereClauses.push(`(h.estado_chat != 'Cerrado' OR h.estado_chat IS NULL) AND ${plantillaCond} AND NOT ${confirmacionCond}`);
         } else if (estadoChat === 'Sin Respuesta') {
-          whereClauses.push(`(h.estado_chat != 'Cerrado' OR h.estado_chat IS NULL) AND h.quien_tiene_la_palabra != 'CLIENTE' AND NOT ${plantillaCond}`);
+          whereClauses.push(`(h.estado_chat != 'Cerrado' OR h.estado_chat IS NULL) AND h.quien_tiene_la_palabra != 'CLIENTE' AND NOT ${plantillaCond} AND NOT ${confirmacionCond}`);
         }
       }
+
       const allowedSortCols: Record<string, string> = {
         id: 'h.id',
         orden_id: 'h.orden_id',
@@ -2123,6 +2623,7 @@ app.get('/api/4dm1n_/export', async (req, res) => {
         asesor_asignado: 'h.asesor_asignado',
         usuario: 'h.asesor_asignado',
         grupo_servicio: 'h.grupo_servicio',
+        tipo_trabajo: 'h.tipo_trabajo',
         distrito: 'h.distrito',
         provincia: 'h.provincia',
         quien_tiene_la_palabra: 'h.quien_tiene_la_palabra',
@@ -2135,46 +2636,29 @@ app.get('/api/4dm1n_/export', async (req, res) => {
       };
       const orderCol = allowedSortCols[sortBy] || 'h.ultimo_mensaje_fecha';
 
+      const whereSql = whereClauses.join(' AND ');
+      countQuery = `SELECT COUNT(*) as total FROM historial_chats_mantra h WHERE ${whereSql}`;
       selectQuery = `
         SELECT 
           h.*,
           CASE 
+            WHEN ${confirmacionCond} THEN 'CONFIRMADO'
+            WHEN ${plantillaCond} THEN 'PLANTILLA'
             WHEN h.quien_tiene_la_palabra = 'CLIENTE' THEN 'CLIENTE'
-            WHEN h.quien_tiene_la_palabra = 'BOT' 
-              OR h.ultimo_mensaje_texto LIKE '%Trak_%' 
-              OR h.ultimo_mensaje_texto LIKE '%Adelanto%' 
-              OR h.ultimo_mensaje_texto LIKE '%Blindaje%' 
-              OR h.ultimo_mensaje_texto LIKE '%Confirmación%'
-              OR h.ultimo_mensaje_texto LIKE '%enruta.win.pe%'
-              OR h.ultimo_mensaje_texto LIKE '%| [%'
-              OR h.ultimo_mensaje_texto LIKE '%Ad. Inc.%'
-              OR h.ultimo_mensaje_texto LIKE '%Velocidad%'
-              OR h.ultimo_mensaje_texto LIKE '%TRAKING%'
-              OR h.ultimo_mensaje_texto LIKE '%Seguimiento de VT%'
-              OR h.ultimo_mensaje_texto LIKE '%programaci%'
-              THEN 'PLANTILLA'
             ELSE 'ASESOR'
           END AS quien_tiene_la_palabra,
           CASE
-            WHEN h.estado_chat = 'Cerrado' THEN 'Cerrado'
+            WHEN h.estado_chat = 'Cerrado' OR ${confirmacionCond} THEN 'Cerrado'
+            WHEN ${plantillaCond} THEN 'Pendiente'
             WHEN h.quien_tiene_la_palabra = 'CLIENTE' THEN 'Abierto'
-            WHEN h.quien_tiene_la_palabra = 'BOT' 
-              OR h.ultimo_mensaje_texto LIKE '%Trak_%' 
-              OR h.ultimo_mensaje_texto LIKE '%Adelanto%' 
-              OR h.ultimo_mensaje_texto LIKE '%Blindaje%' 
-              OR h.ultimo_mensaje_texto LIKE '%Confirmación%'
-              OR h.ultimo_mensaje_texto LIKE '%enruta.win.pe%'
-              OR h.ultimo_mensaje_texto LIKE '%| [%'
-              OR h.ultimo_mensaje_texto LIKE '%Ad. Inc.%'
-              OR h.ultimo_mensaje_texto LIKE '%Velocidad%'
-              OR h.ultimo_mensaje_texto LIKE '%TRAKING%'
-              OR h.ultimo_mensaje_texto LIKE '%Seguimiento de VT%'
-              OR h.ultimo_mensaje_texto LIKE '%programaci%'
-              THEN 'Pendiente'
             ELSE 'Sin Respuesta'
-          END AS estado_chat
+          END AS estado_chat,
+          CASE
+            WHEN ${confirmacionCond} OR h.estado_chat = 'Cerrado' OR ${plantillaCond} THEN 'VERDE'
+            ELSE COALESCE(h.semaforo_sla, 'VERDE')
+          END AS semaforo_sla
         FROM historial_chats_mantra h
-        WHERE ${whereClauses.join(' AND ')}
+        WHERE ${whereSql}
         ORDER BY ${orderCol} ${sortOrder}, h.id DESC
         LIMIT ${maxExportRows}
       `;
@@ -2189,6 +2673,12 @@ app.get('/api/4dm1n_/export', async (req, res) => {
         params.push(`${fechaFin} 23:59:59`);
       }
       const serviceCond = buildServiceFilterSql(serviceFilters, 'reporte');
+      if (grupoServicio) {
+        whereClauses.push('(r.tipo_operacion LIKE ? OR r.tipo_trabajo LIKE ? OR r.producto LIKE ?)');
+        const gs = '%' + grupoServicio + '%';
+        params.push(gs, gs, gs);
+        countParams.push(gs, gs, gs);
+      }
       if (serviceCond) {
         whereClauses.push(serviceCond.sql);
         params.push(...serviceCond.values);
@@ -2280,25 +2770,56 @@ app.get('/api/4dm1n_/export', async (req, res) => {
         const s = `%${search}%`;
         params.push(s, s, s, s, s, s);
       }
+      if (grupoServicio) {
+        whereClauses.push('(w.TipoTraba LIKE ? OR ts.Tipo LIKE ? OR w.Producto LIKE ?)');
+        const gs = '%' + grupoServicio + '%';
+        params.push(gs, gs, gs);
+      }
+      const allowedColsPrincipal: Record<string, string> = {
+        orden_id: 'w.OrdenId',
+        OrdenId: 'w.OrdenId',
+        cliente: 'w.Cliente',
+        Cliente: 'w.Cliente',
+        documento: 'w.`Número Documento`',
+        NumeroDocumento: 'w.`Número Documento`',
+        'Número Documento': 'w.`Número Documento`',
+        tipo_servicio: 'COALESCE(ts_prod.Tipo, ts_traba.Tipo, w.TipoTraba)',
+        TipoServicioCalculado: 'COALESCE(ts_prod.Tipo, ts_traba.Tipo, w.TipoTraba)',
+        tipo_trabajo: 'w.TipoTraba',
+        TipoTraba: 'w.TipoTraba',
+        producto: 'w.Producto',
+        Producto: 'w.Producto',
+        estado: 'w.Estado',
+        Estado: 'w.Estado',
+        fecha_visita: 'w.`F.Visita`',
+        FechaVisita: 'w.`F.Visita`',
+        direccion: 'w.Direccion',
+        Direccion: 'w.Direccion',
+        distrito: 'w.Localidad',
+        Localidad: 'w.Localidad',
+        cuadrilla: 'w.Cuadrilla',
+        Cuadrilla: 'w.Cuadrilla',
+        pin: 'w.Pin_token',
+        token: 'w.token'
+      };
       for (const [colKey, colVal] of Object.entries(colFilters)) {
-        const allowedColsPrincipal: Record<string, string> = {
-          orden_id: 'w.OrdenId',
-          cliente: 'w.Cliente',
-          documento: 'w.`Número Documento`',
-          tipo_traba: 'w.TipoTraba',
-          producto: 'w.Producto',
-          estado: 'w.Estado',
-          direccion: 'w.Direccion',
-          distrito: 'w.Localidad',
-          cuadrilla: 'w.Cuadrilla',
-          pin: 'w.Pin_token',
-          token: 'w.token'
-        };
+        if (!colVal) continue;
+        const searchStr = typeof colVal === 'string' ? colVal.trim() : String((colVal as any).search || '').trim();
+        const selectedArr: string[] = typeof colVal === 'object' && Array.isArray((colVal as any).selected)
+          ? (colVal as any).selected.filter(Boolean)
+          : [];
+        if (!searchStr && selectedArr.length === 0) continue;
+
         const sqlField = allowedColsPrincipal[colKey];
-        const valStr = String(colVal || '').trim();
-        if (sqlField && valStr) {
-          whereClauses.push(`${sqlField} LIKE ?`);
-          params.push(`%${valStr}%`);
+        if (sqlField) {
+          if (selectedArr.length > 0) {
+            const placeholders = selectedArr.map(() => '?').join(',');
+            whereClauses.push(`${sqlField} IN (${placeholders})`);
+            params.push(...selectedArr);
+          } else if (searchStr) {
+            whereClauses.push(`${sqlField} LIKE ?`);
+            params.push(`%${searchStr}%`);
+          }
         }
       }
       selectQuery = `
@@ -2349,6 +2870,127 @@ app.get('/api/4dm1n_/export', async (req, res) => {
   } catch (error: any) {
     console.error('Error exportando datos admin:', error);
     res.status(500).json({ success: false, message: 'Error interno generando exportación' });
+  }
+});
+
+
+// ==========================================
+// 8. GESTIÓN DE USUARIOS Y ROLES (/api/4dm1n_/users)
+// ==========================================
+app.get('/api/4dm1n_/users', async (_req, res) => {
+  try {
+    const [rows]: any = await pool.query(
+      'SELECT IDuser, Nombre, Documento, Telefono, Email, Usuario, Area, Rol, Activo, created_at, updated_at FROM user ORDER BY IDuser DESC'
+    );
+    return res.json({ success: true, users: rows });
+  } catch (error: any) {
+    console.error('Error obteniendo usuarios:', error);
+    return res.status(500).json({ success: false, message: 'Error al consultar usuarios', error: error?.message });
+  }
+});
+
+app.post('/api/4dm1n_/users', async (req, res) => {
+  const { Nombre, Documento, Telefono, Email, Usuario, Password, Area, Rol } = req.body;
+  if (!Nombre || !Documento || !Email || !Usuario || !Password || !Area || !Rol) {
+    return res.status(400).json({ success: false, message: 'Faltan campos obligatorios para registrar el usuario' });
+  }
+
+  const validAreas = ['INSTALACION', 'PROVINCIA', 'AVERIAS', 'ADMIN'];
+  const validRoles = ['ADMIN', 'SUPERVISOR', 'COORDINADOR', 'ASESOR'];
+
+  if (!validAreas.includes(Area)) {
+    return res.status(400).json({ success: false, message: `Área inválida. Debe ser una de: ${validAreas.join(', ')}` });
+  }
+
+  if (!validRoles.includes(Rol)) {
+    return res.status(400).json({ success: false, message: `Rol inválido. Debe ser uno de: ${validRoles.join(', ')}` });
+  }
+
+  try {
+    const salt = crypto.randomBytes(16).toString('hex');
+    const hash = crypto.pbkdf2Sync(String(Password).trim(), salt, 10000, 64, 'sha512').toString('hex');
+    const passwordHash = `${salt}:${hash}`;
+
+    const [result]: any = await pool.query(
+      `INSERT INTO user (Nombre, Documento, Telefono, Email, Usuario, Password, Area, Rol, Activo)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)`,
+      [Nombre.trim(), Documento.trim(), Telefono ? Telefono.trim() : null, Email.trim(), Usuario.trim(), passwordHash, Area, Rol]
+    );
+
+    return res.json({
+      success: true,
+      message: 'Usuario registrado exitosamente',
+      userId: result.insertId
+    });
+  } catch (error: any) {
+    console.error('Error creando usuario:', error);
+    if (error.code === 'ER_DUP_ENTRY') {
+      return res.status(409).json({ success: false, message: 'El Documento, Email o Usuario ya se encuentra registrado' });
+    }
+    return res.status(500).json({ success: false, message: 'Error interno al registrar usuario', error: error?.message });
+  }
+});
+
+app.put('/api/4dm1n_/users/:id', async (req, res) => {
+  const { id } = req.params;
+  const { Nombre, Documento, Telefono, Email, Usuario, Password, Area, Rol, Activo } = req.body;
+
+  const validAreas = ['INSTALACION', 'PROVINCIA', 'AVERIAS', 'ADMIN'];
+  const validRoles = ['ADMIN', 'SUPERVISOR', 'COORDINADOR', 'ASESOR'];
+
+  if (Area && !validAreas.includes(Area)) {
+    return res.status(400).json({ success: false, message: 'Área inválida' });
+  }
+
+  if (Rol && !validRoles.includes(Rol)) {
+    return res.status(400).json({ success: false, message: 'Rol inválido' });
+  }
+
+  try {
+    const updates: string[] = [];
+    const params: any[] = [];
+
+    if (Nombre) { updates.push('Nombre = ?'); params.push(Nombre.trim()); }
+    if (Documento) { updates.push('Documento = ?'); params.push(Documento.trim()); }
+    if (Telefono !== undefined) { updates.push('Telefono = ?'); params.push(Telefono ? Telefono.trim() : null); }
+    if (Email) { updates.push('Email = ?'); params.push(Email.trim()); }
+    if (Usuario) { updates.push('Usuario = ?'); params.push(Usuario.trim()); }
+    if (Area) { updates.push('Area = ?'); params.push(Area); }
+    if (Rol) { updates.push('Rol = ?'); params.push(Rol); }
+    if (Activo !== undefined) { updates.push('Activo = ?'); params.push(Activo ? 1 : 0); }
+
+    if (Password && String(Password).trim()) {
+      const salt = crypto.randomBytes(16).toString('hex');
+      const hash = crypto.pbkdf2Sync(String(Password).trim(), salt, 10000, 64, 'sha512').toString('hex');
+      updates.push('Password = ?');
+      params.push(`${salt}:${hash}`);
+    }
+
+    if (updates.length === 0) {
+      return res.status(400).json({ success: false, message: 'No hay campos para actualizar' });
+    }
+
+    params.push(id);
+    await pool.query(`UPDATE user SET ${updates.join(', ')} WHERE IDuser = ?`, params);
+
+    return res.json({ success: true, message: 'Usuario actualizado correctamente' });
+  } catch (error: any) {
+    console.error('Error actualizando usuario:', error);
+    if (error.code === 'ER_DUP_ENTRY') {
+      return res.status(409).json({ success: false, message: 'El Documento, Email o Usuario ya se encuentra registrado' });
+    }
+    return res.status(500).json({ success: false, message: 'Error interno al actualizar usuario', error: error?.message });
+  }
+});
+
+app.put('/api/4dm1n_/users/:id/estado', async (req, res) => {
+  const { id } = req.params;
+  const { activo } = req.body;
+  try {
+    await pool.query('UPDATE user SET Activo = ? WHERE IDuser = ?', [activo ? 1 : 0, id]);
+    return res.json({ success: true, message: 'Estado de usuario actualizado con éxito' });
+  } catch (error: any) {
+    return res.status(500).json({ success: false, message: 'Error al actualizar estado', error: error?.message });
   }
 });
 
