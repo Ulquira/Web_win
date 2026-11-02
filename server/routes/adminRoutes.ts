@@ -835,12 +835,33 @@ router.get('/dashboard-stats', async (req, res) => {
       params.push(...serviceCond.values);
     }
     if (search) {
-      whereClauses.push('(r.orden_id LIKE ? OR r.ticket LIKE ? OR r.cliente LIKE ? OR r.telefono LIKE ? OR r.distrito LIKE ? OR r.cuadrilla LIKE ?)');
+      whereClauses.push('(r.orden_id LIKE ? OR r.ticket LIKE ? OR r.cliente LIKE ? OR r.telefono LIKE ? OR r.distrito LIKE ? OR r.cuadrilla LIKE ? OR r.partner LIKE ?)');
       const s = `%${search}%`;
-      params.push(s, s, s, s, s, s);
+      params.push(s, s, s, s, s, s, s);
     }
 
     const whereSql = whereClauses.join(' AND ');
+
+    // Filtros para evolución últimos 7 días fija (independiente de fechaInicio y fechaFin, pero respetando grupoServicio, servicio y búsqueda)
+    const whereClauses7d: string[] = [
+      'r.fecha_visita <= CONCAT(DATE(CONVERT_TZ(NOW(), "+00:00", "-05:00")), " 23:59:59")',
+      'r.fecha_visita >= DATE_SUB(DATE(CONVERT_TZ(NOW(), "+00:00", "-05:00")), INTERVAL 14 DAY)'
+    ];
+    const params7d: any[] = [];
+    if (grupoDashCond) {
+      whereClauses7d.push(grupoDashCond.sql);
+      params7d.push(...grupoDashCond.values);
+    }
+    if (serviceCond) {
+      whereClauses7d.push(serviceCond.sql);
+      params7d.push(...serviceCond.values);
+    }
+    if (search) {
+      whereClauses7d.push('(r.orden_id LIKE ? OR r.ticket LIKE ? OR r.cliente LIKE ? OR r.telefono LIKE ? OR r.distrito LIKE ? OR r.cuadrilla LIKE ? OR r.partner LIKE ?)');
+      const s = `%${search}%`;
+      params7d.push(s, s, s, s, s, s, s);
+    }
+    const whereSql7d = whereClauses7d.join(' AND ');
 
     // 1. Totales generales del embudo
     const kpiQuery = `
@@ -900,7 +921,7 @@ router.get('/dashboard-stats', async (req, res) => {
       LIMIT 12
     `;
 
-    // 5. Desglose diario de avance e indicadores
+    // 5. Desglose diario de avance e indicadores (para la tabla Resumen Ejecutivo con fechas filtradas)
     const diarioQuery = `
       SELECT 
         COALESCE(DATE_FORMAT(r.fecha_visita, '%Y-%m-%d'), 'Sin fecha') as fecha,
@@ -923,6 +944,21 @@ router.get('/dashboard-stats', async (req, res) => {
       LIMIT 90
     `;
 
+    // 5.1 Evolución últimos 7 días fija sin importar filtro de fecha, pero respetando grupoServicio
+    const evolucion7dQuery = `
+      SELECT 
+        COALESCE(DATE_FORMAT(r.fecha_visita, '%Y-%m-%d'), 'Sin fecha') as fecha,
+        COUNT(*) as total_ots,
+        COALESCE(SUM(CASE WHEN r.se_envio_wsp = 'SI' THEN 1 ELSE 0 END), 0) as wsp_enviados,
+        COALESCE(SUM(CASE WHEN LOWER(r.estado_wsp) = 'read' THEN 1 ELSE 0 END), 0) as read_total,
+        COALESCE(SUM(CASE WHEN r.ingreso_tracking = 'SI' THEN 1 ELSE 0 END), 0) as tracking_ingresados
+      FROM vw_reporte_funnel_casos_360 r
+      WHERE ${whereSql7d}
+      GROUP BY fecha
+      ORDER BY fecha DESC
+      LIMIT 7
+    `;
+
     // 6. Desglose por Estado de OT (% Leído y % Ingreso al tracking)
     const estadosOtQuery = `
       SELECT 
@@ -937,10 +973,10 @@ router.get('/dashboard-stats', async (req, res) => {
       ORDER BY total_ots DESC
     `;
 
-    // 7. Rendimiento por Partner / Cuadrilla completo
+    // 7. Rendimiento por Partner (exclusivamente contratista/empresa, sin cuadrilla)
     const partnersQuery = `
       SELECT 
-        COALESCE(NULLIF(TRIM(r.cuadrilla), ''), 'SIN CUADRILLA') as partner,
+        COALESCE(NULLIF(TRIM(r.partner), ''), 'SIN PARTNER') as partner,
         COUNT(*) as total_ots,
         COALESCE(SUM(CASE WHEN r.se_envio_wsp = 'SI' THEN 1 ELSE 0 END), 0) as wsp_enviados,
         COALESCE(SUM(CASE WHEN LOWER(r.estado_wsp) = 'read' THEN 1 ELSE 0 END), 0) as read_total,
@@ -951,12 +987,13 @@ router.get('/dashboard-stats', async (req, res) => {
       ORDER BY total_ots DESC
     `;
 
-    const [kpiRes, estadosRes, sectoresRes, operacionesRes, diarioRes, estadosOtRes, partnersRes] = await Promise.allSettled([
+    const [kpiRes, estadosRes, sectoresRes, operacionesRes, diarioRes, evolucion7dRes, estadosOtRes, partnersRes] = await Promise.allSettled([
       pool.query(kpiQuery, params),
       pool.query(estadosWspQuery, params),
       pool.query(sectoresQuery, params),
       pool.query(operacionesQuery, params),
       pool.query(diarioQuery, params),
+      pool.query(evolucion7dQuery, params7d),
       pool.query(estadosOtQuery, params),
       pool.query(partnersQuery, params)
     ]);
@@ -966,11 +1003,15 @@ router.get('/dashboard-stats', async (req, res) => {
     const sectoresRows = sectoresRes.status === 'fulfilled' ? (sectoresRes.value as any)[0] : [];
     const operacionesRows = operacionesRes.status === 'fulfilled' ? (operacionesRes.value as any)[0] : [];
     const diarioRows = diarioRes.status === 'fulfilled' ? (diarioRes.value as any)[0] : [];
+    const evolucion7dRows = evolucion7dRes.status === 'fulfilled' ? (evolucion7dRes.value as any)[0] : [];
     const estadosOtRows = estadosOtRes.status === 'fulfilled' ? (estadosOtRes.value as any)[0] : [];
     const partnersRows = partnersRes.status === 'fulfilled' ? (partnersRes.value as any)[0] : [];
 
     if (diarioRes.status === 'rejected') {
       console.error('Error en diarioQuery:', diarioRes.reason);
+    }
+    if (evolucion7dRes.status === 'rejected') {
+      console.error('Error en evolucion7dQuery:', evolucion7dRes.reason);
     }
     if (estadosOtRes.status === 'rejected') {
       console.error('Error en estadosOtQuery:', estadosOtRes.reason);
@@ -986,6 +1027,7 @@ router.get('/dashboard-stats', async (req, res) => {
       sectores: sectoresRows || [],
       operaciones: operacionesRows || [],
       avanceDiario: diarioRows || [],
+      evolucion7d: evolucion7dRows || [],
       estadosOt: estadosOtRows || [],
       partners: partnersRows || []
     });

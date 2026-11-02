@@ -79,6 +79,11 @@ export const DashboardWinEnrutaView: React.FC<DashboardWinEnrutaViewProps> = ({
                 const pctTrackingDeRead = readTotal > 0 ? ((trackingIngresados / readTotal) * 100).toFixed(1) : '0.0';
                 const estadosOtList: Array<any> = dashboardStats.estadosOt || [];
                 const partnersList: Array<any> = dashboardStats.partners || [];
+                const evolucion7dList: Array<any> = (dashboardStats.evolucion7d && dashboardStats.evolucion7d.length > 0)
+                  ? dashboardStats.evolucion7d
+                  : (dashboardStats.avanceDiario && dashboardStats.avanceDiario.length > 0)
+                    ? dashboardStats.avanceDiario
+                    : [];
                 const avanceDiarioList: Array<any> = (dashboardStats.avanceDiario && dashboardStats.avanceDiario.length > 0)
                   ? dashboardStats.avanceDiario
                   : totalOts > 0
@@ -649,13 +654,13 @@ export const DashboardWinEnrutaView: React.FC<DashboardWinEnrutaViewProps> = ({
                       </div>
 
                       {/* Gráfico SVG Multilínea Reactivo - Exactamente 7 días */}
-                      {avanceDiarioList.length === 0 ? (
+                      {evolucion7dList.length === 0 ? (
                         <div className="h-52 flex items-center justify-center text-xs text-slate-500">
-                          Sin datos de evolución diaria en este rango
+                          Sin datos de evolución diaria en los últimos 7 días
                         </div>
                       ) : (() => {
                         // Ordenar de más antiguo a más reciente y limitar siempre a 7 días
-                        const chartData = [...avanceDiarioList].reverse().slice(-7);
+                        const chartData = [...evolucion7dList].reverse().slice(-7);
                         const maxVal = 100;
                         const h = 210;
                         const w = 900;
@@ -760,17 +765,17 @@ export const DashboardWinEnrutaView: React.FC<DashboardWinEnrutaViewProps> = ({
                       })()}
                     </div>
 
-                    {/* 2. TABLA COMPLETA: RENDIMIENTO POR PARTNER / CUADRILLA */}
+                    {/* 2. TABLA COMPLETA: RENDIMIENTO POR PARTNER */}
                     <div className="bg-slate-900/70 border border-slate-800 rounded-2xl p-5 shadow-sm backdrop-blur flex flex-col">
                       <div className="flex items-center justify-between border-b border-slate-800 pb-3 mb-3">
                         <div className="flex items-center gap-2">
                           <Users className="w-4 h-4 text-orange-400" />
                           <h4 className="text-xs font-bold text-white uppercase tracking-wider">
-                            Ingreso a Tracking por Partner / Cuadrilla (Completo)
+                            Ingreso a Tracking por Partner (Completo)
                           </h4>
                         </div>
                         <span className="text-[11px] font-mono text-slate-400">
-                          {partnersList.length} {partnersList.length === 1 ? 'cuadrilla' : 'cuadrillas registradas'}
+                          {partnersList.length} {partnersList.length === 1 ? 'partner' : 'partners registrados'}
                         </span>
                       </div>
 
@@ -778,7 +783,7 @@ export const DashboardWinEnrutaView: React.FC<DashboardWinEnrutaViewProps> = ({
                         <table className="w-full text-left text-xs text-slate-300 border-collapse">
                           <thead className="bg-slate-950/90 sticky top-0 z-10 border-b border-slate-800 text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
                             <tr>
-                              <th className="py-2.5 px-3 whitespace-nowrap">Partner / Cuadrilla</th>
+                              <th className="py-2.5 px-3 whitespace-nowrap">Partner</th>
                               <th className="py-2.5 px-3 text-right whitespace-nowrap">Órdenes</th>
                               <th className="py-2.5 px-3 text-right whitespace-nowrap">WSP Env.</th>
                               <th className="py-2.5 px-3 text-right whitespace-nowrap">Leídos</th>
@@ -791,7 +796,7 @@ export const DashboardWinEnrutaView: React.FC<DashboardWinEnrutaViewProps> = ({
                             {partnersList.length === 0 ? (
                               <tr>
                                 <td colSpan={7} className="py-8 text-center text-slate-500 font-sans text-xs">
-                                  No hay datos de cuadrillas disponibles en el rango
+                                  No hay datos de partners disponibles en el rango
                                 </td>
                               </tr>
                             ) : (
