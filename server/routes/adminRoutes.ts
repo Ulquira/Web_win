@@ -937,13 +937,28 @@ router.get('/dashboard-stats', async (req, res) => {
       ORDER BY total_ots DESC
     `;
 
-    const [kpiRes, estadosRes, sectoresRes, operacionesRes, diarioRes, estadosOtRes] = await Promise.allSettled([
+    // 7. Rendimiento por Partner / Cuadrilla completo
+    const partnersQuery = `
+      SELECT 
+        COALESCE(NULLIF(TRIM(r.cuadrilla), ''), 'SIN CUADRILLA') as partner,
+        COUNT(*) as total_ots,
+        COALESCE(SUM(CASE WHEN r.se_envio_wsp = 'SI' THEN 1 ELSE 0 END), 0) as wsp_enviados,
+        COALESCE(SUM(CASE WHEN LOWER(r.estado_wsp) = 'read' THEN 1 ELSE 0 END), 0) as read_total,
+        COALESCE(SUM(CASE WHEN r.ingreso_tracking = 'SI' THEN 1 ELSE 0 END), 0) as tracking_ingresados
+      FROM vw_reporte_funnel_casos_360 r
+      WHERE ${whereSql}
+      GROUP BY partner
+      ORDER BY total_ots DESC
+    `;
+
+    const [kpiRes, estadosRes, sectoresRes, operacionesRes, diarioRes, estadosOtRes, partnersRes] = await Promise.allSettled([
       pool.query(kpiQuery, params),
       pool.query(estadosWspQuery, params),
       pool.query(sectoresQuery, params),
       pool.query(operacionesQuery, params),
       pool.query(diarioQuery, params),
-      pool.query(estadosOtQuery, params)
+      pool.query(estadosOtQuery, params),
+      pool.query(partnersQuery, params)
     ]);
 
     const kpiRows = kpiRes.status === 'fulfilled' ? (kpiRes.value as any)[0] : [];
@@ -952,12 +967,16 @@ router.get('/dashboard-stats', async (req, res) => {
     const operacionesRows = operacionesRes.status === 'fulfilled' ? (operacionesRes.value as any)[0] : [];
     const diarioRows = diarioRes.status === 'fulfilled' ? (diarioRes.value as any)[0] : [];
     const estadosOtRows = estadosOtRes.status === 'fulfilled' ? (estadosOtRes.value as any)[0] : [];
+    const partnersRows = partnersRes.status === 'fulfilled' ? (partnersRes.value as any)[0] : [];
 
     if (diarioRes.status === 'rejected') {
       console.error('Error en diarioQuery:', diarioRes.reason);
     }
     if (estadosOtRes.status === 'rejected') {
       console.error('Error en estadosOtQuery:', estadosOtRes.reason);
+    }
+    if (partnersRes.status === 'rejected') {
+      console.error('Error en partnersQuery:', partnersRes.reason);
     }
 
     res.json({
@@ -967,7 +986,8 @@ router.get('/dashboard-stats', async (req, res) => {
       sectores: sectoresRows || [],
       operaciones: operacionesRows || [],
       avanceDiario: diarioRows || [],
-      estadosOt: estadosOtRows || []
+      estadosOt: estadosOtRows || [],
+      partners: partnersRows || []
     });
   } catch (error: any) {
     console.error('Error en /api/4dm1n_/dashboard-stats:', error);
