@@ -41,6 +41,46 @@ const parseGrupoServicio = (rawInput: any): string[] => {
   return list.map(item => String(item).trim()).filter(Boolean);
 };
 
+const OPERACIONES_ESTANDAR = ['INSTALACION', 'AVERIAS', 'PROVINCIA', 'POSTVENTA', 'AVERIAS PRV', 'NO'];
+
+// Helper para construir la condición SQL de grupoServicio en tablas tipo 'reporte' (vw_reporte_funnel_casos_360)
+const buildGrupoServicioReporteFilter = (grupos: string[]): { sql: string; values: string[] } | null => {
+  if (!grupos || grupos.length === 0) return null;
+  const orParts: string[] = [];
+  const values: string[] = [];
+  for (const g of grupos) {
+    const gUpper = g.toUpperCase().trim();
+    if (OPERACIONES_ESTANDAR.includes(gUpper)) {
+      orParts.push('UPPER(TRIM(r.tipo_operacion)) = ?');
+      values.push(gUpper);
+    } else {
+      orParts.push('(r.tipo_operacion = ? OR r.tipo_trabajo = ? OR r.producto LIKE ?)');
+      values.push(g, g, `%${g}%`);
+    }
+  }
+  if (orParts.length === 0) return null;
+  return { sql: '(' + orParts.join(' OR ') + ')', values };
+};
+
+// Helper para construir la condición SQL de grupoServicio en tablas tipo 'principal' (vw_winordetraba)
+const buildGrupoServicioPrincipalFilter = (grupos: string[]): { sql: string; values: string[] } | null => {
+  if (!grupos || grupos.length === 0) return null;
+  const orParts: string[] = [];
+  const values: string[] = [];
+  for (const g of grupos) {
+    const gUpper = g.toUpperCase().trim();
+    if (OPERACIONES_ESTANDAR.includes(gUpper)) {
+      orParts.push('UPPER(TRIM(COALESCE(ts_prod.Tipo, ts_traba.Tipo, w.TipoTraba))) = ?');
+      values.push(gUpper);
+    } else {
+      orParts.push('(COALESCE(ts_prod.Tipo, ts_traba.Tipo, w.TipoTraba) = ? OR w.TipoTraba = ? OR w.Producto LIKE ?)');
+      values.push(g, g, `%${g}%`);
+    }
+  }
+  if (orParts.length === 0) return null;
+  return { sql: '(' + orParts.join(' OR ') + ')', values };
+};
+
 const buildServiceFilterSql = (
   serviceFilters: AdminServiceFilter[], 
   tableContext: 'reporte' | 'principal'
@@ -513,15 +553,11 @@ router.get('/data', async (req, res) => {
       }
       const serviceCond = buildServiceFilterSql(serviceFilters, 'reporte');
       const gruposReporte = parseGrupoServicio(grupoServicio);
-      if (gruposReporte.length > 0) {
-        const orParts: string[] = [];
-        for (const g of gruposReporte) {
-          orParts.push('(r.tipo_operacion LIKE ? OR r.tipo_trabajo LIKE ? OR r.producto LIKE ?)');
-          const gs = '%' + g + '%';
-          params.push(gs, gs, gs);
-          countParams.push(gs, gs, gs);
-        }
-        whereClauses.push('(' + orParts.join(' OR ') + ')');
+      const grupoRepCond = buildGrupoServicioReporteFilter(gruposReporte);
+      if (grupoRepCond) {
+        whereClauses.push(grupoRepCond.sql);
+        params.push(...grupoRepCond.values);
+        countParams.push(...grupoRepCond.values);
       }
       if (serviceCond) {
         whereClauses.push(serviceCond.sql);
@@ -664,15 +700,11 @@ router.get('/data', async (req, res) => {
         countParams.push(s, s, s, s, s, s);
       }
       const gruposPrincipal = parseGrupoServicio(grupoServicio);
-      if (gruposPrincipal.length > 0) {
-        const orParts: string[] = [];
-        for (const g of gruposPrincipal) {
-          orParts.push('(w.TipoTraba LIKE ? OR ts.Tipo LIKE ? OR w.Producto LIKE ?)');
-          const gs = '%' + g + '%';
-          params.push(gs, gs, gs);
-          countParams.push(gs, gs, gs);
-        }
-        whereClauses.push('(' + orParts.join(' OR ') + ')');
+      const grupoPrinCond = buildGrupoServicioPrincipalFilter(gruposPrincipal);
+      if (grupoPrinCond) {
+        whereClauses.push(grupoPrinCond.sql);
+        params.push(...grupoPrinCond.values);
+        countParams.push(...grupoPrinCond.values);
       }
       const allowedColsPrincipal: Record<string, string> = {
         orden_id: 'w.OrdenId',
@@ -788,14 +820,10 @@ router.get('/dashboard-stats', async (req, res) => {
       params.push(`${fechaFin} 23:59:59`);
     }
     const gruposDashboard = parseGrupoServicio(grupoServicio);
-    if (gruposDashboard.length > 0) {
-      const orParts: string[] = [];
-      for (const g of gruposDashboard) {
-        orParts.push('(r.tipo_operacion LIKE ? OR r.tipo_trabajo LIKE ? OR r.producto LIKE ?)');
-        const gs = '%' + g + '%';
-        params.push(gs, gs, gs);
-      }
-      whereClauses.push('(' + orParts.join(' OR ') + ')');
+    const grupoDashCond = buildGrupoServicioReporteFilter(gruposDashboard);
+    if (grupoDashCond) {
+      whereClauses.push(grupoDashCond.sql);
+      params.push(...grupoDashCond.values);
     }
     const serviceCond = buildServiceFilterSql(serviceFilters, 'reporte');
     if (serviceCond) {
@@ -1576,15 +1604,10 @@ router.get('/export', async (req, res) => {
       }
       const serviceCond = buildServiceFilterSql(serviceFilters, 'reporte');
       const gruposReporteExport = parseGrupoServicio(grupoServicio);
-      if (gruposReporteExport.length > 0) {
-        const orParts: string[] = [];
-        for (const g of gruposReporteExport) {
-          orParts.push('(r.tipo_operacion LIKE ? OR r.tipo_trabajo LIKE ? OR r.producto LIKE ?)');
-          const gs = '%' + g + '%';
-          params.push(gs, gs, gs);
-          countParams.push(gs, gs, gs);
-        }
-        whereClauses.push('(' + orParts.join(' OR ') + ')');
+      const grupoRepExpCond = buildGrupoServicioReporteFilter(gruposReporteExport);
+      if (grupoRepExpCond) {
+        whereClauses.push(grupoRepExpCond.sql);
+        params.push(...grupoRepExpCond.values);
       }
       if (serviceCond) {
         whereClauses.push(serviceCond.sql);
@@ -1677,10 +1700,11 @@ router.get('/export', async (req, res) => {
         const s = `%${search}%`;
         params.push(s, s, s, s, s, s);
       }
-      if (grupoServicio) {
-        whereClauses.push('(w.TipoTraba LIKE ? OR ts.Tipo LIKE ? OR w.Producto LIKE ?)');
-        const gs = '%' + grupoServicio + '%';
-        params.push(gs, gs, gs);
+      const gruposPrincipalExport = parseGrupoServicio(grupoServicio);
+      const grupoPrinExpCond = buildGrupoServicioPrincipalFilter(gruposPrincipalExport);
+      if (grupoPrinExpCond) {
+        whereClauses.push(grupoPrinExpCond.sql);
+        params.push(...grupoPrinExpCond.values);
       }
       const allowedColsPrincipal: Record<string, string> = {
         orden_id: 'w.OrdenId',
