@@ -923,12 +923,27 @@ router.get('/dashboard-stats', async (req, res) => {
       LIMIT 90
     `;
 
-    const [kpiRes, estadosRes, sectoresRes, operacionesRes, diarioRes] = await Promise.allSettled([
+    // 6. Desglose por Estado de OT (% Leído y % Ingreso al tracking)
+    const estadosOtQuery = `
+      SELECT 
+        COALESCE(NULLIF(TRIM(r.estado_ot), ''), 'SIN ESTADO') as estado,
+        COUNT(*) as total_ots,
+        COALESCE(SUM(CASE WHEN r.se_envio_wsp = 'SI' THEN 1 ELSE 0 END), 0) as wsp_enviados,
+        COALESCE(SUM(CASE WHEN LOWER(r.estado_wsp) = 'read' THEN 1 ELSE 0 END), 0) as read_total,
+        COALESCE(SUM(CASE WHEN r.ingreso_tracking = 'SI' THEN 1 ELSE 0 END), 0) as tracking_ingresados
+      FROM vw_reporte_funnel_casos_360 r
+      WHERE ${whereSql}
+      GROUP BY estado
+      ORDER BY total_ots DESC
+    `;
+
+    const [kpiRes, estadosRes, sectoresRes, operacionesRes, diarioRes, estadosOtRes] = await Promise.allSettled([
       pool.query(kpiQuery, params),
       pool.query(estadosWspQuery, params),
       pool.query(sectoresQuery, params),
       pool.query(operacionesQuery, params),
-      pool.query(diarioQuery, params)
+      pool.query(diarioQuery, params),
+      pool.query(estadosOtQuery, params)
     ]);
 
     const kpiRows = kpiRes.status === 'fulfilled' ? (kpiRes.value as any)[0] : [];
@@ -936,9 +951,13 @@ router.get('/dashboard-stats', async (req, res) => {
     const sectoresRows = sectoresRes.status === 'fulfilled' ? (sectoresRes.value as any)[0] : [];
     const operacionesRows = operacionesRes.status === 'fulfilled' ? (operacionesRes.value as any)[0] : [];
     const diarioRows = diarioRes.status === 'fulfilled' ? (diarioRes.value as any)[0] : [];
+    const estadosOtRows = estadosOtRes.status === 'fulfilled' ? (estadosOtRes.value as any)[0] : [];
 
     if (diarioRes.status === 'rejected') {
       console.error('Error en diarioQuery:', diarioRes.reason);
+    }
+    if (estadosOtRes.status === 'rejected') {
+      console.error('Error en estadosOtQuery:', estadosOtRes.reason);
     }
 
     res.json({
@@ -947,7 +966,8 @@ router.get('/dashboard-stats', async (req, res) => {
       estadosWsp: estadosRows || [],
       sectores: sectoresRows || [],
       operaciones: operacionesRows || [],
-      avanceDiario: diarioRows || []
+      avanceDiario: diarioRows || [],
+      estadosOt: estadosOtRows || []
     });
   } catch (error: any) {
     console.error('Error en /api/4dm1n_/dashboard-stats:', error);

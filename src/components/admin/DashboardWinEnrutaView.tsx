@@ -7,8 +7,9 @@ import {
   Navigation, 
   Activity, 
   MapPin, 
-  CalendarClock, 
-    RefreshCw,
+  CalendarClock,
+  BarChart3,
+  RefreshCw,
   PieChart
 } from 'lucide-react';
 
@@ -75,6 +76,7 @@ export const DashboardWinEnrutaView: React.FC<DashboardWinEnrutaViewProps> = ({
                 const failedTotal = estadosList.find(e => e.estado.toLowerCase() === 'failed')?.total || 0;
                 const pctRead = wspEnviados > 0 ? ((readTotal / wspEnviados) * 100).toFixed(1) : '0.0';
                 const pctTrackingDeRead = readTotal > 0 ? ((trackingIngresados / readTotal) * 100).toFixed(1) : '0.0';
+                const estadosOtList: Array<any> = dashboardStats.estadosOt || [];
                 const avanceDiarioList: Array<any> = (dashboardStats.avanceDiario && dashboardStats.avanceDiario.length > 0)
                   ? dashboardStats.avanceDiario
                   : totalOts > 0
@@ -362,6 +364,198 @@ export const DashboardWinEnrutaView: React.FC<DashboardWinEnrutaViewProps> = ({
                                 </div>
                               );
                             })}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* 2.1 Nueva Sección: Eficiencia y Conversión por Estado OT (Cuadro + Gráfico Comparativo) */}
+                    <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+                      {/* Cuadro / Tabla por Estado OT - 7 columnas */}
+                      <div className="lg:col-span-7 bg-slate-900/70 border border-slate-800 rounded-2xl p-4 shadow-sm backdrop-blur flex flex-col">
+                        <div className="flex items-center justify-between border-b border-slate-800 pb-3 mb-3">
+                          <div className="flex items-center gap-2">
+                            <Activity className="w-4 h-4 text-emerald-400" />
+                            <h4 className="text-xs font-bold text-white uppercase tracking-wider">
+                              Conversión por Estado OT (% Leído & % Ingreso)
+                            </h4>
+                          </div>
+                          <span className="text-[11px] font-mono text-slate-400">
+                            {estadosOtList.length} {estadosOtList.length === 1 ? 'estado' : 'estados'}
+                          </span>
+                        </div>
+                        <div className="overflow-x-auto max-h-[350px] scrollbar-thin scrollbar-thumb-slate-700">
+                          <table className="w-full text-left text-xs text-slate-300 border-collapse">
+                            <thead className="bg-slate-950/90 sticky top-0 z-10 border-b border-slate-800 text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
+                              <tr>
+                                <th className="py-2.5 px-3 whitespace-nowrap">Estado OT</th>
+                                <th className="py-2.5 px-3 text-right whitespace-nowrap">Total OTs</th>
+                                <th className="py-2.5 px-3 text-right whitespace-nowrap">WSP Env.</th>
+                                <th className="py-2.5 px-3 text-right whitespace-nowrap">Leídos (Read)</th>
+                                <th className="py-2.5 px-3 text-right whitespace-nowrap">% Leído</th>
+                                <th className="py-2.5 px-3 text-right whitespace-nowrap">Tracking</th>
+                                <th className="py-2.5 px-3 text-right whitespace-nowrap">% Ingreso s/env</th>
+                                <th className="py-2.5 px-3 text-right whitespace-nowrap">% Ingreso s/read</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-800/60 font-mono text-[11px]">
+                              {estadosOtList.length === 0 ? (
+                                <tr>
+                                  <td colSpan={8} className="py-8 text-center text-slate-500 font-sans text-xs">
+                                    No hay registros disponibles por estado en este rango
+                                  </td>
+                                </tr>
+                              ) : (
+                                estadosOtList.map((item: any, idx: number) => {
+                                  const tot = Number(item.total_ots || 0);
+                                  const env = Number(item.wsp_enviados || 0);
+                                  const pctEnv = tot > 0 ? ((env / tot) * 100).toFixed(1) : '0.0';
+                                  const read = Number(item.read_total || 0);
+                                  const pctRead = env > 0 ? ((read / env) * 100).toFixed(1) : '0.0';
+                                  const track = Number(item.tracking_ingresados || 0);
+                                  const pctTrackEnv = env > 0 ? ((track / env) * 100).toFixed(1) : '0.0';
+                                  const pctTrackRead = read > 0 ? ((track / read) * 100).toFixed(1) : '0.0';
+
+                                  const estLower = String(item.estado || '').toLowerCase();
+                                  const isDone = estLower.includes('fin') || estLower.includes('liquid') || estLower.includes('complet') || estLower.includes('inic');
+                                  const isAgendada = estLower.includes('agend') || estLower.includes('pend');
+                                  const isCancel = estLower.includes('cancel') || estLower.includes('anul');
+
+                                  const badgeClass = isDone
+                                    ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'
+                                    : isAgendada
+                                    ? 'bg-sky-500/15 text-sky-300 border-sky-500/30'
+                                    : isCancel
+                                    ? 'bg-rose-500/15 text-rose-300 border-rose-500/30'
+                                    : 'bg-amber-500/15 text-amber-300 border-amber-500/30';
+
+                                  return (
+                                    <tr key={idx} className="hover:bg-slate-800/30 transition-colors">
+                                      <td className="py-2.5 px-3 whitespace-nowrap">
+                                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${badgeClass}`}>
+                                          {item.estado}
+                                        </span>
+                                      </td>
+                                      <td className="py-2.5 px-3 text-right text-slate-200">
+                                        {tot.toLocaleString()}
+                                      </td>
+                                      <td className="py-2.5 px-3 text-right whitespace-nowrap">
+                                        <span className="text-emerald-400 font-bold">{env.toLocaleString()}</span>
+                                        <span className="text-[10px] text-emerald-400/80 ml-1 font-normal">({pctEnv}%)</span>
+                                      </td>
+                                      <td className="py-2.5 px-3 text-right whitespace-nowrap">
+                                        <span className="text-cyan-400 font-bold">{read.toLocaleString()}</span>
+                                      </td>
+                                      <td className="py-2.5 px-3 text-right whitespace-nowrap">
+                                        <span className="text-cyan-300 font-bold">{pctRead}%</span>
+                                      </td>
+                                      <td className="py-2.5 px-3 text-right whitespace-nowrap">
+                                        <span className="text-amber-400 font-bold">{track.toLocaleString()}</span>
+                                      </td>
+                                      <td className="py-2.5 px-3 text-right whitespace-nowrap">
+                                        <span className="text-amber-300 font-bold">{pctTrackEnv}%</span>
+                                      </td>
+                                      <td className="py-2.5 px-3 text-right whitespace-nowrap">
+                                        <span className="text-cyan-300 font-bold">[{pctTrackRead}%]</span>
+                                      </td>
+                                    </tr>
+                                  );
+                                })
+                              )}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+
+                      {/* Gráfico Comparativo por Estado OT - 5 columnas */}
+                      <div className="lg:col-span-5 bg-slate-900/70 border border-slate-800 rounded-2xl p-4 shadow-sm backdrop-blur flex flex-col justify-between">
+                        <div>
+                          <div className="flex items-center justify-between border-b border-slate-800 pb-3 mb-3">
+                            <div className="flex items-center gap-2">
+                              <BarChart3 className="w-4 h-4 text-cyan-400" />
+                              <h4 className="text-xs font-bold text-white uppercase tracking-wider truncate">
+                                Comparativo: % Leído vs % Ingreso
+                              </h4>
+                            </div>
+                            <div className="flex items-center gap-2.5 text-[10px] font-mono">
+                              <span className="flex items-center gap-1 text-cyan-400">
+                                <span className="w-2 h-2 rounded-full bg-cyan-400" /> % Read
+                              </span>
+                              <span className="flex items-center gap-1 text-amber-400">
+                                <span className="w-2 h-2 rounded-full bg-amber-400" /> % Ingreso
+                              </span>
+                            </div>
+                          </div>
+
+                          <div className="space-y-3 max-h-[350px] overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-slate-700">
+                            {estadosOtList.length === 0 ? (
+                              <div className="py-8 text-center text-slate-500 text-xs">
+                                Sin datos de estado para graficar
+                              </div>
+                            ) : (
+                              estadosOtList.map((item: any, idx: number) => {
+                                const tot = Number(item.total_ots || 0);
+                                const env = Number(item.wsp_enviados || 0);
+                                const read = Number(item.read_total || 0);
+                                const track = Number(item.tracking_ingresados || 0);
+                                const pctRead = env > 0 ? ((read / env) * 100).toFixed(1) : '0.0';
+                                const pctTrackEnv = env > 0 ? ((track / env) * 100).toFixed(1) : '0.0';
+
+                                const estLower = String(item.estado || '').toLowerCase();
+                                const isDone = estLower.includes('fin') || estLower.includes('liquid') || estLower.includes('complet') || estLower.includes('inic');
+                                const isAgendada = estLower.includes('agend') || estLower.includes('pend');
+                                const isCancel = estLower.includes('cancel') || estLower.includes('anul');
+
+                                const badgeClass = isDone
+                                  ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'
+                                  : isAgendada
+                                  ? 'bg-sky-500/15 text-sky-300 border-sky-500/30'
+                                  : isCancel
+                                  ? 'bg-rose-500/15 text-rose-300 border-rose-500/30'
+                                  : 'bg-amber-500/15 text-amber-300 border-amber-500/30';
+
+                                return (
+                                  <div key={idx} className="p-2.5 bg-slate-950/60 rounded-xl border border-slate-800/80 space-y-2">
+                                    <div className="flex items-center justify-between text-xs">
+                                      <span className={`px-2 py-0.5 rounded-md font-bold text-[10px] uppercase border ${badgeClass}`}>
+                                        {item.estado}
+                                      </span>
+                                      <span className="text-[11px] font-mono text-slate-400">
+                                        <strong className="text-white font-bold">{tot.toLocaleString()}</strong> OTs
+                                      </span>
+                                    </div>
+
+                                    {/* Barra 1: % Leído */}
+                                    <div className="space-y-1">
+                                      <div className="flex items-center justify-between text-[10px]">
+                                        <span className="text-slate-400">% Leído s/envíos:</span>
+                                        <span className="font-mono font-bold text-cyan-400">{pctRead}% ({read.toLocaleString()})</span>
+                                      </div>
+                                      <div className="h-1.5 w-full bg-slate-900 rounded-full overflow-hidden border border-slate-800">
+                                        <div 
+                                          className="h-full bg-cyan-400 rounded-full transition-all duration-500" 
+                                          style={{ width: `${Math.min(Number(pctRead), 100)}%` }} 
+                                        />
+                                      </div>
+                                    </div>
+
+                                    {/* Barra 2: % Ingreso al mapa */}
+                                    <div className="space-y-1">
+                                      <div className="flex items-center justify-between text-[10px]">
+                                        <span className="text-slate-400">% Ingreso s/envíos:</span>
+                                        <span className="font-mono font-bold text-amber-400">{pctTrackEnv}% ({track.toLocaleString()})</span>
+                                      </div>
+                                      <div className="h-1.5 w-full bg-slate-900 rounded-full overflow-hidden border border-slate-800">
+                                        <div 
+                                          className="h-full bg-amber-400 rounded-full transition-all duration-500" 
+                                          style={{ width: `${Math.min(Number(pctTrackEnv), 100)}%` }} 
+                                        />
+                                      </div>
+                                    </div>
+                                  </div>
+                                );
+                              })
+                            )}
                           </div>
                         </div>
                       </div>
