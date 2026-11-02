@@ -1191,6 +1191,14 @@ const parseAdminServiceFilters = (rawInput: any): AdminServiceFilter[] => {
   return result;
 };
 
+const parseGrupoServicio = (rawInput: any): string[] => {
+  if (!rawInput) return [];
+  const list = Array.isArray(rawInput) 
+    ? rawInput.flatMap(x => String(x).split(',')) 
+    : String(rawInput).split(',');
+  return list.map(item => String(item).trim()).filter(Boolean);
+};
+
 const buildServiceFilterSql = (
   serviceFilters: AdminServiceFilter[], 
   tableContext: 'reporte' | 'principal'
@@ -1429,16 +1437,21 @@ app.get('/api/4dm1n_/data', async (req, res) => {
         params.push(fechaFin, fechaFin);
         countParams.push(fechaFin, fechaFin);
       }
-      if (grupoServicio) {
-        if (grupoServicio === 'Instalacion' || grupoServicio === 'Averias') {
-          whereClauses.push('h.grupo_servicio = ?');
-          params.push(grupoServicio);
-          countParams.push(grupoServicio);
-        } else {
-          whereClauses.push('h.tipo_trabajo = ?');
-          params.push(grupoServicio);
-          countParams.push(grupoServicio);
+      const gruposChats = parseGrupoServicio(grupoServicio);
+      if (gruposChats.length > 0) {
+        const orParts: string[] = [];
+        for (const g of gruposChats) {
+          if (g === 'Instalacion' || g === 'Averias') {
+            orParts.push('h.grupo_servicio = ?');
+            params.push(g);
+            countParams.push(g);
+          } else {
+            orParts.push('(h.tipo_trabajo = ? OR h.grupo_servicio LIKE ?)');
+            params.push(g, '%' + g + '%');
+            countParams.push(g, '%' + g + '%');
+          }
         }
+        whereClauses.push('(' + orParts.join(' OR ') + ')');
       }
 
       const confirmacionCond = `(
@@ -1657,11 +1670,16 @@ app.get('/api/4dm1n_/data', async (req, res) => {
         countParams.push(`${fechaFin} 23:59:59`);
       }
       const serviceCond = buildServiceFilterSql(serviceFilters, 'reporte');
-      if (grupoServicio) {
-        whereClauses.push('(r.tipo_operacion LIKE ? OR r.tipo_trabajo LIKE ? OR r.producto LIKE ?)');
-        const gs = '%' + grupoServicio + '%';
-        params.push(gs, gs, gs);
-        countParams.push(gs, gs, gs);
+      const gruposReporte = parseGrupoServicio(grupoServicio);
+      if (gruposReporte.length > 0) {
+        const orParts: string[] = [];
+        for (const g of gruposReporte) {
+          orParts.push('(r.tipo_operacion LIKE ? OR r.tipo_trabajo LIKE ? OR r.producto LIKE ?)');
+          const gs = '%' + g + '%';
+          params.push(gs, gs, gs);
+          countParams.push(gs, gs, gs);
+        }
+        whereClauses.push('(' + orParts.join(' OR ') + ')');
       }
       if (serviceCond) {
         whereClauses.push(serviceCond.sql);
@@ -1803,11 +1821,16 @@ app.get('/api/4dm1n_/data', async (req, res) => {
         params.push(s, s, s, s, s, s);
         countParams.push(s, s, s, s, s, s);
       }
-      if (grupoServicio) {
-        whereClauses.push('(w.TipoTraba LIKE ? OR ts.Tipo LIKE ? OR w.Producto LIKE ?)');
-        const gs = '%' + grupoServicio + '%';
-        params.push(gs, gs, gs);
-        countParams.push(gs, gs, gs);
+      const gruposPrincipal = parseGrupoServicio(grupoServicio);
+      if (gruposPrincipal.length > 0) {
+        const orParts: string[] = [];
+        for (const g of gruposPrincipal) {
+          orParts.push('(w.TipoTraba LIKE ? OR ts.Tipo LIKE ? OR w.Producto LIKE ?)');
+          const gs = '%' + g + '%';
+          params.push(gs, gs, gs);
+          countParams.push(gs, gs, gs);
+        }
+        whereClauses.push('(' + orParts.join(' OR ') + ')');
       }
       const allowedColsPrincipal: Record<string, string> = {
         orden_id: 'w.OrdenId',
@@ -1922,10 +1945,15 @@ app.get('/api/4dm1n_/dashboard-stats', async (req, res) => {
       whereClauses.push('r.fecha_visita <= ?');
       params.push(`${fechaFin} 23:59:59`);
     }
-    if (grupoServicio) {
-      whereClauses.push('(r.tipo_operacion LIKE ? OR r.tipo_trabajo LIKE ? OR r.producto LIKE ?)');
-      const gs = '%' + grupoServicio + '%';
-      params.push(gs, gs, gs);
+    const gruposDashboard = parseGrupoServicio(grupoServicio);
+    if (gruposDashboard.length > 0) {
+      const orParts: string[] = [];
+      for (const g of gruposDashboard) {
+        orParts.push('(r.tipo_operacion LIKE ? OR r.tipo_trabajo LIKE ? OR r.producto LIKE ?)');
+        const gs = '%' + g + '%';
+        params.push(gs, gs, gs);
+      }
+      whereClauses.push('(' + orParts.join(' OR ') + ')');
     }
     const serviceCond = buildServiceFilterSql(serviceFilters, 'reporte');
     if (serviceCond) {
@@ -2072,14 +2100,19 @@ app.get('/api/4dm1n_/chats-dashboard-stats', async (req, res) => {
       whereClauses.push('(h.fecha_gestion_dia <= ? OR DATE(CONVERT_TZ(h.ultimo_mensaje_fecha, "+00:00", "-05:00")) <= ?)');
       params.push(fechaFin, fechaFin);
     }
-    if (grupoServicio) {
-      if (grupoServicio === 'Instalacion' || grupoServicio === 'Averias') {
-        whereClauses.push('h.grupo_servicio = ?');
-        params.push(grupoServicio);
-      } else {
-        whereClauses.push('h.tipo_trabajo = ?');
-        params.push(grupoServicio);
+    const gruposChatsStats = parseGrupoServicio(grupoServicio);
+    if (gruposChatsStats.length > 0) {
+      const orParts: string[] = [];
+      for (const g of gruposChatsStats) {
+        if (g === 'Instalacion' || g === 'Averias') {
+          orParts.push('h.grupo_servicio = ?');
+          params.push(g);
+        } else {
+          orParts.push('(h.tipo_trabajo = ? OR h.grupo_servicio LIKE ?)');
+          params.push(g, '%' + g + '%');
+        }
       }
+      whereClauses.push('(' + orParts.join(' OR ') + ')');
     }
     if (search) {
       whereClauses.push('(h.orden_id LIKE ? OR h.ticket LIKE ? OR h.phone LIKE ? OR h.cliente_nombre LIKE ? OR h.ultimo_mensaje_texto LIKE ? OR h.asesor_asignado LIKE ?)');
@@ -2471,16 +2504,21 @@ app.get('/api/4dm1n_/export', async (req, res) => {
         params.push(fechaFin, fechaFin);
         countParams.push(fechaFin, fechaFin);
       }
-      if (grupoServicio) {
-        if (grupoServicio === 'Instalacion' || grupoServicio === 'Averias') {
-          whereClauses.push('h.grupo_servicio = ?');
-          params.push(grupoServicio);
-          countParams.push(grupoServicio);
-        } else {
-          whereClauses.push('h.tipo_trabajo = ?');
-          params.push(grupoServicio);
-          countParams.push(grupoServicio);
+      const gruposChatsExport = parseGrupoServicio(grupoServicio);
+      if (gruposChatsExport.length > 0) {
+        const orParts: string[] = [];
+        for (const g of gruposChatsExport) {
+          if (g === 'Instalacion' || g === 'Averias') {
+            orParts.push('h.grupo_servicio = ?');
+            params.push(g);
+            countParams.push(g);
+          } else {
+            orParts.push('(h.tipo_trabajo = ? OR h.grupo_servicio LIKE ?)');
+            params.push(g, '%' + g + '%');
+            countParams.push(g, '%' + g + '%');
+          }
         }
+        whereClauses.push('(' + orParts.join(' OR ') + ')');
       }
 
       const confirmacionCond = `(
@@ -2695,11 +2733,16 @@ app.get('/api/4dm1n_/export', async (req, res) => {
         params.push(`${fechaFin} 23:59:59`);
       }
       const serviceCond = buildServiceFilterSql(serviceFilters, 'reporte');
-      if (grupoServicio) {
-        whereClauses.push('(r.tipo_operacion LIKE ? OR r.tipo_trabajo LIKE ? OR r.producto LIKE ?)');
-        const gs = '%' + grupoServicio + '%';
-        params.push(gs, gs, gs);
-        countParams.push(gs, gs, gs);
+      const gruposReporteExport = parseGrupoServicio(grupoServicio);
+      if (gruposReporteExport.length > 0) {
+        const orParts: string[] = [];
+        for (const g of gruposReporteExport) {
+          orParts.push('(r.tipo_operacion LIKE ? OR r.tipo_trabajo LIKE ? OR r.producto LIKE ?)');
+          const gs = '%' + g + '%';
+          params.push(gs, gs, gs);
+          countParams.push(gs, gs, gs);
+        }
+        whereClauses.push('(' + orParts.join(' OR ') + ')');
       }
       if (serviceCond) {
         whereClauses.push(serviceCond.sql);

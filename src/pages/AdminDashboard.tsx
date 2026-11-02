@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { ExcelFilterHeader, ColumnFilterState } from '../components/ExcelFilterHeader';
 import { 
   Database, 
@@ -194,7 +194,9 @@ export default function AdminDashboard() {
   const [fechaInicio, setFechaInicio] = useState(getTodayPeruString());
   const [fechaFin, setFechaFin] = useState(getTodayPeruString());
   const [tipoServicio, setTipoServicio] = useState<string[]>([]);
-  const [grupoServicio, setGrupoServicio] = useState('');
+  const [grupoServicio, setGrupoServicio] = useState<string[]>([]);
+  const [grupoDropdownOpen, setGrupoDropdownOpen] = useState(false);
+  const grupoDropdownRef = useRef<HTMLDivElement>(null);
   const [estadoChatFiltro, setEstadoChatFiltro] = useState('');
   const [updatingChatId, setUpdatingChatId] = useState<number | null>(null);
 
@@ -214,6 +216,18 @@ export default function AdminDashboard() {
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [activeFilterDropdown]);
+
+  // Cerrar dropdown de Grupo de Servicio al hacer clic fuera
+  useEffect(() => {
+    if (!grupoDropdownOpen) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (grupoDropdownRef.current && !grupoDropdownRef.current.contains(e.target as Node)) {
+        setGrupoDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [grupoDropdownOpen]);
 
   // Ordenamiento de columnas (ascendente / descendente)
   const [sortField, setSortField] = useState<string>('id');
@@ -582,6 +596,7 @@ export default function AdminDashboard() {
           ? [currentTipoRaw] 
           : [];
       const currentGrupo = customFilters?.grupoServicio ?? grupoServicio;
+      const currentGrupoArr = Array.isArray(currentGrupo) ? currentGrupo : (currentGrupo ? [currentGrupo] : []);
       const currentEstado = customFilters?.estadoChatFiltro ?? estadoChatFiltro;
 
       const params = new URLSearchParams({
@@ -609,7 +624,7 @@ export default function AdminDashboard() {
       if (currentTipo.length > 0 && (currentTab === 'principal' || currentTab === 'reporte')) {
         params.append('tipoServicio', currentTipo.join(','));
       }
-      if (currentGrupo) params.append('grupoServicio', currentGrupo);
+      if (currentGrupoArr.length > 0) params.append('grupoServicio', currentGrupoArr.join(','));
       if (currentEstado && currentTab === 'chats_mantra') params.append('estadoChat', currentEstado);
 
       const res = await fetch(`${apiUrl}/api/4dm1n_/data?${params.toString()}`, {
@@ -657,6 +672,7 @@ export default function AdminDashboard() {
       const currentFInicio = customFilters?.fechaInicio ?? fechaInicio;
       const currentFFin = customFilters?.fechaFin ?? fechaFin;
       const currentGrupo = customFilters?.grupoServicio ?? grupoServicio;
+      const currentGrupoArr = Array.isArray(currentGrupo) ? currentGrupo : (currentGrupo ? [currentGrupo] : []);
 
       const params = new URLSearchParams();
       if (currentSearch) params.append('search', currentSearch);
@@ -673,7 +689,7 @@ export default function AdminDashboard() {
       }
       if (currentFInicio) params.append('fechaInicio', currentFInicio);
       if (currentFFin) params.append('fechaFin', currentFFin);
-      if (currentGrupo) params.append('grupoServicio', currentGrupo);
+      if (currentGrupoArr.length > 0) params.append('grupoServicio', currentGrupoArr.join(','));
 
       let serverSuccess = false;
       try {
@@ -702,7 +718,7 @@ export default function AdminDashboard() {
       if (currentSearch) fallbackParams.append('search', currentSearch);
       if (currentFInicio) fallbackParams.append('fechaInicio', currentFInicio);
       if (currentFFin) fallbackParams.append('fechaFin', currentFFin);
-      if (currentGrupo) fallbackParams.append('grupoServicio', currentGrupo);
+      if (currentGrupoArr.length > 0) fallbackParams.append('grupoServicio', currentGrupoArr.join(','));
 
       const dataRes = await fetch(`${apiUrl}/api/4dm1n_/data?${fallbackParams.toString()}`);
       if (!dataRes.ok) throw new Error('No se pudo obtener datos para el dashboard de chats');
@@ -826,6 +842,9 @@ export default function AdminDashboard() {
       if (currentFInicio) params.append('fechaInicio', currentFInicio);
       if (currentFFin) params.append('fechaFin', currentFFin);
       if (currentTipo.length > 0) params.append('tipoServicio', currentTipo.join(','));
+      const currentGrupo = customFilters?.grupoServicio ?? grupoServicio;
+      const currentGrupoArr = Array.isArray(currentGrupo) ? currentGrupo : (currentGrupo ? [currentGrupo] : []);
+      if (currentGrupoArr.length > 0) params.append('grupoServicio', currentGrupoArr.join(','));
 
       const res = await fetch(`${apiUrl}/api/4dm1n_/dashboard-stats?${params.toString()}`);
       if (!res.ok) {
@@ -860,7 +879,7 @@ export default function AdminDashboard() {
       setPage(1);
       fetchData(1);
     }
-  }, [activeTab, limit, grupoServicio, sortField, sortOrder, apiUrl]);
+  }, [activeTab, limit, grupoServicio.join(','), sortField, sortOrder, apiUrl]);
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -881,7 +900,7 @@ export default function AdminDashboard() {
     setFechaInicio(today);
     setFechaFin(today);
     setTipoServicio([]);
-    setGrupoServicio('');
+    setGrupoServicio([]);
     setEstadoChatFiltro('');
     setSortField(defaultSort);
     setSortOrder('desc');
@@ -891,7 +910,7 @@ export default function AdminDashboard() {
       fechaInicio: today,
       fechaFin: today,
       tipoServicio: [] as string[],
-      grupoServicio: '',
+      grupoServicio: [] as string[],
       estadoChatFiltro: '',
       sortField: defaultSort,
       sortOrder: 'desc'
@@ -1158,7 +1177,7 @@ export default function AdminDashboard() {
     if (tipoServicio.length > 0 && (activeTab === 'principal' || activeTab === 'reporte')) {
       params.append('tipoServicio', tipoServicio.join(','));
     }
-    if (grupoServicio && activeTab === 'chats_mantra') params.append('grupoServicio', grupoServicio);
+    if (grupoServicio.length > 0) params.append('grupoServicio', grupoServicio.join(','));
     if (estadoChatFiltro && activeTab === 'chats_mantra') params.append('estadoChat', estadoChatFiltro);
 
     window.open(`${apiUrl}/api/4dm1n_/export?${params.toString()}`, '_blank');
@@ -1390,7 +1409,7 @@ export default function AdminDashboard() {
               <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
                 <Filter className="w-3 h-3 text-[#FF5A0A]" /> Filtros Globales
               </span>
-              {(search || grupoServicio || fechaInicio !== getTodayPeruString() || fechaFin !== getTodayPeruString()) && (
+              {(search || grupoServicio.length > 0 || fechaInicio !== getTodayPeruString() || fechaFin !== getTodayPeruString()) && (
                 <button
                   type="button"
                   onClick={handleResetFilters}
@@ -1438,31 +1457,126 @@ export default function AdminDashboard() {
               </div>
             </div>
 
-            {/* Grupo de Servicio */}
-            <div>
-              <label className="text-[10px] font-semibold text-slate-400 block mb-1">Grupo de Servicio</label>
-              <select
-                value={grupoServicio}
-                onChange={e => {
-                  setGrupoServicio(e.target.value);
-                  setPage(1);
-                }}
-                className="w-full bg-slate-950/90 border border-slate-800 rounded-lg px-2 py-1.5 text-xs text-white focus:outline-none focus:border-orange-500 transition-colors cursor-pointer"
+            {/* Grupo de Servicio (Multiselección) */}
+            <div className="relative" ref={grupoDropdownRef}>
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-[10px] font-semibold text-slate-400">Grupo de Servicio</label>
+                {grupoServicio.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => { setGrupoServicio([]); setPage(1); }}
+                    className="text-[9px] text-orange-400 hover:text-orange-300 font-semibold cursor-pointer"
+                  >
+                    Limpiar ({grupoServicio.length})
+                  </button>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={() => setGrupoDropdownOpen(!grupoDropdownOpen)}
+                className="w-full bg-slate-950/90 border border-slate-800 hover:border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-left text-white focus:outline-none focus:border-orange-500 transition-colors cursor-pointer flex items-center justify-between"
               >
-                <option value="">Todos los grupos</option>
-                <optgroup label="Tipos de Operación">
-                  {(filtrosOpciones.gruposServicioMantra && filtrosOpciones.gruposServicioMantra.length > 0
-                    ? filtrosOpciones.gruposServicioMantra.filter(g => !['Instalacion', 'Averias'].includes(g))
-                    : ['INSTALACION', 'AVERIAS', 'PROVINCIA', 'POSTVENTA', 'AVERIAS PRV']
-                  ).map(g => (
-                    <option key={g} value={g}>{g}</option>
-                  ))}
-                </optgroup>
-                <optgroup label="Canales Mantra">
-                  <option value="Instalacion">Canal Instalacion</option>
-                  <option value="Averias">Canal Averias</option>
-                </optgroup>
-              </select>
+                <span className="truncate">
+                  {grupoServicio.length === 0
+                    ? 'Todos los grupos'
+                    : grupoServicio.length === 1
+                      ? grupoServicio[0]
+                      : `${grupoServicio.length} grupos seleccionados`}
+                </span>
+                <ChevronDown className={`w-3.5 h-3.5 text-slate-400 shrink-0 transition-transform ${grupoDropdownOpen ? 'rotate-180 text-orange-400' : ''}`} />
+              </button>
+
+              {grupoDropdownOpen && (
+                <div className="absolute left-0 right-0 mt-1 z-50 bg-slate-900 border border-slate-800 rounded-lg shadow-xl shadow-black/80 p-2 max-h-60 overflow-y-auto space-y-2">
+                  <div className="flex items-center justify-between px-1 pb-1 border-b border-slate-800">
+                    <span className="text-[10px] text-slate-400 font-medium">Multiselección</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const allOptions = [
+                          ...(filtrosOpciones.gruposServicioMantra && filtrosOpciones.gruposServicioMantra.length > 0
+                            ? filtrosOpciones.gruposServicioMantra.filter(g => !['Instalacion', 'Averias'].includes(g))
+                            : ['INSTALACION', 'AVERIAS', 'PROVINCIA', 'POSTVENTA', 'AVERIAS PRV']),
+                          'Instalacion',
+                          'Averias'
+                        ];
+                        setGrupoServicio(grupoServicio.length === allOptions.length ? [] : allOptions);
+                        setPage(1);
+                      }}
+                      className="text-[10px] text-orange-400 hover:text-orange-300 font-semibold cursor-pointer"
+                    >
+                      Alternar todos
+                    </button>
+                  </div>
+                  <div>
+                    <div className="text-[9px] font-bold uppercase tracking-wider text-slate-400 px-1 pt-0.5 mb-1">
+                      Tipos de Operación
+                    </div>
+                    <div className="space-y-0.5">
+                      {(filtrosOpciones.gruposServicioMantra && filtrosOpciones.gruposServicioMantra.length > 0
+                        ? filtrosOpciones.gruposServicioMantra.filter(g => !['Instalacion', 'Averias'].includes(g))
+                        : ['INSTALACION', 'AVERIAS', 'PROVINCIA', 'POSTVENTA', 'AVERIAS PRV']
+                      ).map(g => {
+                        const isChecked = grupoServicio.includes(g);
+                        return (
+                          <div
+                            key={g}
+                            onClick={() => {
+                              const next = isChecked
+                                ? grupoServicio.filter(item => item !== g)
+                                : [...grupoServicio, g];
+                              setGrupoServicio(next);
+                              setPage(1);
+                            }}
+                            className={`flex items-center gap-2 px-2 py-1 rounded text-xs cursor-pointer transition-colors ${
+                              isChecked ? 'bg-orange-500/15 text-orange-300 font-medium' : 'text-slate-300 hover:bg-slate-800/60'
+                            }`}
+                          >
+                            <div className={`w-3.5 h-3.5 rounded border flex items-center justify-center transition-colors shrink-0 ${
+                              isChecked ? 'bg-[#FF5A0A] border-[#FF5A0A]' : 'border-slate-700 bg-slate-950'
+                            }`}>
+                              {isChecked && <Check className="w-2.5 h-2.5 text-white stroke-[3]" />}
+                            </div>
+                            <span className="truncate text-[11px]">{g}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-[9px] font-bold uppercase tracking-wider text-slate-400 px-1 pt-1 mb-1">
+                      Canales Mantra
+                    </div>
+                    <div className="space-y-0.5">
+                      {['Instalacion', 'Averias'].map(canal => {
+                        const isChecked = grupoServicio.includes(canal);
+                        return (
+                          <div
+                            key={canal}
+                            onClick={() => {
+                              const next = isChecked
+                                ? grupoServicio.filter(item => item !== canal)
+                                : [...grupoServicio, canal];
+                              setGrupoServicio(next);
+                              setPage(1);
+                            }}
+                            className={`flex items-center gap-2 px-2 py-1 rounded text-xs cursor-pointer transition-colors ${
+                              isChecked ? 'bg-orange-500/15 text-orange-300 font-medium' : 'text-slate-300 hover:bg-slate-800/60'
+                            }`}
+                          >
+                            <div className={`w-3.5 h-3.5 rounded border flex items-center justify-center transition-colors shrink-0 ${
+                              isChecked ? 'bg-[#FF5A0A] border-[#FF5A0A]' : 'border-slate-700 bg-slate-950'
+                            }`}>
+                              {isChecked && <Check className="w-2.5 h-2.5 text-white stroke-[3]" />}
+                            </div>
+                            <span className="truncate text-[11px]">Canal {canal}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Botones de acción */}
