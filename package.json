@@ -19,6 +19,7 @@
   "dependencies": {
     "@googlemaps/js-api-loader": "^2.1.1",
     "@radix-ui/react-slot": "^1.2.4",
+    "@tanstack/react-virtual": "^3.14.25",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cors": "^2.8.6",
