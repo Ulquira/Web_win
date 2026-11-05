@@ -116,6 +116,7 @@ const encuestaAppSchema = z.object({
   token: z.string().min(1),
   orden_id: z.union([z.string(), z.number()]).optional().nullable(),
   codisegui: z.union([z.string(), z.number()]).optional().nullable(),
+  satisfaccion_atencion: z.coerce.number().min(1).max(5).optional().nullable(),
   facilidad_uso: z.coerce.number().min(1).max(5),
   satisfaccion_experiencia: z.coerce.number().min(1).max(5),
   seguridad_datos_tecnico: z.string().min(1),
@@ -144,6 +145,7 @@ router.post('/encuesta', async (req, res) => {
       token,
       orden_id,
       codisegui,
+      satisfaccion_atencion,
       facilidad_uso,
       satisfaccion_experiencia,
       seguridad_datos_tecnico,
@@ -155,13 +157,14 @@ router.post('/encuesta', async (req, res) => {
       const userAgent = (req.headers['user-agent'] as string) || null;
 
       const query = `
-        INSERT INTO Encuesta_app (token, orden_id, codisegui, facilidad_uso, satisfaccion_experiencia, seguridad_datos_tecnico, comentarios, ip_address, user_agent)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO Encuesta_app (token, orden_id, codisegui, satisfaccion_atencion, facilidad_uso, satisfaccion_experiencia, seguridad_datos_tecnico, comentarios, ip_address, user_agent)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `;
       await pool.query(query, [
         token,
         orden_id || null,
         codisegui || null,
+        satisfaccion_atencion || null,
         facilidad_uso,
         satisfaccion_experiencia,
         seguridad_datos_tecnico,

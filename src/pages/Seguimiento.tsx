@@ -203,7 +203,8 @@ const Seguimiento = ({ customToken, renderServiceSelector }: SeguimientoProps = 
  ];
  
  const [encuestaApp, setEncuestaApp] = useState({
- facilidad_uso: 0,
+    satisfaccion_atencion: 0,
+    facilidad_uso: 0,
  satisfaccion_experiencia: 0,
  seguridad_datos_tecnico: '',
  comentarios: ''
@@ -656,7 +657,11 @@ const Seguimiento = ({ customToken, renderServiceSelector }: SeguimientoProps = 
  };
 
  const handleEncuestaSubmit = async () => {
-   if (!encuestaApp.facilidad_uso) {
+    if (!encuestaApp.satisfaccion_atencion) {
+      alert("Por favor califica qué tan satisfecho(a) estás con la atención recibida.");
+      return;
+    }
+    if (!encuestaApp.facilidad_uso) {
      alert("Por favor califica qué tan fácil fue usar WIN EN RUTA.");
      return;
    }
@@ -675,7 +680,8 @@ const Seguimiento = ({ customToken, renderServiceSelector }: SeguimientoProps = 
        token,
        orden_id: data?.idoperacion || (data as any)?.orden_id || null,
        codisegui: data?.codisegui || null,
-       facilidad_uso: encuestaApp.facilidad_uso,
+        satisfaccion_atencion: encuestaApp.satisfaccion_atencion,
+        facilidad_uso: encuestaApp.facilidad_uso,
        satisfaccion_experiencia: encuestaApp.satisfaccion_experiencia,
        seguridad_datos_tecnico: encuestaApp.seguridad_datos_tecnico,
        comentarios: encuestaApp.comentarios || ''
@@ -689,9 +695,10 @@ const Seguimiento = ({ customToken, renderServiceSelector }: SeguimientoProps = 
 
      const result = await response.json();
      if (result.success) {
-       trackEvent('encuesta_app_completada', { 
-         token, 
-         facilidad_uso: encuestaApp.facilidad_uso,
+       trackEvent('encuesta_app_completada', {
+          token,
+          satisfaccion_atencion: encuestaApp.satisfaccion_atencion,
+          facilidad_uso: encuestaApp.facilidad_uso,
          satisfaccion_experiencia: encuestaApp.satisfaccion_experiencia,
          seguridad_datos_tecnico: encuestaApp.seguridad_datos_tecnico
        });
@@ -2311,10 +2318,34 @@ return (
           </div>
 
           <div className="space-y-5 pt-1">
-            {/* Pregunta 1: Facilidad de uso (1 al 5 con estrellas) */}
+            {/* Pregunta 1: Satisfacción con la atención recibida (1 al 5 con estrellas) */}
             <div>
               <p className="text-[14px] font-bold text-[#26292E] mb-2 leading-snug">
-                1. ¿Qué tan fácil fue para ti usar WIN EN RUTA para ver el estado de tu servicio?
+                1. ¿Qué tan satisfecho(a) estás con la atención recibida?
+              </p>
+              <div className="flex items-center justify-center gap-2 py-1">
+                {[1, 2, 3, 4, 5].map((star) => {
+                  const isFilled = star <= encuestaApp.satisfaccion_atencion;
+                  return (
+                    <button
+                      key={star}
+                      type="button"
+                      onClick={() => setEncuestaApp(prev => ({ ...prev, satisfaccion_atencion: star }))}
+                      className="p-1.5 cursor-pointer transition-transform hover:scale-110 active:scale-95"
+                    >
+                      <Star className={`w-8 h-8 transition-colors ${
+                        isFilled ? 'text-[#FFC200] fill-[#FFC200]' : 'text-[#D9D9D9] fill-[#D9D9D9]'
+                      }`} />
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Pregunta 2: Facilidad de uso (1 al 5 con estrellas) */}
+            <div>
+              <p className="text-[14px] font-bold text-[#26292E] mb-2 leading-snug">
+                2. ¿Qué tan fácil fue para ti usar WIN EN RUTA para ver el estado de tu servicio?
               </p>
               <div className="flex items-center justify-center gap-2 py-1">
                 {[1, 2, 3, 4, 5].map((star) => {
@@ -2335,10 +2366,10 @@ return (
               </div>
             </div>
 
-            {/* Pregunta 2: Satisfacción con la experiencia (1 al 5 con estrellas) */}
+            {/* Pregunta 3: Satisfacción con la experiencia (1 al 5 con estrellas) */}
             <div>
               <p className="text-[14px] font-bold text-[#26292E] mb-2 leading-snug">
-                2. ¿Qué tan satisfecho/a estás con tu experiencia usando WIN EN RUTA?
+                3. ¿Qué tan satisfecho/a estás con tu experiencia usando WIN EN RUTA?
               </p>
               <div className="flex items-center justify-center gap-2 py-1">
                 {[1, 2, 3, 4, 5].map((star) => {
@@ -2359,10 +2390,10 @@ return (
               </div>
             </div>
 
-            {/* Pregunta 3: Sentimiento de seguridad en casa */}
+            {/* Pregunta 4: Sentimiento de seguridad en casa */}
             <div>
               <p className="text-[14px] font-bold text-[#26292E] mb-2 leading-snug">
-                3. Conocer la ruta y los datos de tu técnico antes de su llegada, ¿te hizo sentir más seguro/a en casa?
+                4. Conocer la ruta y los datos de tu técnico antes de su llegada, ¿te hizo sentir más seguro/a en casa?
               </p>
               <div className="flex flex-col gap-2 pt-1">
                 <button
@@ -2405,6 +2436,7 @@ return (
               <button
                 type="button"
                 disabled={
+                  !encuestaApp.satisfaccion_atencion ||
                   !encuestaApp.facilidad_uso ||
                   !encuestaApp.satisfaccion_experiencia ||
                   !encuestaApp.seguridad_datos_tecnico ||
