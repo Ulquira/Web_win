@@ -926,7 +926,7 @@ const ipWhitelistMiddleware = (req: express.Request, res: express.Response, next
 };
 
 // Middleware de Autorización por API Key / OAuth Bearer Token
-const FOLLOWMIWIN_API_KEY = process.env.FOLLOWMIWIN_API_KEY || 'M1w1n4pp_7273dba14ceba0d31b716cc5b7a04ec4';
+const FOLLOWMIWIN_API_KEY = process.env.FOLLOWMIWIN_API_KEY || 'M1w1n4pp_9d12517a24d7f28c2c6fa6ae296a190c';
 
 const authFollowMiwin = (req: express.Request, res: express.Response, next: express.NextFunction) => {
   const apiKeyHeader = req.headers['x-api-key'] as string;
