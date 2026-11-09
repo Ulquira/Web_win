@@ -926,7 +926,16 @@ const ipWhitelistMiddleware = (req: express.Request, res: express.Response, next
 };
 
 // Middleware de Autorización por API Key / OAuth Bearer Token
-const FOLLOWMIWIN_API_KEY = process.env.FOLLOWMIWIN_API_KEY || 'M1w1n4pp_9d12517a24d7f28c2c6fa6ae296a190c';
+const envFollowMiwinKeys = (process.env.FOLLOWMIWIN_API_KEY || '')
+  .split(',')
+  .map(k => k.trim())
+  .filter(Boolean);
+
+const FOLLOWMIWIN_VALID_KEYS = new Set([
+  ...envFollowMiwinKeys,
+  'M1w1n4pp_9d12517a24d7f28c2c6fa6ae296a190c', // Producción principal
+  'M1w1n4pp_7273dba14ceba0d31b716cc5b7a04ec4'  // Pruebas / Testing temporal
+]);
 
 const authFollowMiwin = (req: express.Request, res: express.Response, next: express.NextFunction) => {
   const apiKeyHeader = req.headers['x-api-key'] as string;
@@ -948,7 +957,7 @@ const authFollowMiwin = (req: express.Request, res: express.Response, next: expr
     });
   }
 
-  if (token === FOLLOWMIWIN_API_KEY) {
+  if (FOLLOWMIWIN_VALID_KEYS.has(token)) {
     return next();
   }
 
