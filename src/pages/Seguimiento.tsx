@@ -1024,6 +1024,51 @@ return (
    Boolean(data.producto && data.producto.toUpperCase().includes('POSTVENTA')) ||
    Boolean(data.tipo_trabajo && ['TRASLADO', 'RECABLEADO', 'CAMBIO DE ONT', 'REUBICACIÓN', 'CABLEADO DE MESH', '1 MESH', 'KIT WIFI PRO', 'WIN BOX'].some(t => data.tipo_trabajo?.toUpperCase().includes(t)));
 
+ // Validar que el aviso de demoras solo aplique a Lima (excluir Provincia) y exclusivamente los días 11, 12 y 16 de noviembre
+ const showDelayNotice = (() => {
+   const limaDateStr = new Intl.DateTimeFormat('en-CA', {
+     timeZone: 'America/Lima',
+     year: 'numeric',
+     month: '2-digit',
+     day: '2-digit'
+   }).format(new Date());
+
+   if (!['2026-11-11', '2026-11-12', '2026-11-16'].includes(limaDateStr)) {
+     return false;
+   }
+
+   const tipoServ = (data.tipo_servicio || '').toUpperCase().trim();
+   const prod = (data.producto || '').toUpperCase().trim();
+   const dir = (data.direccion || '').toUpperCase().trim();
+
+   if (tipoServ.includes('PROV') || prod.includes('PROV') || prod.includes('NORTE CHICO')) {
+     return false;
+   }
+
+   const provinciasKeywords = [
+     'PIURA', 'TRUJILLO', 'LA LIBERTAD', 'CHICLAYO', 'LAMBAYEQUE',
+     'AREQUIPA', 'CHIMBOTE', 'ANCASH', 'ÁNCASH', 'HUANCAYO', 'JUNIN', 'JUNÍN',
+     'ICA', 'CUSCO', 'TACNA', 'HUARAL', 'HUAURA', 'HUACHO', 'BARRANCA',
+     'CHINCHA', 'PISCO', 'CAJAMARCA', 'PUNO', 'AYACUCHO', 'HUANUCO', 'TUMBES'
+   ];
+   if (provinciasKeywords.some(kw => dir.includes(kw))) {
+     return false;
+   }
+
+   if (
+     Array.isArray(data.coordenadas_cliente) &&
+     data.coordenadas_cliente.length === 2 &&
+     typeof data.coordenadas_cliente[0] === 'number' &&
+     typeof data.coordenadas_cliente[1] === 'number'
+   ) {
+     const [lat, lng] = data.coordenadas_cliente;
+     const inLimaBounds = lat >= -12.55 && lat <= -11.55 && lng >= -77.25 && lng <= -76.65;
+     if (!inLimaBounds) return false;
+   }
+
+   return true;
+ })();
+
  const displayPin = data.pin_token
    ? String(data.pin_token).trim()
    : data.token_inicio
@@ -1474,22 +1519,24 @@ return (
              {formatTramoToRange(data.tramo)}
            </span>
          </div>
-         <div className="flex justify-end mt-2">
-           <button
-             type="button"
-             onClick={() => setIsDelayPopupOpen(true)}
-             className="inline-flex items-start justify-end gap-1.5 text-right text-[#FF5A0A] hover:opacity-85 transition-opacity cursor-pointer"
-           >
-             <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" className="shrink-0 mt-[2px]">
-               <circle cx="8" cy="8" r="6.5" stroke="#FF5A0A" strokeWidth="1.3" />
-               <path d="M8 4.8V8.5" stroke="#FF5A0A" strokeWidth="1.4" strokeLinecap="round" />
-               <circle cx="8" cy="11" r="0.8" fill="#FF5A0A" />
-             </svg>
-             <span className="text-[12px] font-normal leading-[1.35] underline decoration-[#FF5A0A] underline-offset-2">
-               Tu técnico podría presentar<br />demoras en su llegada.
-             </span>
-           </button>
-         </div>
+         {showDelayNotice && (
+           <div className="flex justify-end mt-2">
+             <button
+               type="button"
+               onClick={() => setIsDelayPopupOpen(true)}
+               className="inline-flex items-start justify-end gap-1.5 text-right text-[#FF5A0A] hover:opacity-85 transition-opacity cursor-pointer"
+             >
+               <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" className="shrink-0 mt-[2px]">
+                 <circle cx="8" cy="8" r="6.5" stroke="#FF5A0A" strokeWidth="1.3" />
+                 <path d="M8 4.8V8.5" stroke="#FF5A0A" strokeWidth="1.4" strokeLinecap="round" />
+                 <circle cx="8" cy="11" r="0.8" fill="#FF5A0A" />
+               </svg>
+               <span className="text-[12px] font-normal leading-[1.35] underline decoration-[#FF5A0A] underline-offset-2">
+                 Tu técnico podría presentar<br />demoras en su llegada.
+               </span>
+             </button>
+           </div>
+         )}
        </div>
 
        {/* Divider sutil entre Rango y Dirección (#F3F3F3) */}
@@ -2443,7 +2490,7 @@ return (
 
   {/* Popup Aviso de Demoras por Desvíos (Visita del Papa León XIV) */}
   <AnimatePresence>
-    {isDelayPopupOpen && status !== 'finalizada' && status !== 'cerrada' && (
+    {showDelayNotice && isDelayPopupOpen && status !== 'finalizada' && status !== 'cerrada' && (
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
