@@ -212,6 +212,7 @@ const Seguimiento = ({ customToken, renderServiceSelector }: SeguimientoProps = 
  const [isSubmittingEncuesta, setIsSubmittingEncuesta] = useState(false);
  const [encuestaEnviada, setEncuestaEnviada] = useState(false);
  const [isSurveyModalOpen, setIsSurveyModalOpen] = useState(true);
+ const [isDelayPopupOpen, setIsDelayPopupOpen] = useState(true);
  const [pinCopied, setPinCopied] = useState(false);
 
  const previousStatus = useRef<string | null>(null);
@@ -1030,6 +1031,51 @@ return (
    Boolean(data.producto && data.producto.toUpperCase().includes('POSTVENTA')) ||
    Boolean(data.tipo_trabajo && ['TRASLADO', 'RECABLEADO', 'CAMBIO DE ONT', 'REUBICACIÓN', 'CABLEADO DE MESH', '1 MESH', 'KIT WIFI PRO', 'WIN BOX'].some(t => data.tipo_trabajo?.toUpperCase().includes(t)));
 
+ // Validar que el aviso de demoras solo aplique a Lima (excluir Provincia) y exclusivamente los días 11, 12 y 16 de noviembre
+ const showDelayNotice = (() => {
+   const limaDateStr = new Intl.DateTimeFormat('en-CA', {
+     timeZone: 'America/Lima',
+     year: 'numeric',
+     month: '2-digit',
+     day: '2-digit'
+   }).format(new Date());
+
+   if (!['2026-11-11', '2026-11-12', '2026-11-16'].includes(limaDateStr)) {
+     return false;
+   }
+
+   const tipoServ = (data.tipo_servicio || '').toUpperCase().trim();
+   const prod = (data.producto || '').toUpperCase().trim();
+   const dir = (data.direccion || '').toUpperCase().trim();
+
+   if (tipoServ.includes('PROV') || prod.includes('PROV') || prod.includes('NORTE CHICO')) {
+     return false;
+   }
+
+   const provinciasKeywords = [
+     'PIURA', 'TRUJILLO', 'LA LIBERTAD', 'CHICLAYO', 'LAMBAYEQUE',
+     'AREQUIPA', 'CHIMBOTE', 'ANCASH', 'ÁNCASH', 'HUANCAYO', 'JUNIN', 'JUNÍN',
+     'ICA', 'CUSCO', 'TACNA', 'HUARAL', 'HUAURA', 'HUACHO', 'BARRANCA',
+     'CHINCHA', 'PISCO', 'CAJAMARCA', 'PUNO', 'AYACUCHO', 'HUANUCO', 'TUMBES'
+   ];
+   if (provinciasKeywords.some(kw => dir.includes(kw))) {
+     return false;
+   }
+
+   if (
+     Array.isArray(data.coordenadas_cliente) &&
+     data.coordenadas_cliente.length === 2 &&
+     typeof data.coordenadas_cliente[0] === 'number' &&
+     typeof data.coordenadas_cliente[1] === 'number'
+   ) {
+     const [lat, lng] = data.coordenadas_cliente;
+     const inLimaBounds = lat >= -12.55 && lat <= -11.55 && lng >= -77.25 && lng <= -76.65;
+     if (!inLimaBounds) return false;
+   }
+
+   return true;
+ })();
+
  const displayPin = data.pin_token
    ? String(data.pin_token).trim()
    : data.token_inicio
@@ -1470,14 +1516,34 @@ return (
    {/* Divider sutil entre Día y Rango (Rectangle de Figma #F3F3F3) */}
    <div className="h-[1px] bg-[#F3F3F3] w-full" />
    
-   {/* Rango */}
+   {/* Rango horario */}
    {status !== 'en_camino' && (
      <>
-       <div className="flex justify-between items-center">
-         <span className="text-gray-400 text-[13px] font-normal">Rango</span>
-         <span className="font-bold text-gray-900 text-[13px]">
-         {formatTramoToRange(data.tramo)}
-         </span>
+       <div className="flex flex-col">
+         <div className="flex justify-between items-center">
+           <span className="text-gray-400 text-[13px] font-normal">Rango horario</span>
+           <span className="font-bold text-gray-900 text-[13px]">
+             {formatTramoToRange(data.tramo)}
+           </span>
+         </div>
+         {showDelayNotice && (
+           <div className="flex justify-end mt-2">
+             <button
+               type="button"
+               onClick={() => setIsDelayPopupOpen(true)}
+               className="inline-flex items-start justify-end gap-1.5 text-right text-[#FF5A0A] hover:opacity-85 transition-opacity cursor-pointer"
+             >
+               <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" className="shrink-0 mt-[2px]">
+                 <circle cx="8" cy="8" r="6.5" stroke="#FF5A0A" strokeWidth="1.3" />
+                 <path d="M8 4.8V8.5" stroke="#FF5A0A" strokeWidth="1.4" strokeLinecap="round" />
+                 <circle cx="8" cy="11" r="0.8" fill="#FF5A0A" />
+               </svg>
+               <span className="text-[12px] font-normal leading-[1.35] underline decoration-[#FF5A0A] underline-offset-2">
+                 Tu técnico podría presentar<br />demoras en su llegada.
+               </span>
+             </button>
+           </div>
+         )}
        </div>
 
        {/* Divider sutil entre Rango y Dirección (#F3F3F3) */}
@@ -2451,6 +2517,74 @@ return (
           </div>
         </motion.div>
       </div>
+    )}
+  </AnimatePresence>
+
+  {/* Popup Aviso de Demoras por Desvíos (Visita del Papa León XIV) */}
+  <AnimatePresence>
+    {showDelayNotice && isDelayPopupOpen && status !== 'finalizada' && status !== 'cerrada' && (
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        className="fixed inset-0 z-[120] bg-[#26292E]/40 flex items-center justify-center p-4 backdrop-blur-xs"
+        onClick={() => setIsDelayPopupOpen(false)}
+      >
+        <motion.div
+          initial={{ scale: 0.92, opacity: 0, y: 16 }}
+          animate={{ scale: 1, opacity: 1, y: 0 }}
+          exit={{ scale: 0.92, opacity: 0, y: 16 }}
+          transition={{ type: "spring", damping: 26, stiffness: 300 }}
+          className="bg-white rounded-[28px] px-6 pt-8 pb-6 w-[342px] max-w-full relative flex flex-col items-center text-center shadow-[0_12px_40px_rgba(0,0,0,0.14)]"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {/* Icono Reloj con Signo de Exclamación (Figma) */}
+          <div className="w-[84px] h-[84px] flex items-center justify-center mb-4">
+            <svg width="84" height="84" viewBox="0 0 84 84" fill="none" xmlns="http://www.w3.org/2000/svg" className="shrink-0">
+              <path
+                d="M69.5 44C69.8 42.2 70 40.1 70 38C70 21.4315 56.5685 8 40 8C23.4315 8 10 21.4315 10 38C10 54.5685 23.4315 68 40 68C43.2 68 46.3 67.5 49.2 66.5"
+                stroke="#FF5A0A"
+                strokeWidth="6"
+                strokeLinecap="round"
+              />
+              <path
+                d="M40 21V39L50.5 49.5"
+                stroke="#301D19"
+                strokeWidth="6"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+              <path
+                d="M60 49V62"
+                stroke="#FF5A0A"
+                strokeWidth="6"
+                strokeLinecap="round"
+              />
+              <circle cx="60" cy="71.5" r="3.2" fill="#FF5A0A" />
+            </svg>
+          </div>
+
+          <h3 className="text-[19px] font-bold text-[#26292E] leading-[1.3] mb-3.5 px-2">
+            Tu visita técnica podría<br />presentar demoras
+          </h3>
+
+          <p className="text-[13.5px] text-[#535C67] leading-[1.55] mb-4 px-1 font-normal">
+            Debido a los desvíos por la visita del Papa León XIV, el horario de llegada de tu técnico podría verse afectado. Estamos haciendo todo lo posible para llegar a tu domicilio lo antes posible.
+          </p>
+
+          <p className="text-[13.5px] text-[#535C67] leading-[1.5] mb-6 font-normal">
+            ¡Gracias por tu comprensión!
+          </p>
+
+          <button
+            type="button"
+            onClick={() => setIsDelayPopupOpen(false)}
+            className="w-full bg-[#FF5A0A] hover:bg-[#E04E07] text-white font-bold h-12 rounded-full text-[15px] shadow-md shadow-[#FF5A0A]/20 active:scale-95 transition-all cursor-pointer"
+          >
+            Entendido
+          </button>
+        </motion.div>
+      </motion.div>
     )}
   </AnimatePresence>
 
