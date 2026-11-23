@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useParams, useSearchParams, useNavigate } from "react-router-dom";
 import Seguimiento from "./Seguimiento";
 import { motion, AnimatePresence } from "framer-motion";
-import { Loader2, AlertCircle } from "lucide-react";
+import { Loader2 } from "lucide-react";
 
 export interface VisitaItem {
   idoperacion: string | number;
@@ -132,7 +132,9 @@ export default function MiWinSeguimiento() {
         }
 
         if (res.status === 410) {
-          throw new Error("Este enlace ha expirado porque superó las 72 horas de vigencia.");
+          setVisitas([]);
+          setErrorMsg("No cuentas con visitas técnicas ni instalaciones programadas en este momento.");
+          return;
         }
 
         if (!res.ok) {
@@ -145,7 +147,7 @@ export default function MiWinSeguimiento() {
           const activeVisitas = data.visitas.filter((v: VisitaItem) => !isVisitaExpired72h(v.fecha, v.tramo));
           if (activeVisitas.length === 0) {
             setVisitas([]);
-            setErrorMsg("Este enlace ha expirado porque superó las 72 horas de vigencia.");
+            setErrorMsg("No cuentas con visitas técnicas ni instalaciones programadas en este momento.");
           } else {
             setVisitas(activeVisitas);
             
@@ -155,7 +157,7 @@ export default function MiWinSeguimiento() {
           }
         } else {
           setVisitas([]);
-          setErrorMsg("No cuentas con visitas técnicas ni instalaciones programadas.");
+          setErrorMsg("No cuentas con visitas técnicas ni instalaciones programadas en este momento.");
         }
       } catch (err: any) {
         if (!isMounted) return;
@@ -183,21 +185,32 @@ export default function MiWinSeguimiento() {
 
   if (errorMsg || visitas.length === 0) {
     return (
-      <div className="min-h-screen bg-white flex flex-col items-center justify-center p-6 text-center font-sans">
-        <div className="w-16 h-16 rounded-full bg-[#FFF6ED] flex items-center justify-center mb-4">
-          <AlertCircle className="w-8 h-8 text-[#FF5A0A]" />
+      <div className="min-h-[100dvh] w-full bg-white flex flex-col justify-between font-sans overflow-y-auto">
+        <div className="flex-1 flex flex-col items-center justify-center pt-10 pb-6 px-6 max-w-[360px] mx-auto w-full text-center">
+          <div className="w-[176px] h-[177px] mb-8 relative flex items-center justify-center">
+            <img
+              src="/visita_cancelada_mascot.png"
+              alt="Sin visitas programadas"
+              className="w-full h-full object-contain pointer-events-none"
+            />
+          </div>
+          <h2 className="text-[22px] font-bold text-[#26292E] mb-2.5 leading-snug">
+            No tienes visitas programadas
+          </h2>
+          <p className="text-[14px] text-[#535C67] leading-relaxed max-w-[285px] mx-auto font-normal">
+            {errorMsg || "No cuentas con visitas técnicas ni instalaciones programadas en este momento."}
+          </p>
         </div>
-        <h2 className="text-[20px] font-bold text-[#26292E] mb-2">Seguimiento Mi WIN</h2>
-        <p className="text-[14px] text-gray-500 max-w-xs mb-6 leading-relaxed">
-          {errorMsg || "No cuentas con visitas técnicas ni instalaciones activas."}
-        </p>
 
-        <button
-          onClick={() => navigate('/')}
-          className="text-gray-400 hover:text-gray-600 text-[13px] font-medium transition-colors"
-        >
-          Volver al inicio
-        </button>
+        <div className="p-4 w-full max-w-[360px] mx-auto shrink-0 mb-4">
+          <button
+            type="button"
+            onClick={() => navigate('/')}
+            className="w-full bg-[#FF5A0A] hover:bg-[#E04E07] text-white font-bold h-12 rounded-full text-[14px] shadow-md shadow-[#FF5A0A]/20 active:scale-95 transition-transform cursor-pointer"
+          >
+            Volver al inicio
+          </button>
+        </div>
       </div>
     );
   }
