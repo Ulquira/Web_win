@@ -3,8 +3,10 @@ import express from 'express';
 import rateLimit from 'express-rate-limit';
 import { z } from 'zod';
 import pool from '../db.ts';
-import { decodeOpaqueToken, createOpaqueToken } from '../opaqueToken.js';
+import { decodeOpaqueToken, createOpaqueToken, isOpaqueTokenExpired } from '../opaqueToken.js';
 import { replicateChange } from '../replicationService.ts';
+
+const LINK_EXPIRATION_SECONDS = 72 * 60 * 60; // 72 horas
 
 const router = Router();
 
@@ -481,6 +483,11 @@ router.get('/instalaciones/:token', readLimiter, async (req, res) => {
     // Evaluación de respuesta de Capa Intermedia o Fallback a BD directa
     let data: any = null;
 
+    if (capaResponse.status === 'fulfilled' && capaResponse.value.status === 410) {
+      const expiredData = await capaResponse.value.json();
+      return res.status(410).json(expiredData);
+    }
+
     if (capaResponse.status === 'fulfilled' && capaResponse.value.ok) {
       data = await capaResponse.value.json();
     } else {
@@ -503,6 +510,7 @@ router.get('/instalaciones/:token', readLimiter, async (req, res) => {
            w.TeleMovilNume AS telefono, 
            DATE(w.\`F.Soli\`) AS fecha_programacion, 
            TIME(w.\`F.Soli\`) AS Tramo_Atencio, 
+           TIMESTAMPDIFF(SECOND, w.\`F.Soli\`, CONVERT_TZ(UTC_TIMESTAMP(), '+00:00', '-05:00')) AS segundos_desde_soli,
            w.ClienteFinal AS nom_cliente, 
            w.Direccion AS direccion_cliente, 
            w.IdenServi AS Campaña, 
@@ -541,6 +549,7 @@ router.get('/instalaciones/:token', readLimiter, async (req, res) => {
              w.TeleMovilNume AS telefono, 
              DATE(w.\`F.Soli\`) AS fecha_programacion, 
              TIME(w.\`F.Soli\`) AS Tramo_Atencio, 
+             TIMESTAMPDIFF(SECOND, w.\`F.Soli\`, CONVERT_TZ(UTC_TIMESTAMP(), '+00:00', '-05:00')) AS segundos_desde_soli,
              w.ClienteFinal AS nom_cliente, 
              w.Direccion AS direccion_cliente, 
              w.IdenServi AS Campaña, 
@@ -566,6 +575,9 @@ router.get('/instalaciones/:token', readLimiter, async (req, res) => {
       }
 
       const op = rows[0];
+      if (op.segundos_desde_soli !== null && op.segundos_desde_soli !== undefined && Number(op.segundos_desde_soli) > LINK_EXPIRATION_SECONDS) {
+        return res.status(410).json({ success: false, expired: true, message: 'Este enlace de seguimiento ha expirado.' });
+      }
       const tipoServicioUpper = (op.tipo_servicio || '').toUpperCase().trim();
       const productoUpper = (op.producto || '').toUpperCase().trim();
       const tipoTrabajoUpper = (op.tipo_trabajo || '').toUpperCase().trim();
@@ -735,7 +747,7 @@ router.get('/instalaciones/:token', readLimiter, async (req, res) => {
   }
 });
 
-// Endpoint MiWIN: Consulta de atenciones estrictamente por token opaco
+// Endpoint MiWIN: Consulta de atenciones estrictamente por token opaco (vigencia 72h)
 router.get('/cliente/visitas/v/:token', readLimiter, async (req, res) => {
   const rawToken = String(req.params.token || '').trim();
   const decoded = decodeOpaqueToken(rawToken);
@@ -743,6 +755,10 @@ router.get('/cliente/visitas/v/:token', readLimiter, async (req, res) => {
 
   if (!cleanDni || cleanDni.length < 5) {
     return res.status(400).json({ success: false, message: 'Token inválido o no autorizado' });
+  }
+
+  if (decoded && isOpaqueTokenExpired(decoded.timestamp)) {
+    return res.status(410).json({ success: false, expired: true, message: 'Este enlace ha expirado.' });
   }
 
   const cacheKey = `cliente_visitas_${cleanDni}`;
@@ -758,6 +774,10 @@ router.get('/cliente/visitas/v/:token', readLimiter, async (req, res) => {
       const capaResponse = await fetch(`${CAPA_INTERMEDIA_URL}/api/v1/terceros/cliente/visitas/v/${encodeURIComponent(rawToken)}`, {
         headers: { 'Authorization': `Bearer ${SECRET_API_KEY}` }
       });
+      if (capaResponse.status === 410) {
+        const expiredJson = await capaResponse.json();
+        return res.status(410).json(expiredJson);
+      }
       if (capaResponse.ok) {
         const json = await capaResponse.json();
         if (json && json.visitas && json.visitas.length > 0) {
@@ -783,6 +803,7 @@ router.get('/cliente/visitas/v/:token', readLimiter, async (req, res) => {
           w.Direccion AS direccion,
           DATE(w.\`F.Soli\`) AS fecha_programacion,
           TIME(w.\`F.Soli\`) AS tramo,
+          TIMESTAMPDIFF(SECOND, w.\`F.Soli\`, CONVERT_TZ(UTC_TIMESTAMP(), '+00:00', '-05:00')) AS segundos_desde_soli,
           w.ClienteFinal AS nom_cliente,
           ts.Tipo AS tipo_servicio
         FROM VW_WinORdeTraba w
@@ -809,6 +830,7 @@ router.get('/cliente/visitas/v/:token', readLimiter, async (req, res) => {
             w.Direccion AS direccion,
             DATE(w.\`F.Soli\`) AS fecha_programacion,
             TIME(w.\`F.Soli\`) AS tramo,
+            TIMESTAMPDIFF(SECOND, w.\`F.Soli\`, CONVERT_TZ(UTC_TIMESTAMP(), '+00:00', '-05:00')) AS segundos_desde_soli,
             w.ClienteFinal AS nom_cliente,
             ts.Tipo AS tipo_servicio
           FROM Testmantra w
@@ -820,11 +842,19 @@ router.get('/cliente/visitas/v/:token', readLimiter, async (req, res) => {
         list = testRows as any[];
       }
 
-      if (list.length === 0) {
+      const activeList = list.filter(
+        (item: any) => item.segundos_desde_soli === null || item.segundos_desde_soli === undefined || Number(item.segundos_desde_soli) <= LINK_EXPIRATION_SECONDS
+      );
+
+      if (list.length > 0 && activeList.length === 0) {
+        return res.status(410).json({ success: false, expired: true, message: 'Este enlace ha expirado.' });
+      }
+
+      if (activeList.length === 0) {
         data = { success: true, count: 0, cliente_nombre: null, visitas: [] };
       } else {
         const casesMap = new Map<string, any>();
-        for (const item of list) {
+        for (const item of activeList) {
           const caseKey = item.codisegui || item.codiseguiclien || `ord_${item.idoperacion}`;
           if (!casesMap.has(caseKey)) {
             casesMap.set(caseKey, item);
@@ -832,7 +862,7 @@ router.get('/cliente/visitas/v/:token', readLimiter, async (req, res) => {
         }
 
         const uniqueCases = Array.from(casesMap.values());
-        const clienteNombre = list[0].nom_cliente || 'Cliente';
+        const clienteNombre = activeList[0].nom_cliente || 'Cliente';
 
         const visitas = uniqueCases.map((op: any) => {
           const tipoServicioUpper = (op.tipo_servicio || '').toUpperCase().trim();

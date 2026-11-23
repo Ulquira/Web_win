@@ -1,6 +1,11 @@
 import crypto from 'crypto';
 
 const OPAQUE_TOKEN_SECRET = process.env.OPAQUE_TOKEN_SECRET || 'win-telecom-secret-opaque-key-2026-secure';
+export const LINK_EXPIRATION_MS = 72 * 60 * 60 * 1000; // 72 horas
+
+export function isOpaqueTokenExpired(timestamp: number): boolean {
+  return !Number.isFinite(timestamp) || Date.now() - timestamp > LINK_EXPIRATION_MS;
+}
 
 /**
  * Genera un token opaco y autenticado con AES-256-GCM

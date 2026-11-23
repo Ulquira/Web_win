@@ -177,6 +177,7 @@ const Seguimiento = ({ customToken, renderServiceSelector }: SeguimientoProps = 
  const [data, setData] = useState<InstalacionData | null>(null);
  const [loading, setLoading] = useState(true);
  const [error, setError] = useState(false);
+ const [isExpired, setIsExpired] = useState(false);
 
  const [calculatedEta, setCalculatedEta] = useState<string | null>(null);
  // Estado para manejar el tiempo restante actual en segundos
@@ -855,7 +856,12 @@ const Seguimiento = ({ customToken, renderServiceSelector }: SeguimientoProps = 
 
           setData(fetchedData);
           setError(false);
+          setIsExpired(false);
         } else {
+          if (response.status === 410 || result.expired) {
+            setIsExpired(true);
+            if (intervalId) clearInterval(intervalId);
+          }
           setError(true);
         }
       } catch (err) {
@@ -901,8 +907,8 @@ return (
  if (error || !data) {
  return (
  <div className="min-h-screen flex items-center justify-center bg-[#f3f4f6] flex-col gap-4 font-sans px-6 text-center">
- <h1 className="text-3xl font-bold text-foreground">Instalación no encontrada</h1>
- <p className="text-muted-foreground text-lg">El link de seguimiento proporcionado es inválido o la operación no existe.</p>
+ <h1 className="text-3xl font-bold text-foreground">{isExpired ? 'Enlace expirado' : 'Instalación no encontrada'}</h1>
+ <p className="text-muted-foreground text-lg">{isExpired ? 'Este enlace de seguimiento ya no está disponible porque superó las 72 horas de vigencia.' : 'El link de seguimiento proporcionado es inválido o la operación no existe.'}</p>
  <Button onClick={() => navigate('/')} className="mt-4 rounded-2xl h-14 px-8 bg-primary hover:bg-primary-light text-white font-bold text-lg">Volver al inicio</Button>
  </div>
  );

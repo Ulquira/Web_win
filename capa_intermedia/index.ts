@@ -1,5 +1,7 @@
-import { createOpaqueToken, decodeOpaqueToken } from './opaqueToken.js';
+import { createOpaqueToken, decodeOpaqueToken, isOpaqueTokenExpired } from './opaqueToken.js';
 import express from 'express';
+
+const LINK_EXPIRATION_SECONDS = 72 * 60 * 60; // 72 horas
 import rateLimit from 'express-rate-limit';
 import cors from 'cors';
 import helmet from 'helmet';
@@ -81,6 +83,7 @@ app.get('/api/v1/terceros/instalaciones/:token', verificarTercero, async (req, r
          w.TeleMovilNume AS telefono, 
          DATE(w.\`F.Soli\`) AS fecha_programacion, 
          TIME(w.\`F.Soli\`) AS Tramo_Atencio, 
+         TIMESTAMPDIFF(SECOND, w.\`F.Soli\`, CONVERT_TZ(UTC_TIMESTAMP(), '+00:00', '-05:00')) AS segundos_desde_soli,
          w.ClienteFinal AS nom_cliente, 
          w.Direccion AS direccion_cliente, 
          w.IdenServi AS Campaña, 
@@ -121,6 +124,7 @@ app.get('/api/v1/terceros/instalaciones/:token', verificarTercero, async (req, r
            w.TeleMovilNume AS telefono, 
            DATE(w.\`F.Soli\`) AS fecha_programacion, 
            TIME(w.\`F.Soli\`) AS Tramo_Atencio, 
+           TIMESTAMPDIFF(SECOND, w.\`F.Soli\`, CONVERT_TZ(UTC_TIMESTAMP(), '+00:00', '-05:00')) AS segundos_desde_soli,
            w.ClienteFinal AS nom_cliente, 
            w.Direccion AS direccion_cliente, 
            w.IdenServi AS Campaña, 
@@ -173,6 +177,7 @@ app.get('/api/v1/terceros/instalaciones/:token', verificarTercero, async (req, r
            w.TeleMovilNume AS telefono, 
            DATE(w.\`F.Soli\`) AS fecha_programacion, 
            TIME(w.\`F.Soli\`) AS Tramo_Atencio, 
+           TIMESTAMPDIFF(SECOND, w.\`F.Soli\`, CONVERT_TZ(UTC_TIMESTAMP(), '+00:00', '-05:00')) AS segundos_desde_soli,
            w.ClienteFinal AS nom_cliente, 
            w.Direccion AS direccion_cliente, 
            w.IdenServi AS Campaña, 
@@ -195,6 +200,11 @@ app.get('/api/v1/terceros/instalaciones/:token', verificarTercero, async (req, r
       if (latestList.length > 0) {
         op = latestList[0];
       }
+    }
+
+    // Expiración estricta de 72 horas desde F.Soli sin importar el estado
+    if (op.segundos_desde_soli !== null && op.segundos_desde_soli !== undefined && Number(op.segundos_desde_soli) > LINK_EXPIRATION_SECONDS) {
+      return res.status(410).json({ success: false, expired: true, message: 'Este enlace de seguimiento ha expirado.' });
     }
     const tipoServicioUpper = (op.tipo_servicio || '').toUpperCase().trim();
     const productoUpper = (op.producto || '').toUpperCase().trim();
@@ -377,7 +387,7 @@ app.get('/api/v1/terceros/instalaciones/:token', verificarTercero, async (req, r
   }
 });
 
-// Endpoint exclusivo MiWIN: Consulta multi-visitas estrictamente por token opaco
+// Endpoint exclusivo MiWIN: Consulta multi-visitas estrictamente por token opaco (vigencia 72h)
 app.get('/api/v1/terceros/cliente/visitas/v/:token', verificarTercero, async (req, res) => {
   const rawToken = String(req.params.token || '').trim();
   const decoded = decodeOpaqueToken(rawToken);
@@ -385,6 +395,10 @@ app.get('/api/v1/terceros/cliente/visitas/v/:token', verificarTercero, async (re
 
   if (!cleanDni || cleanDni.length < 5) {
     return res.status(400).json({ success: false, message: 'Token inválido o no autorizado' });
+  }
+
+  if (decoded && isOpaqueTokenExpired(decoded.timestamp)) {
+    return res.status(410).json({ success: false, expired: true, message: 'Este enlace ha expirado.' });
   }
 
   const cacheKey = `dni_visitas_${cleanDni}`;
@@ -409,6 +423,7 @@ app.get('/api/v1/terceros/cliente/visitas/v/:token', verificarTercero, async (re
         w.Direccion AS direccion,
         DATE(w.\`F.Soli\`) AS fecha_programacion,
         TIME(w.\`F.Soli\`) AS tramo,
+        TIMESTAMPDIFF(SECOND, w.\`F.Soli\`, CONVERT_TZ(UTC_TIMESTAMP(), '+00:00', '-05:00')) AS segundos_desde_soli,
         w.ClienteFinal AS nom_cliente,
         ts.Tipo AS tipo_servicio
       FROM VW_WinORdeTraba w
@@ -435,6 +450,7 @@ app.get('/api/v1/terceros/cliente/visitas/v/:token', verificarTercero, async (re
           w.Direccion AS direccion,
           DATE(w.\`F.Soli\`) AS fecha_programacion,
           TIME(w.\`F.Soli\`) AS tramo,
+          TIMESTAMPDIFF(SECOND, w.\`F.Soli\`, CONVERT_TZ(UTC_TIMESTAMP(), '+00:00', '-05:00')) AS segundos_desde_soli,
           w.ClienteFinal AS nom_cliente,
           ts.Tipo AS tipo_servicio
         FROM Testmantra w
@@ -446,14 +462,22 @@ app.get('/api/v1/terceros/cliente/visitas/v/:token', verificarTercero, async (re
       list = testRows as any[];
     }
 
-    if (list.length === 0) {
+    const activeList = list.filter(
+      (item: any) => item.segundos_desde_soli === null || item.segundos_desde_soli === undefined || Number(item.segundos_desde_soli) <= LINK_EXPIRATION_SECONDS
+    );
+
+    if (list.length > 0 && activeList.length === 0) {
+      return res.status(410).json({ success: false, expired: true, message: 'Este enlace ha expirado.' });
+    }
+
+    if (activeList.length === 0) {
       return res.json({ success: true, count: 0, visitas: [], cliente_nombre: null });
     }
 
     // 2. Agrupar por caso (CodiSegui o CodiSeguiClien o idoperacion) para no duplicar regestiones del mismo ticket
     const casesMap = new Map<string, any>();
 
-    for (const item of list) {
+    for (const item of activeList) {
       const caseKey = item.codisegui || item.codiseguiclien || `ord_${item.idoperacion}`;
       if (!casesMap.has(caseKey)) {
         casesMap.set(caseKey, item);
@@ -461,7 +485,7 @@ app.get('/api/v1/terceros/cliente/visitas/v/:token', verificarTercero, async (re
     }
 
     const uniqueCases = Array.from(casesMap.values());
-    const clienteNombre = list[0].nom_cliente || 'Cliente';
+    const clienteNombre = activeList[0].nom_cliente || 'Cliente';
 
     // 3. Formatear cada visita con sus tokens y labels para MiWIN
     const visitas = uniqueCases.map((op) => {
@@ -743,6 +767,7 @@ async function resolveOrdenInfo(token: string) {
        w.CodiSeguiClien AS codiseguiclien,
        w.Producto AS producto,
        w.TipoTraba AS tipo_trabajo,
+       TIMESTAMPDIFF(SECOND, w.\`F.Soli\`, CONVERT_TZ(UTC_TIMESTAMP(), '+00:00', '-05:00')) AS segundos_desde_soli,
        ts.Tipo AS tipo_servicio
      FROM VW_WinORdeTraba w
      LEFT JOIN tiposervicio ts ON UPPER(TRIM(w.Producto)) = UPPER(TRIM(ts.Servicio))
@@ -763,6 +788,7 @@ async function resolveOrdenInfo(token: string) {
          w.CodiSeguiClien AS codiseguiclien,
          w.Producto AS producto,
          w.TipoTraba AS tipo_trabajo,
+         TIMESTAMPDIFF(SECOND, w.\`F.Soli\`, CONVERT_TZ(UTC_TIMESTAMP(), '+00:00', '-05:00')) AS segundos_desde_soli,
          ts.Tipo AS tipo_servicio
        FROM Testmantra w
        LEFT JOIN tiposervicio ts ON UPPER(TRIM(w.Producto)) = UPPER(TRIM(ts.Servicio))
@@ -804,7 +830,8 @@ async function resolveOrdenInfo(token: string) {
     producto: op.producto,
     tipo_servicio: op.tipo_servicio,
     isTicket,
-    pin_token: op.pin_token
+    pin_token: op.pin_token,
+    expired: op.segundos_desde_soli !== null && op.segundos_desde_soli !== undefined && Number(op.segundos_desde_soli) > LINK_EXPIRATION_SECONDS
   };
 }
 
@@ -875,6 +902,9 @@ app.get('/api/v1/terceros/cupos/:token', verificarTercero, async (req, res) => {
     const orden = await resolveOrdenInfo(token);
     if (!orden) {
       return res.status(404).json({ success: false, message: 'Orden o servicio no encontrado para este token' });
+    }
+    if (orden.expired) {
+      return res.status(410).json({ success: false, expired: true, message: 'Este enlace ha expirado.' });
     }
 
     const kongHeaders = getKongHeaders();
@@ -979,6 +1009,9 @@ app.post('/api/v1/terceros/reprogramar', verificarTercero, async (req, res) => {
     const orden = await resolveOrdenInfo(token);
     if (!orden) {
       return res.status(404).json({ success: false, message: 'Orden no encontrada para este token' });
+    }
+    if (orden.expired) {
+      return res.status(410).json({ success: false, expired: true, message: 'Este enlace ha expirado.' });
     }
 
     // Validación obligatoria de PIN de identidad cuando la orden tiene PIN asignado

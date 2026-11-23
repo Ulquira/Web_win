@@ -109,11 +109,15 @@ export default function MiWinSeguimiento() {
         let res = await fetch(`${baseUrl}/api/cliente/visitas/v/${encodeURIComponent(token)}`);
         
         // Fallback al backend local si el entorno remoto no tiene aún el endpoint
-        if (!res.ok && baseUrl !== 'http://localhost:3001') {
+        if (!res.ok && res.status !== 410 && baseUrl !== 'http://localhost:3001') {
           try {
             const localRes = await fetch(`http://localhost:3001/api/cliente/visitas/v/${encodeURIComponent(token)}`);
-            if (localRes.ok) res = localRes;
+            if (localRes.ok || localRes.status === 410) res = localRes;
           } catch {}
+        }
+
+        if (res.status === 410) {
+          throw new Error("Este enlace ha expirado porque superó las 72 horas de vigencia.");
         }
 
         if (!res.ok) {
