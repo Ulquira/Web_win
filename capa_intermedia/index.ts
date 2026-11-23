@@ -2,6 +2,7 @@ import { createOpaqueToken, decodeOpaqueToken } from './opaqueToken.js';
 import express from 'express';
 import rateLimit from 'express-rate-limit';
 import cors from 'cors';
+import helmet from 'helmet';
 import dotenv from 'dotenv';
 import pool from '../server/db.ts'; // Solo esta capa accede a la DB real
 import fs from 'fs';
@@ -16,7 +17,9 @@ dotenv.config();
 const app = express();
 const port = parseInt(process.env.PORT || '4001', 10); // Corre en un puerto distinto, oculto del mundo exterior
 
-app.use(cors());
+app.set('trust proxy', 1);
+app.use(helmet());
+app.use(cors({ origin: process.env.FRONTEND_URL || false }));
 app.use(express.json());
 
 // Un token súper secreto que viene de las variables de entorno
@@ -374,18 +377,14 @@ app.get('/api/v1/terceros/instalaciones/:token', verificarTercero, async (req, r
   }
 });
 
-// Endpoint exclusivo MiWIN: Consulta multi-visitas por DNI del cliente
-app.get(['/api/v1/terceros/cliente/visitas/:dni', '/api/v1/terceros/cliente/visitas/v/:token'], verificarTercero, async (req, res) => {
-  const rawParam = req.params.token || req.params.dni;
-  let cleanDni = String(rawParam || '').trim();
-  const decoded = decodeOpaqueToken(cleanDni);
-  if (decoded && decoded.documento) {
-    cleanDni = decoded.documento;
-  }
-  // cleanDni ya resuelto arriba
+// Endpoint exclusivo MiWIN: Consulta multi-visitas estrictamente por token opaco
+app.get('/api/v1/terceros/cliente/visitas/v/:token', verificarTercero, async (req, res) => {
+  const rawToken = String(req.params.token || '').trim();
+  const decoded = decodeOpaqueToken(rawToken);
+  const cleanDni = decoded?.documento ? String(decoded.documento).trim() : '';
 
   if (!cleanDni || cleanDni.length < 5) {
-    return res.status(400).json({ success: false, message: 'Número de documento inválido' });
+    return res.status(400).json({ success: false, message: 'Token inválido o no autorizado' });
   }
 
   const cacheKey = `dni_visitas_${cleanDni}`;
@@ -549,10 +548,8 @@ const ipWhitelistMiddleware = (req: express.Request, res: express.Response, next
     return next();
   }
 
-  const forwarded = req.headers['x-forwarded-for'];
-  const rawIp = typeof forwarded === 'string' 
-    ? forwarded.split(',')[0].trim() 
-    : (req.socket.remoteAddress || req.ip || '');
+  // Usar req.ip resuelto de forma segura con app.set('trust proxy', 1) en lugar de X-Forwarded-For crudo
+  const rawIp = req.ip || req.socket.remoteAddress || '';
   const clientIp = rawIp.replace(/^::ffff:/, '');
 
   const isAllowed = WIN_ALLOWED_IPS.includes(clientIp) || clientIp === '127.0.0.1' || clientIp === '::1';
@@ -966,7 +963,7 @@ app.get('/api/v1/terceros/cupos/:token', verificarTercero, async (req, res) => {
     });
   } catch (error: any) {
     console.error('[CUPOS API] Error interno:', error);
-    res.status(500).json({ success: false, message: 'Error interno al consultar cupos', error: error?.message });
+    res.status(500).json({ success: false, message: 'Error interno al consultar cupos' });
   }
 });
 
@@ -984,12 +981,12 @@ app.post('/api/v1/terceros/reprogramar', verificarTercero, async (req, res) => {
       return res.status(404).json({ success: false, message: 'Orden no encontrada para este token' });
     }
 
-    // Validación de PIN de identidad si fue enviado
-    if (pin !== undefined && pin !== null) {
-      const pinStr = String(pin).trim();
-      const expectedPin = orden.pin_token ? String(orden.pin_token).trim() : null;
-      if (expectedPin && pinStr !== expectedPin) {
-        return res.status(401).json({ success: false, message: 'El PIN de confirmación es incorrecto' });
+    // Validación obligatoria de PIN de identidad cuando la orden tiene PIN asignado
+    const expectedPin = orden.pin_token ? String(orden.pin_token).trim() : null;
+    if (expectedPin) {
+      const pinStr = pin !== undefined && pin !== null ? String(pin).trim() : '';
+      if (!pinStr || pinStr !== expectedPin) {
+        return res.status(401).json({ success: false, message: 'El PIN de confirmación es incorrecto o faltante' });
       }
     }
 
@@ -1073,7 +1070,7 @@ app.post('/api/v1/terceros/reprogramar', verificarTercero, async (req, res) => {
     });
   } catch (error: any) {
     console.error('[REPROGRAMACION API] Error no controlado:', error);
-    res.status(500).json({ success: false, message: 'Error interno al procesar la reprogramación', error: error?.message });
+    res.status(500).json({ success: false, message: 'Error interno al procesar la reprogramación' });
   }
 });
 

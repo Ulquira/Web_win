@@ -25,8 +25,33 @@ setInterval(() => {
 const CAPA_INTERMEDIA_URL = process.env.CAPA_INTERMEDIA_URL || 'http://localhost:4001';
 const SECRET_API_KEY = process.env.SECRET_API_KEY || "LLAVE_SECRETA_DEL_TERCERO_123";
 
+// Rate limiters para endpoints públicos y proxy de Google Routes
+const readLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: parseInt(process.env.RATE_LIMIT_READ || '120', 10),
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, message: 'Demasiadas consultas. Intente nuevamente en un minuto.' }
+});
+
+const writeLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: parseInt(process.env.RATE_LIMIT_WRITE || '60', 10),
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, message: 'Demasiadas solicitudes enviadas. Intente más tarde.' }
+});
+
+const routeLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: parseInt(process.env.RATE_LIMIT_ROUTE || '30', 10),
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, message: 'Límite de cálculo de rutas alcanzado. Intente en un minuto.' }
+});
+
 // Endpoint para consultar disponibilidad de cupos en tiempo real
-router.get('/cupos/:token', async (req, res) => {
+router.get('/cupos/:token', readLimiter, async (req, res) => {
   const { token } = req.params;
   try {
     const response = await fetch(`${CAPA_INTERMEDIA_URL}/api/v1/terceros/cupos/${token}`, {
@@ -36,12 +61,12 @@ router.get('/cupos/:token', async (req, res) => {
     return res.status(response.status).json(data);
   } catch (error: any) {
     console.error('Error consultando cupos en capa intermedia:', error);
-    return res.status(500).json({ success: false, message: 'Error interno consultando cupos', error: error?.message });
+    return res.status(500).json({ success: false, message: 'Error interno consultando cupos' });
   }
 });
 
 // Endpoint para guardar reprogramaciones delegando a la capa intermedia y CRM
-router.post('/reprogramar', async (req, res) => {
+router.post('/reprogramar', writeLimiter, async (req, res) => {
   const { token, fecha, turno, motivo, motivoSeleccionado, pin } = req.body;
   if (!token || !fecha || !turno) {
     return res.status(400).json({ success: false, message: 'Faltan datos obligatorios' });
@@ -70,7 +95,7 @@ router.post('/reprogramar', async (req, res) => {
     if (response.ok && data.success) {
       apiCache.delete(`inst_${token}`);
 
-      // Inserción directa redundante en BD local con formato YYYY-MM-DD
+      // La inserción en REPROGRAMACIONES ya la realiza capa_intermedia; aquí solo replicamos
       const formatYmd = (dStr: string) => {
         if (!dStr) return dStr;
         const c = dStr.trim();
@@ -84,19 +109,10 @@ router.post('/reprogramar', async (req, res) => {
       const mysqlDate = formatYmd(fecha);
 
       try {
-        await pool.query(
-          `INSERT INTO REPROGRAMACIONES (token, fecha_solicitada, turno, motivo) VALUES (?, ?, ?, ?)`,
-          [token, mysqlDate, turno.trim(), motivoDetalle]
-        );
-      } catch (dbInsertErr) {
-        console.warn('Advertencia insertando en REPROGRAMACIONES desde server:', dbInsertErr);
-      }
-
-      try {
         replicateChange('REPROGRAMACIONES', 'INSERT', {
           token,
           fecha_solicitada: mysqlDate,
-          turno,
+          turno: turno.trim(),
           motivo: motivoDetalle
         });
       } catch (repErr) {
@@ -107,7 +123,7 @@ router.post('/reprogramar', async (req, res) => {
     return res.status(response.status).json(data);
   } catch (error: any) {
     console.error('Error comunicando con capa intermedia para reprogramar:', error);
-    return res.status(500).json({ success: false, message: 'Error interno guardando la solicitud', error: error?.message });
+    return res.status(500).json({ success: false, message: 'Error interno guardando la solicitud' });
   }
 });
 
@@ -137,7 +153,7 @@ const encuestaSchema = z.object({
   facilidad_motivo: z.string().max(500).optional().default('')
 });
 
-router.post('/encuesta', async (req, res) => {
+router.post('/encuesta', writeLimiter, async (req, res) => {
   // 1. Evaluar si es el nuevo formato para Encuesta_app
   const parseAppResult = encuestaAppSchema.safeParse(req.body);
   if (parseAppResult.success) {
@@ -215,7 +231,7 @@ router.post('/encuesta', async (req, res) => {
 });
 
 // Endpoint para verificar si un token ya llenó la encuesta en BD (revisa Encuesta_app y ENCUESTAS)
-router.get('/encuesta/verificar/:token', async (req, res) => {
+router.get('/encuesta/verificar/:token', readLimiter, async (req, res) => {
   const { token } = req.params;
   try {
     const [rowsApp]: any = await pool.query('SELECT id FROM Encuesta_app WHERE token = ? LIMIT 1', [token]);
@@ -318,7 +334,7 @@ const logSchema = z.object({
   dispositivo: z.any().optional()
 });
 
-router.post('/log', async (req, res) => {
+router.post('/log', writeLimiter, async (req, res) => {
   const parseResult = logSchema.safeParse(req.body);
 
   if (!parseResult.success) {
@@ -429,7 +445,7 @@ router.post('/log', async (req, res) => {
 });
 
 // Obtener detalles de una instalación por token
-router.get('/instalaciones/:token', async (req, res) => {
+router.get('/instalaciones/:token', readLimiter, async (req, res) => {
   const { token } = req.params;
 
   // 1. Revisar si la respuesta ya está en micro-caché (absorbe polling masivo concurrente)
@@ -715,22 +731,18 @@ router.get('/instalaciones/:token', async (req, res) => {
 
   } catch (error) {
     console.error('Error al conectar con la capa intermedia:', error);
-    res.status(500).json({ success: false, message: 'Error interno del servidor', error });
+    res.status(500).json({ success: false, message: 'Error interno del servidor' });
   }
 });
 
-// Endpoint MiWIN: Consulta de atenciones por DNI con fallback directo a base de datos
-router.get(['/cliente/visitas/:dni', '/cliente/visitas/v/:token'], async (req, res) => {
-  const rawParam = req.params.token || req.params.dni;
-  let cleanDni = String(rawParam || '').trim();
-  const decoded = decodeOpaqueToken(cleanDni);
-  if (decoded && decoded.documento) {
-    cleanDni = decoded.documento;
-  }
-  // cleanDni ya resuelto arriba
+// Endpoint MiWIN: Consulta de atenciones estrictamente por token opaco
+router.get('/cliente/visitas/v/:token', readLimiter, async (req, res) => {
+  const rawToken = String(req.params.token || '').trim();
+  const decoded = decodeOpaqueToken(rawToken);
+  const cleanDni = decoded?.documento ? String(decoded.documento).trim() : '';
 
   if (!cleanDni || cleanDni.length < 5) {
-    return res.status(400).json({ success: false, message: 'DNI inválido' });
+    return res.status(400).json({ success: false, message: 'Token inválido o no autorizado' });
   }
 
   const cacheKey = `cliente_visitas_${cleanDni}`;
@@ -743,7 +755,7 @@ router.get(['/cliente/visitas/:dni', '/cliente/visitas/v/:token'], async (req, r
     let data: any = null;
 
     try {
-      const capaResponse = await fetch(`${CAPA_INTERMEDIA_URL}/api/v1/terceros/cliente/visitas/${cleanDni}`, {
+      const capaResponse = await fetch(`${CAPA_INTERMEDIA_URL}/api/v1/terceros/cliente/visitas/v/${encodeURIComponent(rawToken)}`, {
         headers: { 'Authorization': `Bearer ${SECRET_API_KEY}` }
       });
       if (capaResponse.ok) {
@@ -906,10 +918,8 @@ const ipWhitelistMiddleware = (req: express.Request, res: express.Response, next
     return next();
   }
 
-  const forwarded = req.headers['x-forwarded-for'];
-  const rawIp = typeof forwarded === 'string' 
-    ? forwarded.split(',')[0].trim() 
-    : (req.socket.remoteAddress || req.ip || '');
+  // Usar req.ip resuelto de forma segura con app.set('trust proxy', 1) en lugar de X-Forwarded-For crudo
+  const rawIp = req.ip || req.socket.remoteAddress || '';
   const clientIp = rawIp.replace(/^::ffff:/, '');
 
   const isAllowed = WIN_ALLOWED_IPS.includes(clientIp) || clientIp === '127.0.0.1' || clientIp === '::1';
@@ -1054,7 +1064,7 @@ router.get(
 });
 
 // Endpoint para calcular la ruta con tráfico real usando Google Maps API
-router.post('/route', async (req, res) => {
+router.post('/route', routeLimiter, async (req, res) => {
   const { start, end } = req.body;
 
   if (!start || !end) {
