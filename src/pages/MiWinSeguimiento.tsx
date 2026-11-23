@@ -3,6 +3,7 @@ import { useParams, useSearchParams, useNavigate } from "react-router-dom";
 import Seguimiento from "./Seguimiento";
 import { motion, AnimatePresence } from "framer-motion";
 import { Loader2 } from "lucide-react";
+import { SinVisitaScreen } from "@/components/SinVisitaScreen";
 
 export interface VisitaItem {
   idoperacion: string | number;
@@ -184,35 +185,7 @@ export default function MiWinSeguimiento() {
   }
 
   if (errorMsg || visitas.length === 0) {
-    return (
-      <div className="min-h-[100dvh] w-full bg-white flex flex-col justify-between font-sans overflow-y-auto">
-        <div className="flex-1 flex flex-col items-center justify-center pt-10 pb-6 px-6 max-w-[360px] mx-auto w-full text-center">
-          <div className="w-[176px] h-[177px] mb-8 relative flex items-center justify-center">
-            <img
-              src="/visita_cancelada_mascot.png"
-              alt="Sin visitas programadas"
-              className="w-full h-full object-contain pointer-events-none"
-            />
-          </div>
-          <h2 className="text-[22px] font-bold text-[#26292E] mb-2.5 leading-snug">
-            No tienes visitas programadas
-          </h2>
-          <p className="text-[14px] text-[#535C67] leading-relaxed max-w-[285px] mx-auto font-normal">
-            {errorMsg || "No cuentas con visitas técnicas ni instalaciones programadas en este momento."}
-          </p>
-        </div>
-
-        <div className="p-4 w-full max-w-[360px] mx-auto shrink-0 mb-4">
-          <button
-            type="button"
-            onClick={() => navigate('/')}
-            className="w-full bg-[#FF5A0A] hover:bg-[#E04E07] text-white font-bold h-12 rounded-full text-[14px] shadow-md shadow-[#FF5A0A]/20 active:scale-95 transition-transform cursor-pointer"
-          >
-            Volver al inicio
-          </button>
-        </div>
-      </div>
-    );
+    return <SinVisitaScreen onClose={() => navigate('/')} />;
   }
 
   // Componente del Selector de Servicio que se inserta de forma nativa en la vista

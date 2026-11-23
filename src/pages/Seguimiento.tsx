@@ -12,6 +12,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { MainLogo } from "@/components/MainLogo";
 import { trackEvent } from "@/lib/firebaseConfig";
 import { CierreMascotsIllustration } from "@/components/CierreMascotsIllustration";
+import { SinVisitaScreen } from "@/components/SinVisitaScreen";
 
 // Componente de Icono SVG Homologado exactamente de Figma para Servicios adicionales (SVAs)
 const SvaServiceIcon = ({ name }: { name: string }) => {
@@ -929,34 +930,7 @@ return (
  }
 
  if (isExpired) {
- return (
- <div className="min-h-[100dvh] w-full bg-white flex flex-col justify-between font-sans overflow-y-auto">
- <div className="flex-1 flex flex-col items-center justify-center pt-10 pb-6 px-6 max-w-[360px] mx-auto w-full text-center">
- <div className="w-[176px] h-[177px] mb-8 relative flex items-center justify-center">
- <img
- src="/visita_cancelada_mascot.png"
- alt="Sin visitas programadas"
- className="w-full h-full object-contain pointer-events-none"
- />
- </div>
- <h1 className="text-[22px] font-bold text-[#26292E] mb-2.5 leading-snug">
- No tienes visitas programadas
- </h1>
- <p className="text-[14px] text-[#535C67] leading-relaxed max-w-[285px] mx-auto font-normal">
- No cuentas con visitas técnicas ni instalaciones programadas en este momento.
- </p>
- </div>
- <div className="p-4 w-full max-w-[360px] mx-auto shrink-0 mb-4">
- <button
- type="button"
- onClick={() => navigate('/')}
- className="w-full bg-[#FF5A0A] hover:bg-[#E04E07] text-white font-bold h-12 rounded-full text-[14px] shadow-md shadow-[#FF5A0A]/20 active:scale-95 transition-transform cursor-pointer"
- >
- Volver al inicio
- </button>
- </div>
- </div>
- );
+ return <SinVisitaScreen onClose={() => navigate('/')} />;
  }
 
  if (error || !data) {
