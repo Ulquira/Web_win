@@ -75,23 +75,22 @@ function getPlanDisplayName(visita?: VisitaItem): string {
 }
 
 export default function MiWinSeguimiento() {
-  const { dni: paramDni, token: paramToken } = useParams<{ dni?: string; token?: string }>();
+  const { token: paramToken } = useParams<{ token?: string }>();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
 
-  // El identificador puede ser un DNI plano o un Token Criptográfico opaco
-  const identifier = paramToken || paramDni || searchParams.get('token') || searchParams.get('t') || searchParams.get('dni') || '';
+  // Acceso estrictamente mediante token criptográfico opaco
+  const token = (paramToken || searchParams.get('token') || searchParams.get('t') || '').trim();
 
   const [visitas, setVisitas] = useState<VisitaItem[]>([]);
   const [selectedToken, setSelectedToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [isSelectorOpen, setIsSelectorOpen] = useState(false);
-  const [inputDoc, setInputDoc] = useState(/^\d+$/.test(identifier) ? identifier : '');
 
   useEffect(() => {
-    if (!identifier || identifier.length < 5) {
-      setErrorMsg("No se proporcionó un enlace o documento válido.");
+    if (!token || token.length < 16) {
+      setErrorMsg("Enlace inválido o incompleto. Ingresa desde el link enviado por WIN.");
       setLoading(false);
       return;
     }
@@ -107,18 +106,18 @@ export default function MiWinSeguimiento() {
         const baseUrl = isLocalHost 
           ? 'http://localhost:3001' 
           : (import.meta.env.VITE_API_URL || 'https://webwin-api-service-eus.azurewebsites.net');
-        let res = await fetch(`${baseUrl}/api/cliente/visitas/${encodeURIComponent(identifier)}`);
+        let res = await fetch(`${baseUrl}/api/cliente/visitas/v/${encodeURIComponent(token)}`);
         
         // Fallback al backend local si el entorno remoto no tiene aún el endpoint
         if (!res.ok && baseUrl !== 'http://localhost:3001') {
           try {
-            const localRes = await fetch(`http://localhost:3001/api/cliente/visitas/${encodeURIComponent(identifier)}`);
+            const localRes = await fetch(`http://localhost:3001/api/cliente/visitas/v/${encodeURIComponent(token)}`);
             if (localRes.ok) res = localRes;
           } catch {}
         }
 
         if (!res.ok) {
-          throw new Error("No se pudieron cargar las visitas.");
+          throw new Error("Enlace inválido o no se pudieron cargar las visitas.");
         }
         const data = await res.json();
         if (!isMounted) return;
@@ -143,7 +142,7 @@ export default function MiWinSeguimiento() {
 
     fetchVisitas();
     return () => { isMounted = false; };
-  }, [identifier]);
+  }, [token]);
 
   const selectedVisita = visitas.find(v => v.token === selectedToken) || visitas[0];
 
@@ -157,40 +156,16 @@ export default function MiWinSeguimiento() {
     );
   }
 
-  const handleBuscarDoc = (e: React.FormEvent) => {
-    e.preventDefault();
-    const clean = inputDoc.trim();
-    if (clean.length >= 5) {
-      navigate(`/miwin/${clean}`);
-    }
-  };
-
   if (errorMsg || visitas.length === 0) {
     return (
       <div className="min-h-screen bg-white flex flex-col items-center justify-center p-6 text-center font-sans">
         <div className="w-16 h-16 rounded-full bg-[#FFF6ED] flex items-center justify-center mb-4">
           <AlertCircle className="w-8 h-8 text-[#FF5A0A]" />
         </div>
-        <h2 className="text-[20px] font-bold text-[#26292E] mb-2">Consulta de Visitas Mi WIN</h2>
+        <h2 className="text-[20px] font-bold text-[#26292E] mb-2">Seguimiento Mi WIN</h2>
         <p className="text-[14px] text-gray-500 max-w-xs mb-6 leading-relaxed">
-          {errorMsg || "Ingresa tu número de documento para consultar tus visitas técnicas o instalaciones activas."}
+          {errorMsg || "No cuentas con visitas técnicas ni instalaciones activas."}
         </p>
-
-        <form onSubmit={handleBuscarDoc} className="w-full max-w-xs flex flex-col gap-3 mb-4">
-          <input
-            type="text"
-            value={inputDoc}
-            onChange={(e) => setInputDoc(e.target.value)}
-            placeholder="Número de DNI o RUC"
-            className="w-full h-12 px-4 rounded-xl border border-gray-300 text-center text-[15px] font-semibold text-[#26292E] focus:outline-none focus:border-[#FF5A0A]"
-          />
-          <button
-            type="submit"
-            className="w-full h-12 rounded-xl bg-[#FF5A0A] text-white text-[14px] font-bold shadow-md hover:bg-[#E04E07] transition-all cursor-pointer"
-          >
-            Consultar visitas
-          </button>
-        </form>
 
         <button
           onClick={() => navigate('/')}

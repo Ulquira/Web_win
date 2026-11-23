@@ -4,7 +4,6 @@ import dotenv from 'dotenv';
 import helmet from 'helmet';
 import replicationRouter from './replicationReceiver.ts';
 import clientRoutes from './routes/clientRoutes.ts';
-import adminRoutes from './routes/adminRoutes.ts';
 
 dotenv.config();
 
@@ -28,13 +27,10 @@ app.use(replicationRouter);
 // Rutas públicas de seguimiento y cliente
 app.use('/api', clientRoutes);
 
-// Rutas protegidas de administración y dashboards
-app.use('/api/4dm1n_', adminRoutes);
-
 // Manejo centralizado de errores
 app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
   console.error('[UNHANDLED ERROR]', err);
-  res.status(500).json({ success: false, message: 'Error interno del servidor', error: err?.message });
+  res.status(500).json({ success: false, message: 'Error interno del servidor' });
 });
 
 app.listen(port, host, () => {

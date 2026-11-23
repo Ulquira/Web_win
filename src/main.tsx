@@ -9,7 +9,6 @@ import '@/lib/firebaseConfig' // Inicializar Firebase Analytics
 const Index = lazy(() => import('@/pages/Index'))
 const Seguimiento = lazy(() => import('@/pages/Seguimiento'))
 const MiWinSeguimiento = lazy(() => import('@/pages/MiWinSeguimiento'))
-const AdminDashboard = lazy(() => import('@/pages/AdminDashboard'))
 
 const PageLoader = () => (
   <div className="min-h-screen w-full flex items-center justify-center bg-white">
@@ -33,9 +32,6 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
             <Route path="/seguimiento/:token" element={<Seguimiento />} />
             <Route path="/miwin/v/:token" element={<MiWinSeguimiento />} />
             <Route path="/miwin/v" element={<MiWinSeguimiento />} />
-            <Route path="/miwin/:dni" element={<MiWinSeguimiento />} />
-            <Route path="/miwin" element={<MiWinSeguimiento />} />
-            <Route path="/4dm1n_" element={<AdminDashboard />} />
           </Routes>
         </Suspense>
         <Toaster />

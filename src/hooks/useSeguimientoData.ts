@@ -58,6 +58,7 @@ export function useInstalacion(token: string | undefined) {
 
           // Devolvemos la notificación para que el componente la gestione
           if (previousStatus.current && previousStatus.current !== fetchedData.status) {
+            previousStatus.current = fetchedData.status;
             return triggerNotification(fetchedData.status, fetchedData.tecnico, '/logo-1.png');
           }
           previousStatus.current = fetchedData.status;
