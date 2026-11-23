@@ -1,9 +1,14 @@
 FROM node:20-alpine
-
 WORKDIR /app
+ENV NODE_ENV=production
+
 COPY package*.json ./
-RUN npm install
-COPY . .
+RUN npm ci --omit=dev && npm install tsx --no-save
+
+COPY --chown=node:node ./server ./server
+COPY --chown=node:node ./capa_intermedia ./capa_intermedia
+
+USER node
 
 EXPOSE 4001
 

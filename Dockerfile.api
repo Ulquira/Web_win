@@ -1,5 +1,6 @@
 FROM node:20-alpine
 WORKDIR /app
+ENV NODE_ENV=production
 
 # Copiamos manifiestos de dependencias
 COPY package*.json ./
@@ -7,9 +8,11 @@ COPY package*.json ./
 # Instalamos dependencias de produccion y tsx para ejecucion directa
 RUN npm ci --omit=dev && npm install tsx --no-save
 
-# Copiamos modulos de backend
-COPY ./server ./server
-COPY ./capa_intermedia ./capa_intermedia
+# Copiamos unicamente modulos de backend con propietario no-root
+COPY --chown=node:node ./server ./server
+COPY --chown=node:node ./capa_intermedia ./capa_intermedia
+
+USER node
 
 EXPOSE 3001
 
