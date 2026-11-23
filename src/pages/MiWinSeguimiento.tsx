@@ -21,6 +21,21 @@ export interface VisitaItem {
   tramo?: string;
 }
 
+const LINK_EXPIRATION_MS = 72 * 60 * 60 * 1000;
+
+function isVisitaExpired72h(fechaStr?: string, tramoStr?: string): boolean {
+  if (!fechaStr) return false;
+  const dateMatch = String(fechaStr).match(/^(\d{4}-\d{2}-\d{2})/);
+  if (!dateMatch) return false;
+  const timeMatch = String(tramoStr || '').match(/^(\d{2}:\d{2}(?::\d{2})?)/);
+  const timePart = timeMatch
+    ? (timeMatch[1].length === 5 ? `${timeMatch[1]}:00` : timeMatch[1])
+    : '23:59:59';
+  const orderMs = Date.parse(`${dateMatch[1]}T${timePart}-05:00`);
+  if (isNaN(orderMs)) return false;
+  return Date.now() - orderMs > LINK_EXPIRATION_MS;
+}
+
 // Helper para formatear fecha en formato corto (ej. "NOV23", "OCT24")
 function formatMonthYearShort(dateStr?: string): string {
   if (!dateStr) return '';
@@ -127,11 +142,17 @@ export default function MiWinSeguimiento() {
         if (!isMounted) return;
 
         if (data.success && data.visitas && data.visitas.length > 0) {
-          setVisitas(data.visitas);
-          
-          // Si la URL ya trae un token específico o predeterminamos el primero/en_camino
-          const priority = data.visitas.find((v: VisitaItem) => v.estado === 'en_camino') || data.visitas[0];
-          setSelectedToken(priority.token);
+          const activeVisitas = data.visitas.filter((v: VisitaItem) => !isVisitaExpired72h(v.fecha, v.tramo));
+          if (activeVisitas.length === 0) {
+            setVisitas([]);
+            setErrorMsg("Este enlace ha expirado porque superó las 72 horas de vigencia.");
+          } else {
+            setVisitas(activeVisitas);
+            
+            // Si la URL ya trae un token específico o predeterminamos el primero/en_camino
+            const priority = activeVisitas.find((v: VisitaItem) => v.estado === 'en_camino') || activeVisitas[0];
+            setSelectedToken(priority.token);
+          }
         } else {
           setVisitas([]);
           setErrorMsg("No cuentas con visitas técnicas ni instalaciones programadas.");

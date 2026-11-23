@@ -126,6 +126,21 @@ const parseSafeDate = (dateStr?: string) => {
   return isNaN(d.getTime()) ? null : d;
 };
 
+const LINK_EXPIRATION_MS = 72 * 60 * 60 * 1000;
+
+const isOrderExpired72h = (fechaStr?: string, tramoStr?: string): boolean => {
+  if (!fechaStr) return false;
+  const dateMatch = String(fechaStr).match(/^(\d{4}-\d{2}-\d{2})/);
+  if (!dateMatch) return false;
+  const timeMatch = String(tramoStr || '').match(/^(\d{2}:\d{2}(?::\d{2})?)/);
+  const timePart = timeMatch
+    ? (timeMatch[1].length === 5 ? `${timeMatch[1]}:00` : timeMatch[1])
+    : '23:59:59';
+  const orderMs = Date.parse(`${dateMatch[1]}T${timePart}-05:00`);
+  if (isNaN(orderMs)) return false;
+  return Date.now() - orderMs > LINK_EXPIRATION_MS;
+};
+
 // Componente para animar elementos al entrar
 export interface InstalacionData {
  cliente_nombre?: string;
@@ -762,6 +777,15 @@ const Seguimiento = ({ customToken, renderServiceSelector }: SeguimientoProps = 
         
         if (result.success) {
           const fetchedData = result.data;
+
+          if (isOrderExpired72h(fetchedData.fecha_programacion, fetchedData.tramo)) {
+            setIsExpired(true);
+            setError(true);
+            setData(null);
+            if (intervalId) clearInterval(intervalId);
+            return;
+          }
+
           if (token) {
             localStorage.setItem('win_last_token', token);
           }
