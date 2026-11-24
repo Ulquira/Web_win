@@ -5,8 +5,16 @@ import { z } from 'zod';
 import pool from '../db.ts';
 import { decodeOpaqueToken, createOpaqueToken, isOpaqueTokenExpired } from '../opaqueToken.js';
 import { replicateChange } from '../replicationService.ts';
-
-const LINK_EXPIRATION_SECONDS = 72 * 60 * 60; // 72 horas
+import {
+  isOrderExpired,
+  mapEstadoToStatusFront,
+  parseCoordinates,
+  isFotoAprobadaFlag,
+  parseValidImage,
+  maskDni,
+  classifyOrderType,
+  buildMiWinVisitasPayload
+} from '../shared/orderHelpers.ts';
 
 const router = Router();
 
@@ -575,78 +583,17 @@ router.get('/instalaciones/:token', readLimiter, async (req, res) => {
       }
 
       const op = rows[0];
-      if (op.segundos_desde_soli !== null && op.segundos_desde_soli !== undefined && Number(op.segundos_desde_soli) > LINK_EXPIRATION_SECONDS) {
+      if (isOrderExpired(op.segundos_desde_soli)) {
         return res.status(410).json({ success: false, expired: true, message: 'Este enlace de seguimiento ha expirado.' });
       }
-      const tipoServicioUpper = (op.tipo_servicio || '').toUpperCase().trim();
-      const productoUpper = (op.producto || '').toUpperCase().trim();
-      const tipoTrabajoUpper = (op.tipo_trabajo || '').toUpperCase().trim();
-      const codiSeguiUpper = String(op.codisegui || '').toUpperCase().trim();
-      const codiSeguiClienUpper = String(op.codiseguiclien || '').toUpperCase().trim();
-      const isPostventa = tipoServicioUpper === 'POSTVENTA' || productoUpper.includes('POSTVENTA');
-      const isTicket = 
-        tipoServicioUpper === 'AVERIAS' || 
-        tipoServicioUpper.includes('POST') ||
-        productoUpper.includes('AVERIA') || 
-        productoUpper.includes('POST') ||
-        productoUpper === 'MOTOWIN' ||
-        /^[A-Z]/.test(codiSeguiUpper) ||
-        /^[A-Z]/.test(codiSeguiClienUpper) ||
-        (tipoTrabajoUpper !== '' && tipoTrabajoUpper !== 'INSTALACION' && !tipoTrabajoUpper.includes('INSTALA'));
 
-      let statusFront = 'programada';
-      const estadoDB = (op.Estado || '').toUpperCase().trim();
-      if (estadoDB === 'PENDIENTE') statusFront = 'programada';
-      else if (estadoDB === 'AGENDADA' || estadoDB === 'PROGRAMADO') statusFront = 'asignado';
-      else if (estadoDB === 'EN CAMINO') statusFront = 'en_camino';
-      else if (estadoDB === 'INICIADA' || estadoDB === 'EN PROCESO') statusFront = 'en_proceso';
-      else if (estadoDB === 'FINALIZADA' || estadoDB === 'FINALIZADO') statusFront = 'finalizada';
-      else if (['ANULADA', 'REGESTION', 'CANCELADA', 'REVISIÓN', 'REVISION', 'AUSENTE', 'CANCELADO', 'DULPLICADO', 'INASISTENCIA', 'PEXT', 'REPROGRAMA'].includes(estadoDB)) statusFront = 'cerrada';
-
-      let coordsCliente = null;
-      let coordsTecnico = null;
-      try {
-        if (op.coordenadas_direccion) {
-          const str = op.coordenadas_direccion.replace(/\s/g, '');
-          const match = str.match(/(-?\d+\.\d+)(-?\d+\.\d+)/);
-          if (match) coordsCliente = [parseFloat(match[1]), parseFloat(match[2])];
-          else {
-            const parts = str.split(',');
-            if (parts.length === 2) coordsCliente = [parseFloat(parts[0]), parseFloat(parts[1])];
-          }
-        }
-        if (op.Ubi_TEC) {
-          const str = op.Ubi_TEC.replace(/\s/g, '');
-          const match = str.match(/(-?\d+\.\d+)(-?\d+\.\d+)/);
-          if (match) coordsTecnico = [parseFloat(match[1]), parseFloat(match[2])];
-          else {
-            const parts = str.split(',');
-            if (parts.length === 2) coordsTecnico = [parseFloat(parts[0]), parseFloat(parts[1])];
-          }
-        }
-      } catch(e) {}
-
-      let fotoTecnico: string | null = null;
-      const isFotoAprobada = Boolean(
-        op.foto_aprobada === 1 || 
-        op.foto_aprobada === '1' || 
-        op.foto_aprobada === true || 
-        String(op.foto_aprobada || '').trim().toLowerCase() === 'yes' ||
-        String(op.foto_aprobada || '').trim().toLowerCase() === 'true'
-      );
-
-      const parseValidImage = (imgCandidate?: string | null): string | null => {
-        if (!imgCandidate) return null;
-        const clean = String(imgCandidate).trim();
-        if (clean.startsWith('data:image/')) return clean;
-        if (clean.startsWith('http://') || clean.startsWith('https://')) return clean;
-        if (clean.startsWith('/9j/') || clean.startsWith('iVBORw0KGgo')) return `data:image/jpeg;base64,${clean}`;
-        return null;
-      };
-
-      if (isFotoAprobada) {
-        fotoTecnico = parseValidImage(op.foto_mejorada) || parseValidImage(op.foto_original) || null;
-      }
+      const { isPostventa, isTicket } = classifyOrderType(op);
+      const statusFront = mapEstadoToStatusFront(op.Estado);
+      const coordsCliente = parseCoordinates(op.coordenadas_direccion);
+      const coordsTecnico = parseCoordinates(op.Ubi_TEC);
+      const fotoTecnico = isFotoAprobadaFlag(op.foto_aprobada)
+        ? (parseValidImage(op.foto_mejorada) || parseValidImage(op.foto_original) || null)
+        : null;
 
       data = {
         success: true,
@@ -673,7 +620,7 @@ router.get('/instalaciones/:token', readLimiter, async (req, res) => {
           producto: op.producto || null,
           tecnico: (op.Cuadrilla || op.Cuadrilla_nombre || op.nombre_tecnico_completo) ? {
             nombre: op.nombre_tecnico_completo || op.Cuadrilla_nombre || 'Técnico Asignado',
-            dni: op.dni_tecnico ? '****' + String(op.dni_tecnico).slice(4) : null,
+            dni: maskDni(op.dni_tecnico),
             foto: fotoTecnico,
             cuadrilla: op.Cuadrilla,
             telefono: op.telefono || 'Central'
@@ -842,9 +789,7 @@ router.get('/cliente/visitas/v/:token', readLimiter, async (req, res) => {
         list = testRows as any[];
       }
 
-      const activeList = list.filter(
-        (item: any) => item.segundos_desde_soli === null || item.segundos_desde_soli === undefined || Number(item.segundos_desde_soli) <= LINK_EXPIRATION_SECONDS
-      );
+      const activeList = list.filter((item: any) => !isOrderExpired(item.segundos_desde_soli));
 
       if (list.length > 0 && activeList.length === 0) {
         return res.status(410).json({ success: false, expired: true, message: 'Este enlace ha expirado.' });
@@ -853,63 +798,7 @@ router.get('/cliente/visitas/v/:token', readLimiter, async (req, res) => {
       if (activeList.length === 0) {
         data = { success: true, count: 0, cliente_nombre: null, visitas: [] };
       } else {
-        const casesMap = new Map<string, any>();
-        for (const item of activeList) {
-          const caseKey = item.codisegui || item.codiseguiclien || `ord_${item.idoperacion}`;
-          if (!casesMap.has(caseKey)) {
-            casesMap.set(caseKey, item);
-          }
-        }
-
-        const uniqueCases = Array.from(casesMap.values());
-        const clienteNombre = activeList[0].nom_cliente || 'Cliente';
-
-        const visitas = uniqueCases.map((op: any) => {
-          const tipoServicioUpper = (op.tipo_servicio || '').toUpperCase().trim();
-          const productoUpper = (op.producto || '').toUpperCase().trim();
-          const isTicket = tipoServicioUpper === 'AVERIAS' || productoUpper.includes('AVERIA') || productoUpper === 'MOTOWIN';
-
-          let statusFront = 'programada';
-          const estadoDB = (op.Estado || '').toUpperCase().trim();
-          if (estadoDB === 'PENDIENTE') statusFront = 'programada';
-          else if (estadoDB === 'AGENDADA' || estadoDB === 'PROGRAMADO') statusFront = 'asignado';
-          else if (estadoDB === 'EN CAMINO') statusFront = 'en_camino';
-          else if (estadoDB === 'INICIADA' || estadoDB === 'EN PROCESO') statusFront = 'en_proceso';
-          else if (estadoDB === 'FINALIZADA' || estadoDB === 'FINALIZADO') statusFront = 'finalizada';
-          else if (['ANULADA', 'REGESTION', 'CANCELADA', 'REVISIÓN', 'REVISION', 'AUSENTE', 'CANCELADO', 'DULPLICADO', 'INASISTENCIA', 'PEXT', 'REPROGRAMA'].includes(estadoDB)) {
-            statusFront = 'cerrada';
-          }
-
-          let titulo = isTicket ? 'Avería' : 'Instalación';
-          if (productoUpper.includes('MOTO')) titulo = 'Avería Motowin';
-          else if (productoUpper.includes('PLANTA EXTERNA')) titulo = 'Avería Planta Externa';
-
-          const ticketLabel = op.codisegui ? `Ticket: ${op.codisegui}` : (isTicket ? `Ticket: ${op.idoperacion}` : 'Instalación');
-
-          return {
-            idoperacion: op.idoperacion,
-            token: op.token,
-            pin_token: op.Pin_token || null,
-            tipo: isTicket ? 'ticket' : 'instalacion',
-            titulo,
-            ticketLabel,
-            codisegui: op.codisegui || null,
-            producto: op.producto || (isTicket ? 'Visita Técnica' : 'Instalación Fibra'),
-            campana: op.campana || null,
-            direccion: op.direccion || 'Dirección registrada',
-            estado: statusFront,
-            estado_raw: op.Estado,
-            fecha: op.fecha_programacion,
-            tramo: op.tramo
-          };
-        });
-
-        data = {
-          success: true,
-          count: visitas.length,
-          cliente_nombre: clienteNombre,
-          visitas
-        };
+        data = buildMiWinVisitasPayload(activeList);
       }
     }
 
