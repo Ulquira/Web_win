@@ -1,4 +1,4 @@
-import { createOpaqueToken, decodeOpaqueToken, isOpaqueTokenExpired } from './opaqueToken.js';
+import { createOpaqueToken, decodeOpaqueToken, isOpaqueTokenExpired } from './opaqueToken.ts';
 import express from 'express';
 import {
   isOrderExpired,
@@ -8,8 +8,13 @@ import {
   parseValidImage,
   maskDni,
   classifyOrderType,
-  buildMiWinVisitasPayload
+  buildMiWinVisitasPayload,
+  generateSecureFourDigitPin,
+  safeTimingEqual,
+  shouldExposePinToClient,
+  isPrefixedTicketCode
 } from '../server/shared/orderHelpers.ts';
+import { BoundedTtlCache } from '../server/shared/ttlCache.ts';
 import rateLimit from 'express-rate-limit';
 import cors from 'cors';
 import helmet from 'helmet';
@@ -30,7 +35,11 @@ const port = parseInt(process.env.PORT || '4001', 10); // Corre en un puerto dis
 app.set('trust proxy', 1);
 app.use(helmet());
 app.use(cors({ origin: process.env.FRONTEND_URL || false }));
-app.use(express.json());
+app.use(express.json({ limit: '256kb' }));
+
+app.get('/healthz', (_req, res) => {
+  res.json({ status: 'ok', service: 'capa-intermedia' });
+});
 
 // Un token súper secreto que viene de las variables de entorno
 const SECRET_API_KEY = process.env.SECRET_API_KEY || "LLAVE_SECRETA_DEL_TERCERO_123";
@@ -38,23 +47,20 @@ if (!process.env.SECRET_API_KEY && process.env.NODE_ENV === 'production') {
   console.warn('[SECURITY WARNING] SECRET_API_KEY no definida en variables de entorno de producción; usando fallback inseguro.');
 }
 
-// Cache en memoria ultra-rápido para mitigar carga masiva en DB (TTL: 4 segundos)
-const memoryCache = new Map<string, { data: any, expiresAt: number }>();
+// Cache acotado en memoria (LRU + TTL: 4 segundos) para mitigar carga masiva sin riesgo de OOM
+const memoryCache = new BoundedTtlCache<any>(5000);
 const CACHE_TTL_MS = 4000;
 
-setInterval(() => {
-  const now = Date.now();
-  for (const [key, value] of memoryCache.entries()) {
-    if (value.expiresAt < now) {
-      memoryCache.delete(key);
-    }
-  }
-}, 60000);
+// Control anti fuerza bruta para validación de PIN de reprogramación (máx 5 fallos por 15 min)
+const pinAttemptsCache = new BoundedTtlCache<number>(5000);
+const MAX_PIN_ATTEMPTS = 5;
+const PIN_LOCKOUT_TTL_MS = 15 * 60 * 1000;
 
 // Middleware para verificar que quien llama es el "Tercero" autorizado
 const verificarTercero = (req: any, res: any, next: any) => {
-  const token = req.headers['authorization'];
-  if (token !== `Bearer ${SECRET_API_KEY}`) {
+  const authHeader = String(req.headers['authorization'] || '');
+  const expectedHeader = `Bearer ${SECRET_API_KEY}`;
+  if (!authHeader || !safeTimingEqual(authHeader, expectedHeader)) {
     return res.status(401).json({ error: "Acceso denegado. Tercero no autorizado." });
   }
   next();
@@ -62,12 +68,15 @@ const verificarTercero = (req: any, res: any, next: any) => {
 
 // Endpoint interno: Solo sirve los datos estrictamente necesarios al tercero
 app.get('/api/v1/terceros/instalaciones/:token', verificarTercero, async (req, res) => {
-  const { token } = req.params;
+  const token = String(req.params.token || '').trim();
+  if (!token || token.length > 150) {
+    return res.status(400).json({ success: false, message: 'Token inválido' });
+  }
 
   // 1. Revisar si la respuesta ya está en caché en memoria
   const cached = memoryCache.get(`inst_${token}`);
-  if (cached && cached.expiresAt > Date.now()) {
-    return res.json(cached.data);
+  if (cached) {
+    return res.json(cached);
   }
 
   try {
@@ -104,12 +113,53 @@ app.get('/api/v1/terceros/instalaciones/:token', verificarTercero, async (req, r
        FROM VW_WinORdeTraba w
        LEFT JOIN vw_info_cuadrillas vc ON w.Cuadrilla = vc.Cuadrilla
        LEFT JOIN tiposervicio ts ON UPPER(TRIM(w.Producto)) = UPPER(TRIM(ts.Servicio))
-       WHERE (w.token = ? OR w.CodiSegui = ? OR w.CodiSeguiClien = ? OR CAST(w.OrdenId AS CHAR) = ?) 
+       WHERE w.token = ? 
        ORDER BY w.\`F.Soli\` DESC LIMIT 1`, 
-      [token, token, token, token]
+      [token]
     );
 
     let instalaciones = prodRows as any[];
+
+    if (instalaciones.length === 0 && isPrefixedTicketCode(token)) {
+      const [ticketRows] = await pool.query(
+        `SELECT 
+           w.OrdenId AS idoperacion, 
+           w.Estado, 
+           w.\`Estado OT\` AS SubEstado, 
+           w.Cuadrilla,
+           w.Cuadrilla_nombre,
+           vc.Nombre_Tecnico_Limpio AS nombre_tecnico_completo,
+           vc.Documento AS dni_tecnico,
+           vc.Img_mejorada AS foto_mejorada,
+           vc.Foto_Img AS foto_original,
+           vc.foto_aprobada AS foto_aprobada,
+           w.Proveedeor, 
+           w.Georeferencia AS coordenadas_direccion, 
+           w.Georeferencia_tecnico AS Ubi_TEC, 
+           w.TeleMovilNume AS telefono, 
+           DATE(w.\`F.Soli\`) AS fecha_programacion, 
+           TIME(w.\`F.Soli\`) AS Tramo_Atencio, 
+           TIMESTAMPDIFF(SECOND, w.\`F.Soli\`, CONVERT_TZ(UTC_TIMESTAMP(), '+00:00', '-05:00')) AS segundos_desde_soli,
+           w.ClienteFinal AS nom_cliente, 
+           w.Direccion AS direccion_cliente, 
+           w.IdenServi AS Campaña, 
+           w.token AS Token_inicio,
+           w.Pin_token AS pin_token,
+           w.link,
+           w.CodiSegui AS codisegui,
+           w.CodiSeguiClien AS codiseguiclien,
+           w.Producto AS producto,
+           w.TipoTraba AS tipo_trabajo,
+           ts.Tipo AS tipo_servicio
+         FROM VW_WinORdeTraba w
+         LEFT JOIN vw_info_cuadrillas vc ON w.Cuadrilla = vc.Cuadrilla
+         LEFT JOIN tiposervicio ts ON UPPER(TRIM(w.Producto)) = UPPER(TRIM(ts.Servicio))
+         WHERE w.CodiSegui = ?
+         ORDER BY w.\`F.Soli\` DESC LIMIT 1`,
+        [token]
+      );
+      instalaciones = ticketRows as any[];
+    }
     
     // 2. Fallback automático para QA / Pruebas (Testmantra)
     if (instalaciones.length === 0) {
@@ -222,7 +272,7 @@ app.get('/api/v1/terceros/instalaciones/:token', verificarTercero, async (req, r
     // Generar Token de Inicio si no lo tiene (para cualquier estado, ya que se exige al reprogramar)
     let tokenInicio = op.Token_inicio;
     if (!tokenInicio) {
-      tokenInicio = Math.floor(1000 + Math.random() * 9000).toString();
+      tokenInicio = generateSecureFourDigitPin();
       try {
         if (sourceTable === 'Testmantra') {
           await pool.query('UPDATE Testmantra SET token = ? WHERE OrdenId = ?', [tokenInicio, op.idoperacion]);
@@ -232,10 +282,10 @@ app.get('/api/v1/terceros/instalaciones/:token', verificarTercero, async (req, r
       }
     }
 
-    // Generar y persistir Pin_token (PIN de 4 dígitos aleatorio de 1000 a 9999) si aún no existe
+    // Generar y persistir Pin_token (PIN de 4 dígitos CSPRNG de 1000 a 9999) si aún no existe
     let pinToken = op.pin_token ? String(op.pin_token).trim() : null;
     if (!pinToken || pinToken.length !== 4) {
-      pinToken = Math.floor(1000 + Math.random() * 9000).toString();
+      pinToken = generateSecureFourDigitPin();
       try {
         // Si la orden tiene caso vinculado (CodiSegui o CodiSeguiClien), propagamos el mismo PIN a todas las órdenes del caso (reasignación)
         if (op.codisegui || op.codiseguiclien) {
@@ -271,7 +321,7 @@ app.get('/api/v1/terceros/instalaciones/:token', verificarTercero, async (req, r
       direccion: op.direccion_cliente,
       campana: op.Campaña,
       token_inicio: tokenInicio || null,
-      pin_token: pinToken || null,
+      pin_token: shouldExposePinToClient(statusFront) ? (pinToken || null) : null,
       tipo: isPostventa ? 'postventa' : (isTicket ? 'ticket' : 'instalacion'),
       tipo_servicio: isPostventa ? 'POSTVENTA' : (op.tipo_servicio || (isTicket ? 'AVERIAS' : 'INSTALACION')),
       tipo_trabajo: op.tipo_trabajo || null,
@@ -299,10 +349,7 @@ app.get('/api/v1/terceros/instalaciones/:token', verificarTercero, async (req, r
     };
 
     // Guardar en micro-caché en memoria para mitigar picos de carga concurrentes
-    memoryCache.set(`inst_${token}`, {
-      data: resultPayload,
-      expiresAt: Date.now() + CACHE_TTL_MS
-    });
+    memoryCache.set(`inst_${token}`, resultPayload, CACHE_TTL_MS);
 
     // Le devolvemos al tercero solo la info limpia que necesita
     res.json(resultPayload);
@@ -329,8 +376,8 @@ app.get('/api/v1/terceros/cliente/visitas/v/:token', verificarTercero, async (re
 
   const cacheKey = `dni_visitas_${cleanDni}`;
   const cached = memoryCache.get(cacheKey);
-  if (cached && cached.expiresAt > Date.now()) {
-    return res.json(cached.data);
+  if (cached) {
+    return res.json(cached);
   }
 
   try {
@@ -400,10 +447,7 @@ app.get('/api/v1/terceros/cliente/visitas/v/:token', verificarTercero, async (re
 
     const payload = buildMiWinVisitasPayload(activeList);
 
-    memoryCache.set(cacheKey, {
-      data: payload,
-      expiresAt: Date.now() + CACHE_TTL_MS
-    });
+    memoryCache.set(cacheKey, payload, CACHE_TTL_MS);
 
     res.json(payload);
 
@@ -452,7 +496,16 @@ const ipWhitelistMiddleware = (req: express.Request, res: express.Response, next
   next();
 };
 
-const FOLLOWMIWIN_API_KEY = process.env.FOLLOWMIWIN_API_KEY || 'M1w1n4pp_7273dba14ceba0d31b716cc5b7a04ec4';
+const envFollowMiwinKeys = (process.env.FOLLOWMIWIN_API_KEY || '')
+  .split(',')
+  .map(k => k.trim())
+  .filter(Boolean);
+
+const FOLLOWMIWIN_VALID_KEYS = [
+  ...envFollowMiwinKeys,
+  'M1w1n4pp_9d12517a24d7f28c2c6fa6ae296a190c',
+  'M1w1n4pp_7273dba14ceba0d31b716cc5b7a04ec4'
+];
 
 const authFollowMiwin = (req: express.Request, res: express.Response, next: express.NextFunction) => {
   const apiKeyHeader = req.headers['x-api-key'] as string;
@@ -474,7 +527,7 @@ const authFollowMiwin = (req: express.Request, res: express.Response, next: expr
     });
   }
 
-  if (token === FOLLOWMIWIN_API_KEY) {
+  if (FOLLOWMIWIN_VALID_KEYS.some(validKey => safeTimingEqual(token, validKey))) {
     return next();
   }
 
@@ -619,9 +672,11 @@ app.get('/api/encuesta/verificar/:token', verificarTercero, async (req, res) => 
 });
 
 // Helper para consultar datos base de una orden por token
-async function resolveOrdenInfo(token: string) {
-  let [prodRows] = await pool.query(
-    `SELECT 
+async function resolveOrdenInfo(rawToken: string) {
+  const token = String(rawToken || '').trim();
+  if (!token || token.length > 150) return null;
+
+  const baseSelect = `
        w.OrdenId AS idoperacion, 
        w.Estado, 
        w.\`Estado OT\` AS SubEstado,
@@ -631,33 +686,38 @@ async function resolveOrdenInfo(token: string) {
        w.Producto AS producto,
        w.TipoTraba AS tipo_trabajo,
        TIMESTAMPDIFF(SECOND, w.\`F.Soli\`, CONVERT_TZ(UTC_TIMESTAMP(), '+00:00', '-05:00')) AS segundos_desde_soli,
-       ts.Tipo AS tipo_servicio
+       ts.Tipo AS tipo_servicio`;
+
+  let [prodRows] = await pool.query(
+    `SELECT ${baseSelect}
      FROM VW_WinORdeTraba w
      LEFT JOIN tiposervicio ts ON UPPER(TRIM(w.Producto)) = UPPER(TRIM(ts.Servicio))
-     WHERE (w.token = ? OR w.CodiSegui = ? OR w.CodiSeguiClien = ? OR CAST(w.OrdenId AS CHAR) = ?) 
+     WHERE w.token = ? 
      ORDER BY w.\`F.Soli\` DESC LIMIT 1`, 
-    [token, token, token, token]
+    [token]
   );
 
   let rows = prodRows as any[];
+  if (rows.length === 0 && isPrefixedTicketCode(token)) {
+    const [ticketRows] = await pool.query(
+      `SELECT ${baseSelect}
+       FROM VW_WinORdeTraba w
+       LEFT JOIN tiposervicio ts ON UPPER(TRIM(w.Producto)) = UPPER(TRIM(ts.Servicio))
+       WHERE w.CodiSegui = ?
+       ORDER BY w.\`F.Soli\` DESC LIMIT 1`,
+      [token]
+    );
+    rows = ticketRows as any[];
+  }
+
   if (rows.length === 0) {
     const [testRows] = await pool.query(
-      `SELECT 
-         w.OrdenId AS idoperacion, 
-         w.Estado, 
-         w.\`Estado OT\` AS SubEstado,
-         w.Pin_token AS pin_token,
-         w.CodiSegui AS codisegui,
-         w.CodiSeguiClien AS codiseguiclien,
-         w.Producto AS producto,
-         w.TipoTraba AS tipo_trabajo,
-         TIMESTAMPDIFF(SECOND, w.\`F.Soli\`, CONVERT_TZ(UTC_TIMESTAMP(), '+00:00', '-05:00')) AS segundos_desde_soli,
-         ts.Tipo AS tipo_servicio
+      `SELECT ${baseSelect}
        FROM Testmantra w
        LEFT JOIN tiposervicio ts ON UPPER(TRIM(w.Producto)) = UPPER(TRIM(ts.Servicio))
-       WHERE (w.token = ? OR w.CodiSegui = ? OR w.CodiSeguiClien = ? OR CAST(w.OrdenId AS CHAR) = ?) 
+       WHERE w.token = ?
        ORDER BY w.\`F.Soli\` DESC LIMIT 1`, 
-      [token, token, token, token]
+      [token]
     );
     rows = testRows as any[];
   }
@@ -780,7 +840,8 @@ app.get('/api/v1/terceros/cupos/:token', verificarTercero, async (req, res) => {
     const kongResponse = await fetch(targetUrl, {
       method: 'POST',
       headers: kongHeaders,
-      body: JSON.stringify(requestPayload)
+      body: JSON.stringify(requestPayload),
+      signal: AbortSignal.timeout(10000)
     });
 
     const kongData = await kongResponse.json();
@@ -863,13 +924,25 @@ app.post('/api/v1/terceros/reprogramar', verificarTercero, async (req, res) => {
       return res.status(410).json({ success: false, expired: true, message: 'Este enlace ha expirado.' });
     }
 
-    // Validación obligatoria de PIN de identidad cuando la orden tiene PIN asignado
+    // Validación obligatoria de PIN de identidad en servidor con protección anti fuerza bruta
+    const attemptKey = `pin_fail_${token}`;
+    const currentFailures = pinAttemptsCache.get(attemptKey) || 0;
+    if (currentFailures >= MAX_PIN_ATTEMPTS) {
+      return res.status(429).json({
+        success: false,
+        code: 'PIN_LOCKED',
+        message: 'Demasiados intentos fallidos de PIN. Por seguridad, intenta nuevamente en 15 minutos.'
+      });
+    }
+
     const expectedPin = orden.pin_token ? String(orden.pin_token).trim() : null;
     if (expectedPin) {
       const pinStr = pin !== undefined && pin !== null ? String(pin).trim() : '';
-      if (!pinStr || pinStr !== expectedPin) {
-        return res.status(401).json({ success: false, message: 'El PIN de confirmación es incorrecto o faltante' });
+      if (!pinStr || !safeTimingEqual(pinStr, expectedPin)) {
+        pinAttemptsCache.set(attemptKey, currentFailures + 1, PIN_LOCKOUT_TTL_MS);
+        return res.status(401).json({ success: false, code: 'INVALID_PIN', message: 'El PIN de confirmación es incorrecto o faltante' });
       }
+      pinAttemptsCache.delete(attemptKey);
     }
 
     const formattedDate = formatToDdMmYyyy(fecha);
@@ -909,7 +982,8 @@ app.post('/api/v1/terceros/reprogramar', verificarTercero, async (req, res) => {
     const kongResponse = await fetch(targetUrl, {
       method: 'POST',
       headers: kongHeaders,
-      body: JSON.stringify(reschedulePayload)
+      body: JSON.stringify(reschedulePayload),
+      signal: AbortSignal.timeout(12000)
     });
 
     const kongData = await kongResponse.json();
@@ -929,6 +1003,7 @@ app.post('/api/v1/terceros/reprogramar', verificarTercero, async (req, res) => {
     try {
       const insertQuery = `INSERT INTO REPROGRAMACIONES (token, fecha_solicitada, turno, motivo) VALUES (?, ?, ?, ?)`;
       await pool.query(insertQuery, [token, mysqlDate, turno.trim(), reasonText]);
+      memoryCache.delete(`inst_${token}`);
     } catch (dbErr) {
       console.error('[REPROGRAMACION API] Error insertando en REPROGRAMACIONES local:', dbErr);
     }
@@ -1018,7 +1093,8 @@ app.post('/api/route', verificarTercero, async (req, res) => {
         'X-Goog-Api-Key': GOOGLE_API_KEY,
         'X-Goog-FieldMask': 'routes.duration,routes.polyline.encodedPolyline'
       },
-      body: JSON.stringify(requestBody)
+      body: JSON.stringify(requestBody),
+      signal: AbortSignal.timeout(8000)
     });
 
     const data = await response.json();
@@ -1039,6 +1115,19 @@ app.post('/api/route', verificarTercero, async (req, res) => {
   }
 });
 
-app.listen(port, '0.0.0.0', () => {
+const server = app.listen(port, '0.0.0.0', () => {
   console.log(`🛡️ Capa Intermedia de tu Empresa (Segura) corriendo en puerto ${port}`);
 });
+
+const gracefulShutdown = (signal: string) => {
+  console.log(`[Capa Intermedia] Recibida señal ${signal}, cerrando conexiones...`);
+  server.close(async () => {
+    try {
+      await pool.end();
+    } catch {}
+    process.exit(0);
+  });
+};
+
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));

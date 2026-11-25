@@ -1,4 +1,29 @@
+import crypto from 'crypto';
+
 export const LINK_EXPIRATION_SECONDS = 72 * 60 * 60; // 72 horas
+
+export function generateSecureFourDigitPin(): string {
+  return crypto.randomInt(1000, 10000).toString();
+}
+
+export function safeTimingEqual(a: string, b: string): boolean {
+  const hashA = crypto.createHash('sha256').update(String(a)).digest();
+  const hashB = crypto.createHash('sha256').update(String(b)).digest();
+  return crypto.timingSafeEqual(hashA, hashB);
+}
+
+/**
+ * Exposes pin_token to the client ONLY when the technician is on the way ('en_camino'),
+ * where rescheduling is disabled and the customer must show the validation code on arrival.
+ * Keeps pin_token hidden during reprogrammable states ('programada', 'asignado') to enforce server-side OTP verification.
+ */
+export function shouldExposePinToClient(statusFront?: string | null): boolean {
+  return statusFront === 'en_camino';
+}
+
+export function isPrefixedTicketCode(token?: string | null): boolean {
+  return /^[A-Za-z]{2,10}-\d+$/.test(String(token || '').trim());
+}
 
 const CLOSED_ESTADOS = [
   'ANULADA',
@@ -131,7 +156,7 @@ export function buildMiWinVisitasPayload(activeList: any[]) {
     return {
       idoperacion: op.idoperacion,
       token: op.token,
-      pin_token: op.Pin_token || null,
+      pin_token: shouldExposePinToClient(statusFront) ? (op.Pin_token || null) : null,
       tipo: isTicket ? 'ticket' : 'instalacion',
       titulo,
       ticketLabel,

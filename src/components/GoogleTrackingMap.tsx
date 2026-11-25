@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { setOptions, importLibrary } from '@googlemaps/js-api-loader';
+import { API_BASE_URL } from '@/lib/apiUrl';
 
 interface GoogleTrackingMapProps {
+  token?: string;
   customerCoords: [number, number];
   technicianCoords: [number, number];
   onRouteCalculated?: (coords: [number, number][], timeInSeconds: number) => void;
@@ -144,6 +146,7 @@ function calculateBearing(lat1: number, lon1: number, lat2: number, lon2: number
 }
 
 export default function GoogleTrackingMap({
+  token,
   customerCoords,
   technicianCoords,
   onRouteCalculated,
@@ -316,11 +319,12 @@ export default function GoogleTrackingMap({
     let isCancelled = false;
 
     const fetchRoute = async () => {
+      if (!token) return;
       try {
-        const response = await fetch(`${import.meta.env.VITE_API_URL}/api/route`, {
+        const response = await fetch(`${API_BASE_URL}/api/route`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ start: technicianCoords, end: customerCoords })
+          body: JSON.stringify({ start: technicianCoords, end: customerCoords, token })
         });
 
         const result = await response.json();
@@ -468,7 +472,7 @@ export default function GoogleTrackingMap({
       isCancelled = true;
       if (animationRef.current) cancelAnimationFrame(animationRef.current);
     };
-  }, [mapLoaded, customerCoords[0], customerCoords[1], technicianCoords[0], technicianCoords[1]]);
+  }, [mapLoaded, token, customerCoords[0], customerCoords[1], technicianCoords[0], technicianCoords[1]]);
 
   return (
     <div className={`relative ${className}`}>

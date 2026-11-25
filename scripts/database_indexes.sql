@@ -8,6 +8,10 @@
 -- Resuelve cuellos de botella críticos en filtros por Fecha de Visita y Tipo de Trabajo
 ALTER TABLE `vw_winordetraba` ADD INDEX `idx_f_visita` (`F.Visita`);
 ALTER TABLE `vw_winordetraba` ADD INDEX `idx_visita_prod_traba` (`F.Visita`, `Producto`, `TipoTraba`);
+ALTER TABLE `vw_winordetraba` ADD INDEX `idx_wot_token` (`token`);
+ALTER TABLE `vw_winordetraba` ADD INDEX `idx_wot_codisegui` (`CodiSegui`);
+ALTER TABLE `vw_winordetraba` ADD INDEX `idx_wot_codiseguiclien` (`CodiSeguiClien`);
+ALTER TABLE `vw_winordetraba` ADD INDEX `idx_wot_num_documento` (`Número Documento`);
 
 -- 2. Tabla de Logs de Tracking (logs_traking)
 -- Acelera los subqueries de embudo y verificación de ingreso al mapa
@@ -23,6 +27,7 @@ ALTER TABLE `reporte_plantillas_mantra` ADD INDEX `idx_rpm_orden_id` (`orden_id`
 -- Optimiza cruces de estado en el embudo operativo
 ALTER TABLE `reprogramaciones` ADD INDEX `idx_reprog_token` (`token`);
 ALTER TABLE `encuestas` ADD INDEX `idx_encuestas_token` (`token`);
+ALTER TABLE `Encuesta_app` ADD INDEX `idx_encuesta_app_token` (`token`);
 
 -- 5. Tabla de Historial Chats Mantra (historial_chats_mantra)
 -- Acelera el Dashboard de Chats por fecha de gestión y grupo de servicio

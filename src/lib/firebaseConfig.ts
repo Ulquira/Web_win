@@ -1,5 +1,6 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getAnalytics, isSupported, logEvent, Analytics } from 'firebase/analytics';
+import { API_BASE_URL } from './apiUrl';
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "AIzaSyAXszU1L5M-1H73V94vwWvoMQ7buzsAOkc",
@@ -70,12 +71,7 @@ export const trackEvent = async (eventName: string, eventParams?: Record<string,
       const detalles = { ...eventParams };
       delete detalles.token;
 
-      const isLocalHost = typeof window !== 'undefined' && (
-        window.location.hostname === 'localhost' || 
-        window.location.hostname === '127.0.0.1'
-      );
-      const apiBase = isLocalHost ? 'http://localhost:3001' : (import.meta.env.VITE_API_URL || 'https://webwin-api-service-eus.azurewebsites.net');
-      fetch(`${apiBase}/api/log`, {
+      fetch(`${API_BASE_URL}/api/log`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

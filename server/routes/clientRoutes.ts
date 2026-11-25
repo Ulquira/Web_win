@@ -3,8 +3,9 @@ import express from 'express';
 import rateLimit from 'express-rate-limit';
 import { z } from 'zod';
 import pool from '../db.ts';
-import { decodeOpaqueToken, createOpaqueToken, isOpaqueTokenExpired } from '../opaqueToken.js';
+import { decodeOpaqueToken, createOpaqueToken, isOpaqueTokenExpired } from '../opaqueToken.ts';
 import { replicateChange } from '../replicationService.ts';
+import { BoundedTtlCache } from '../shared/ttlCache.ts';
 import {
   isOrderExpired,
   mapEstadoToStatusFront,
@@ -13,24 +14,18 @@ import {
   parseValidImage,
   maskDni,
   classifyOrderType,
-  buildMiWinVisitasPayload
+  buildMiWinVisitasPayload,
+  safeTimingEqual,
+  shouldExposePinToClient,
+  isPrefixedTicketCode
 } from '../shared/orderHelpers.ts';
 
 const router = Router();
 
-// Micro-caché en memoria de alto rendimiento para mitigar carga masiva en DB y Google APIs
-const apiCache = new Map<string, { data: any, expiresAt: number }>();
+// Micro-caché acotado en memoria (LRU + TTL) para mitigar carga masiva en DB y Google APIs sin riesgo de OOM
+const apiCache = new BoundedTtlCache<any>(5000);
 const INST_CACHE_TTL_MS = 8000;
 const ROUTE_CACHE_TTL_MS = 60000;
-
-setInterval(() => {
-  const now = Date.now();
-  for (const [key, value] of apiCache.entries()) {
-    if (value.expiresAt < now) {
-      apiCache.delete(key);
-    }
-  }
-}, 60000);
 
 const CAPA_INTERMEDIA_URL = process.env.CAPA_INTERMEDIA_URL || 'http://localhost:4001';
 const SECRET_API_KEY = process.env.SECRET_API_KEY || "LLAVE_SECRETA_DEL_TERCERO_123";
@@ -62,10 +57,11 @@ const routeLimiter = rateLimit({
 
 // Endpoint para consultar disponibilidad de cupos en tiempo real
 router.get('/cupos/:token', readLimiter, async (req, res) => {
-  const { token } = req.params;
+  const token = String(req.params.token || '').trim();
   try {
-    const response = await fetch(`${CAPA_INTERMEDIA_URL}/api/v1/terceros/cupos/${token}`, {
-      headers: { 'Authorization': `Bearer ${SECRET_API_KEY}` }
+    const response = await fetch(`${CAPA_INTERMEDIA_URL}/api/v1/terceros/cupos/${encodeURIComponent(token)}`, {
+      headers: { 'Authorization': `Bearer ${SECRET_API_KEY}` },
+      signal: AbortSignal.timeout(12000)
     });
     const data = await response.json();
     return res.status(response.status).json(data);
@@ -97,7 +93,8 @@ router.post('/reprogramar', writeLimiter, async (req, res) => {
         turno,
         motivo: motivoDetalle,
         pin
-      })
+      }),
+      signal: AbortSignal.timeout(15000)
     });
 
     const data = await response.json();
@@ -297,12 +294,12 @@ const parseUserAgent = (ua: string) => {
   return { sistema_operativo, navegador };
 };
 
-// Caché en memoria para metadatos de token (CodiSegui, Zona, Producto)
-const tokenMetaCache = new Map<string, { codisegui: string | null, zona: string | null, producto: string | null, expiresAt: number }>();
+// Caché acotado en memoria para metadatos de token (CodiSegui, Zona, Producto, existencia)
+const tokenMetaCache = new BoundedTtlCache<{ exists: boolean; codisegui: string | null; zona: string | null; producto: string | null }>(5000);
 
 async function getTokenMetadata(token: string) {
   const cached = tokenMetaCache.get(token);
-  if (cached && cached.expiresAt > Date.now()) {
+  if (cached) {
     return cached;
   }
   try {
@@ -311,6 +308,13 @@ async function getTokenMetadata(token: string) {
       'SELECT CodiSegui, Zona, Producto FROM VW_WinORdeTraba WHERE token = ? LIMIT 1',
       [token]
     );
+
+    if ((!rows || rows.length === 0) && isPrefixedTicketCode(token)) {
+      [rows] = await pool.query(
+        'SELECT CodiSegui, Zona, Producto FROM VW_WinORdeTraba WHERE CodiSegui = ? LIMIT 1',
+        [token]
+      );
+    }
 
     // 2. Fallback en Testmantra (QA / Pruebas)
     if (!rows || rows.length === 0) {
@@ -322,18 +326,20 @@ async function getTokenMetadata(token: string) {
 
     if (rows && rows.length > 0) {
       const meta = {
+        exists: true,
         codisegui: rows[0].CodiSegui || null,
         zona: rows[0].Zona || null,
-        producto: rows[0].Producto || null,
-        expiresAt: Date.now() + 5 * 60 * 1000 // 5 minutos
+        producto: rows[0].Producto || null
       };
-      tokenMetaCache.set(token, meta);
+      tokenMetaCache.set(token, meta, 5 * 60 * 1000);
       return meta;
     }
   } catch (err) {
     console.error('Error obteniendo metadata de token para logs:', err);
   }
-  return { codisegui: null, zona: null, producto: null, expiresAt: Date.now() + 60000 };
+  const notFoundMeta = { exists: false, codisegui: null, zona: null, producto: null };
+  tokenMetaCache.set(token, notFoundMeta, 60_000);
+  return notFoundMeta;
 }
 
 // Endpoint para guardar Logs de Interacción en BD
@@ -456,12 +462,12 @@ router.post('/log', writeLimiter, async (req, res) => {
 
 // Obtener detalles de una instalación por token
 router.get('/instalaciones/:token', readLimiter, async (req, res) => {
-  const { token } = req.params;
+  const token = String(req.params.token || '').trim();
 
   // 1. Revisar si la respuesta ya está en micro-caché (absorbe polling masivo concurrente)
   const cached = apiCache.get(`inst_${token}`);
-  if (cached && cached.expiresAt > Date.now()) {
-    return res.json(cached.data);
+  if (cached) {
+    return res.json(cached);
   }
 
   try {
@@ -469,8 +475,9 @@ router.get('/instalaciones/:token', readLimiter, async (req, res) => {
     const [reprogResult, encuestaResult, capaResponse] = await Promise.allSettled([
       pool.query('SELECT id FROM REPROGRAMACIONES WHERE token = ? LIMIT 1', [token]),
       pool.query('SELECT id FROM Encuesta_app WHERE token = ? UNION SELECT id FROM ENCUESTAS WHERE token = ? LIMIT 1', [token, token]),
-      fetch(`${CAPA_INTERMEDIA_URL}/api/v1/terceros/instalaciones/${token}`, {
-        headers: { 'Authorization': `Bearer ${SECRET_API_KEY}` }
+      fetch(`${CAPA_INTERMEDIA_URL}/api/v1/terceros/instalaciones/${encodeURIComponent(token)}`, {
+        headers: { 'Authorization': `Bearer ${SECRET_API_KEY}` },
+        signal: AbortSignal.timeout(8000)
       })
     ]);
 
@@ -612,7 +619,7 @@ router.get('/instalaciones/:token', readLimiter, async (req, res) => {
           direccion: op.direccion_cliente,
           campana: op.Campaña,
           token_inicio: op.Token_inicio || null,
-          pin_token: op.pin_token || null,
+          pin_token: shouldExposePinToClient(statusFront) ? (op.pin_token || null) : null,
           tipo: isPostventa ? 'postventa' : (isTicket ? 'ticket' : 'instalacion'),
           tipo_servicio: isPostventa ? 'POSTVENTA' : (op.tipo_servicio || (isTicket ? 'AVERIAS' : 'INSTALACION')),
           tipo_trabajo: op.tipo_trabajo || null,
@@ -680,11 +687,8 @@ router.get('/instalaciones/:token', readLimiter, async (req, res) => {
       }
     }
 
-    // Guardar en micro-caché (TTL: 3.5s)
-    apiCache.set(`inst_${token}`, {
-      data,
-      expiresAt: Date.now() + INST_CACHE_TTL_MS
-    });
+    // Guardar en micro-caché
+    apiCache.set(`inst_${token}`, data, INST_CACHE_TTL_MS);
 
     res.json(data);
 
@@ -710,8 +714,8 @@ router.get('/cliente/visitas/v/:token', readLimiter, async (req, res) => {
 
   const cacheKey = `cliente_visitas_${cleanDni}`;
   const cached = apiCache.get(cacheKey);
-  if (cached && cached.expiresAt > Date.now()) {
-    return res.json(cached.data);
+  if (cached) {
+    return res.json(cached);
   }
 
   try {
@@ -719,7 +723,8 @@ router.get('/cliente/visitas/v/:token', readLimiter, async (req, res) => {
 
     try {
       const capaResponse = await fetch(`${CAPA_INTERMEDIA_URL}/api/v1/terceros/cliente/visitas/v/${encodeURIComponent(rawToken)}`, {
-        headers: { 'Authorization': `Bearer ${SECRET_API_KEY}` }
+        headers: { 'Authorization': `Bearer ${SECRET_API_KEY}` },
+        signal: AbortSignal.timeout(8000)
       });
       if (capaResponse.status === 410) {
         const expiredJson = await capaResponse.json();
@@ -802,10 +807,7 @@ router.get('/cliente/visitas/v/:token', readLimiter, async (req, res) => {
       }
     }
 
-    apiCache.set(cacheKey, {
-      data,
-      expiresAt: Date.now() + INST_CACHE_TTL_MS
-    });
+    apiCache.set(cacheKey, data, INST_CACHE_TTL_MS);
 
     res.json(data);
   } catch (error) {
@@ -860,11 +862,11 @@ const envFollowMiwinKeys = (process.env.FOLLOWMIWIN_API_KEY || '')
   .map(k => k.trim())
   .filter(Boolean);
 
-const FOLLOWMIWIN_VALID_KEYS = new Set([
+const FOLLOWMIWIN_VALID_KEYS = [
   ...envFollowMiwinKeys,
   'M1w1n4pp_9d12517a24d7f28c2c6fa6ae296a190c', // Producción principal
   'M1w1n4pp_7273dba14ceba0d31b716cc5b7a04ec4'  // Pruebas / Testing temporal
-]);
+];
 
 const authFollowMiwin = (req: express.Request, res: express.Response, next: express.NextFunction) => {
   const apiKeyHeader = req.headers['x-api-key'] as string;
@@ -886,7 +888,7 @@ const authFollowMiwin = (req: express.Request, res: express.Response, next: expr
     });
   }
 
-  if (FOLLOWMIWIN_VALID_KEYS.has(token)) {
+  if (FOLLOWMIWIN_VALID_KEYS.some(validKey => safeTimingEqual(token, validKey))) {
     return next();
   }
 
@@ -982,19 +984,40 @@ router.get(
   }
 });
 
-// Endpoint para calcular la ruta con tráfico real usando Google Maps API
-router.post('/route', routeLimiter, async (req, res) => {
-  const { start, end } = req.body;
+const routeCoordSchema = z.tuple([
+  z.number().min(-90).max(90),
+  z.number().min(-180).max(180)
+]);
 
-  if (!start || !end) {
-    return res.status(400).json({ success: false, message: 'Faltan coordenadas de inicio y fin' });
+const routeRequestSchema = z.object({
+  start: routeCoordSchema,
+  end: routeCoordSchema,
+  token: z.string().min(4).max(150)
+});
+
+// Endpoint para calcular la ruta con tráfico real usando Google Maps API (requiere token de seguimiento activo)
+router.post('/route', routeLimiter, async (req, res) => {
+  const parsed = routeRequestSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ success: false, message: 'Coordenadas o token de seguimiento inválidos' });
+  }
+
+  const { start, end, token } = parsed.data;
+
+  // Verificar que el token corresponda a una orden real antes de consumir cuota de Google Routes
+  const hasCachedInst = Boolean(apiCache.get(`inst_${token}`));
+  if (!hasCachedInst) {
+    const meta = await getTokenMetadata(token);
+    if (!meta.exists) {
+      return res.status(401).json({ success: false, message: 'Token de seguimiento no autorizado para cálculo de ruta' });
+    }
   }
 
   // Clave de caché para evitar consultas redundantes a Google Maps API
-  const routeCacheKey = `route_${start[0]}_${start[1]}_${end[0]}_${end[1]}`;
+  const routeCacheKey = `route_${start[0].toFixed(5)}_${start[1].toFixed(5)}_${end[0].toFixed(5)}_${end[1].toFixed(5)}`;
   const cachedRoute = apiCache.get(routeCacheKey);
-  if (cachedRoute && cachedRoute.expiresAt > Date.now()) {
-    return res.json(cachedRoute.data);
+  if (cachedRoute) {
+    return res.json(cachedRoute);
   }
 
   try {
@@ -1043,7 +1066,8 @@ router.post('/route', routeLimiter, async (req, res) => {
         // Field mask required by Routes API to specify exactly what we want back
         'X-Goog-FieldMask': 'routes.duration,routes.polyline.encodedPolyline'
       },
-      body: JSON.stringify(requestBody)
+      body: JSON.stringify(requestBody),
+      signal: AbortSignal.timeout(8000)
     });
 
     const data: any = await response.json();
@@ -1059,10 +1083,7 @@ router.post('/route', routeLimiter, async (req, res) => {
       const resultPayload = { success: true, durationSeconds, polyline };
 
       // Guardar en caché por 60s
-      apiCache.set(routeCacheKey, {
-        data: resultPayload,
-        expiresAt: Date.now() + ROUTE_CACHE_TTL_MS
-      });
+      apiCache.set(routeCacheKey, resultPayload, ROUTE_CACHE_TTL_MS);
 
       res.json(resultPayload);
     } else {

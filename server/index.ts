@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import helmet from 'helmet';
+import pool from './db.ts';
 import replicationRouter from './replicationReceiver.ts';
 import clientRoutes from './routes/clientRoutes.ts';
 
@@ -19,7 +20,11 @@ app.use(cors({
   origin: process.env.FRONTEND_URL || '*', 
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS']
 }));
-app.use(express.json({ limit: '10mb' }));
+app.use(express.json({ limit: '256kb' }));
+
+app.get('/api/health', (_req, res) => {
+  res.json({ status: 'ok', service: 'api-principal' });
+});
 
 // Registrar rutas de replicación en tiempo real (receptor)
 app.use(replicationRouter);
@@ -33,6 +38,19 @@ app.use((err: any, _req: express.Request, res: express.Response, _next: express.
   res.status(500).json({ success: false, message: 'Error interno del servidor' });
 });
 
-app.listen(port, host, () => {
+const server = app.listen(port, host, () => {
   console.log(`🚀 Servidor API modularizado corriendo en http://${host}:${port}`);
 });
+
+const gracefulShutdown = (signal: string) => {
+  console.log(`[API Principal] Recibida señal ${signal}, cerrando conexiones...`);
+  server.close(async () => {
+    try {
+      await pool.end();
+    } catch {}
+    process.exit(0);
+  });
+};
+
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));

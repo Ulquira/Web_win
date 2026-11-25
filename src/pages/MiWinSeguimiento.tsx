@@ -4,6 +4,7 @@ import Seguimiento from "./Seguimiento";
 import { motion, AnimatePresence } from "framer-motion";
 import { Loader2 } from "lucide-react";
 import { SinVisitaScreen } from "@/components/SinVisitaScreen";
+import { API_BASE_URL } from "@/lib/apiUrl";
 
 export interface VisitaItem {
   idoperacion: string | number;
@@ -115,22 +116,7 @@ export default function MiWinSeguimiento() {
     async function fetchVisitas() {
       try {
         setLoading(true);
-        const isLocalHost = typeof window !== 'undefined' && (
-          window.location.hostname === 'localhost' || 
-          window.location.hostname === '127.0.0.1'
-        );
-        const baseUrl = isLocalHost 
-          ? 'http://localhost:3001' 
-          : (import.meta.env.VITE_API_URL || 'https://webwin-api-service-eus.azurewebsites.net');
-        let res = await fetch(`${baseUrl}/api/cliente/visitas/v/${encodeURIComponent(token)}`);
-        
-        // Fallback al backend local si el entorno remoto no tiene aún el endpoint
-        if (!res.ok && res.status !== 410 && baseUrl !== 'http://localhost:3001') {
-          try {
-            const localRes = await fetch(`http://localhost:3001/api/cliente/visitas/v/${encodeURIComponent(token)}`);
-            if (localRes.ok || localRes.status === 410) res = localRes;
-          } catch {}
-        }
+        const res = await fetch(`${API_BASE_URL}/api/cliente/visitas/v/${encodeURIComponent(token)}`);
 
         if (res.status === 410) {
           setVisitas([]);
