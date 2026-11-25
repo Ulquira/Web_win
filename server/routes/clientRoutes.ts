@@ -58,6 +58,18 @@ const routeLimiter = rateLimit({
   message: { success: false, message: 'Límite de cálculo de rutas alcanzado. Intente en un minuto.' }
 });
 
+const guestValidateLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: parseInt(process.env.RATE_LIMIT_GUEST || '20', 10),
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, message: 'Demasiados intentos. Por favor espera un minuto.' }
+});
+
+const guestPinAttemptsCache = new BoundedTtlCache<number>(5000);
+const MAX_GUEST_PIN_ATTEMPTS = 5;
+const GUEST_LOCKOUT_TTL_MS = 15 * 60 * 1000;
+
 // Endpoint para consultar disponibilidad de cupos en tiempo real
 router.get('/cupos/:token', readLimiter, async (req, res) => {
   const token = String(req.params.token || '').trim();
@@ -1064,5 +1076,160 @@ router.post('/route', routeLimiter, async (req, res) => {
   }
 });
 
+
+const guestValidateSchema = z.object({
+  tipoDocumento: z.enum(['DNI', 'CE', 'RUC']).default('DNI'),
+  documento: z.string().min(5).max(20),
+  pin: z.string().regex(/^\d{4}$/, 'El código debe tener 4 dígitos')
+});
+
+function getLimaTodayBounds(): { todayStart: string; tomorrowStart: string } {
+  const todayStr = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Lima',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  }).format(new Date());
+
+  const [y, m, d] = todayStr.split('-').map(Number);
+  const nextDay = new Date(Date.UTC(y, m - 1, d + 1));
+  const tomorrowStr = `${nextDay.getUTCFullYear()}-${String(nextDay.getUTCMonth() + 1).padStart(2, '0')}-${String(nextDay.getUTCDate()).padStart(2, '0')}`;
+
+  return {
+    todayStart: `${todayStr} 00:00:00`,
+    tomorrowStart: `${tomorrowStr} 00:00:00`
+  };
+}
+
+// Endpoint Invitado: Valida documento + PIN estrictamente para INSTALACIONES programadas hoy (F.Visita)
+router.post('/invitado/validar', guestValidateLimiter, async (req, res) => {
+  const parsed = guestValidateSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({
+      success: false,
+      code: 'BOTH_INVALID',
+      message: 'Verifica tu número de documento y código de seguimiento.'
+    });
+  }
+
+  const { tipoDocumento, pin } = parsed.data;
+  const cleanDoc = parsed.data.documento.trim().replace(/[^0-9a-zA-Z]/g, '').toUpperCase();
+
+  if (
+    (tipoDocumento === 'DNI' && !/^\d{8}$/.test(cleanDoc)) ||
+    (tipoDocumento === 'RUC' && !/^\d{11}$/.test(cleanDoc)) ||
+    (tipoDocumento === 'CE' && (cleanDoc.length < 9 || cleanDoc.length > 12))
+  ) {
+    return res.status(400).json({
+      success: false,
+      code: 'DOCUMENT_NOT_FOUND',
+      message: 'El número de documento ingresado no es válido.'
+    });
+  }
+
+  const clientIp = getClientIp(req);
+  const attemptKey = `guest_fail_${clientIp}_${cleanDoc}`;
+  const currentFailures = guestPinAttemptsCache.get(attemptKey) || 0;
+  if (currentFailures >= MAX_GUEST_PIN_ATTEMPTS) {
+    return res.status(429).json({
+      success: false,
+      code: 'PIN_LOCKED',
+      message: 'Demasiados intentos fallidos. Por seguridad, intenta nuevamente en 15 minutos.'
+    });
+  }
+
+  try {
+    const { todayStart, tomorrowStart } = getLimaTodayBounds();
+    const unpaddedDoc = cleanDoc.replace(/^0+/, '') || cleanDoc;
+    const padded8Doc = tipoDocumento === 'DNI' ? cleanDoc.padStart(8, '0') : cleanDoc;
+
+    const querySQL = `
+      SELECT
+        w.OrdenId AS idoperacion,
+        w.Estado,
+        w.token,
+        w.Pin_token AS pin_token,
+        w.CodiSegui AS codisegui,
+        w.CodiSeguiClien AS codiseguiclien,
+        w.Producto AS producto,
+        w.TipoTraba AS tipo_trabajo,
+        ts.Tipo AS tipo_servicio
+      FROM VW_WinORdeTraba w
+      LEFT JOIN tiposervicio ts ON UPPER(TRIM(w.Producto)) = UPPER(TRIM(ts.Servicio))
+      WHERE w.\`F.Visita\` >= ? AND w.\`F.Visita\` < ?
+        AND (
+          TRIM(REPLACE(w.\`Número Documento\`, '*', '')) IN (?, ?, ?)
+          OR TRIM(w.\`Número Documento\`) IN (?, ?, ?)
+        )
+      ORDER BY w.\`F.Soli\` DESC, w.OrdenId DESC
+    `;
+
+    const queryParams = [
+      todayStart,
+      tomorrowStart,
+      cleanDoc,
+      unpaddedDoc,
+      padded8Doc,
+      cleanDoc,
+      unpaddedDoc,
+      padded8Doc
+    ];
+
+    let [rows]: any = await pool.query(querySQL, queryParams);
+    let list = rows as any[];
+
+    if (list.length === 0) {
+      const [testRows]: any = await pool.query(
+        querySQL.replace('VW_WinORdeTraba', 'Testmantra'),
+        queryParams
+      );
+      list = testRows as any[];
+    }
+
+    // Filtrar estrictamente altas nuevas / instalaciones (excluye averías y postventa)
+    const instalacionesHoy = list.filter((op: any) => {
+      const { isTicket, isPostventa } = classifyOrderType(op);
+      return !isTicket && !isPostventa && Boolean(op.token);
+    });
+
+    // 1. Verificar si el documento tiene una instalación programada hoy
+    if (instalacionesHoy.length === 0) {
+      return res.status(404).json({
+        success: false,
+        code: 'DOCUMENT_NOT_FOUND',
+        message: 'El número de documento ingresado no es válido.'
+      });
+    }
+
+    // 2. Validar coincidencia exacta del PIN contra Pin_token
+    const matched = instalacionesHoy.find((op: any) => {
+      const expectedPin = op.pin_token ? String(op.pin_token).trim() : '';
+      return expectedPin.length === 4 && safeTimingEqual(pin, expectedPin);
+    });
+
+    if (!matched) {
+      guestPinAttemptsCache.set(attemptKey, currentFailures + 1, GUEST_LOCKOUT_TTL_MS);
+      return res.status(401).json({
+        success: false,
+        code: 'INVALID_PIN',
+        message: 'El código de seguimiento ingresado no es válido.'
+      });
+    }
+
+    guestPinAttemptsCache.delete(attemptKey);
+
+    return res.json({
+      success: true,
+      token: matched.token,
+      idoperacion: matched.idoperacion
+    });
+  } catch (error) {
+    console.error('Error en /api/invitado/validar:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Error interno al validar los datos'
+    });
+  }
+});
 
 export default router;
