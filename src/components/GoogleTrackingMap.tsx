@@ -1,3 +1,4 @@
+/// <reference types="google.maps" />
 import { useEffect, useRef, useState } from 'react';
 import { setOptions, importLibrary } from '@googlemaps/js-api-loader';
 import { API_BASE_URL } from '@/lib/apiUrl';
@@ -145,6 +146,37 @@ function calculateBearing(lat1: number, lon1: number, lat2: number, lon2: number
   return (brng + 360) % 360;
 }
 
+const ROUTE_RECALC_THRESHOLD_METERS = 80;
+const ROUTE_STORAGE_MAX_AGE_MS = 4 * 60 * 60 * 1000;
+
+function haversineMeters(a: [number, number], b: [number, number]): number {
+  const R = 6371000;
+  const toRad = (deg: number) => (deg * Math.PI) / 180;
+  const dLat = toRad(b[0] - a[0]);
+  const dLng = toRad(b[1] - a[1]);
+  const lat1 = toRad(a[0]);
+  const lat2 = toRad(b[0]);
+  const h =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLng / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(h));
+}
+
+function pruneOldRouteTimestamps() {
+  try {
+    const now = Date.now();
+    for (let i = localStorage.length - 1; i >= 0; i--) {
+      const key = localStorage.key(i);
+      if (key && key.startsWith('route_time_')) {
+        const val = parseInt(localStorage.getItem(key) || '0', 10);
+        if (!val || now - val > ROUTE_STORAGE_MAX_AGE_MS) {
+          localStorage.removeItem(key);
+        }
+      }
+    }
+  } catch {}
+}
+
 export default function GoogleTrackingMap({
   token,
   customerCoords,
@@ -159,6 +191,10 @@ export default function GoogleTrackingMap({
   const destMarkerRef = useRef<google.maps.OverlayView | null>(null);
   const techMarkerRef = useRef<google.maps.OverlayView | null>(null);
   const animationRef = useRef<number | null>(null);
+  const lastRoutedCoordsRef = useRef<{
+    tech: [number, number];
+    cust: [number, number];
+  } | null>(null);
   const [mapLoaded, setMapLoaded] = useState(false);
 
   const apiKey =
@@ -316,6 +352,22 @@ export default function GoogleTrackingMap({
     }
 
     // --- Consultar y Dibujar Ruta con Tráfico ---
+    const prevRouted = lastRoutedCoordsRef.current;
+    const shouldRecalculateRoute =
+      !prevRouted ||
+      haversineMeters(prevRouted.tech, technicianCoords) >= ROUTE_RECALC_THRESHOLD_METERS ||
+      haversineMeters(prevRouted.cust, customerCoords) >= 20;
+
+    if (!shouldRecalculateRoute) {
+      return;
+    }
+
+    pruneOldRouteTimestamps();
+    lastRoutedCoordsRef.current = {
+      tech: [technicianCoords[0], technicianCoords[1]],
+      cust: [customerCoords[0], customerCoords[1]]
+    };
+
     let isCancelled = false;
 
     const fetchRoute = async () => {

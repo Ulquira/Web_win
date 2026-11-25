@@ -29,6 +29,12 @@ const __dirname = path.dirname(__filename);
 
 dotenv.config();
 
+function sanitizeCsvField(value: unknown): string {
+  const str = String(value ?? '').replace(/[\r\n]+/g, ' ').trim();
+  const safe = /^[=+\-@\t]/.test(str) ? `'${str}` : str;
+  return `"${safe.replace(/"/g, '""')}"`;
+}
+
 const app = express();
 const port = parseInt(process.env.PORT || '4001', 10); // Corre en un puerto distinto, oculto del mundo exterior
 
@@ -635,13 +641,25 @@ app.post('/api/encuesta', verificarTercero, async (req, res) => {
   try {
     const csvPath = path.join(__dirname, '../server/encuestas.csv');
     const timestamp = new Date().toISOString();
-    const cleanComments = (satisfaccion_comentario || '').replace(/,/g, ' ');
 
     if (!fs.existsSync(csvPath)) {
       await fs.promises.writeFile(csvPath, 'FECHA_REGISTRO,TOKEN,CONCRETO_INSTALACION,TRATO,PUNTUALIDAD,CLARIDAD,ORDEN,EFECTIVIDAD,SATISFACCION_GENERAL,SATISFACCION_COMENTARIO,FACILIDAD,FACILIDAD_MOTIVO\n', 'utf8');
     }
 
-    const csvLine = `${timestamp},${token},${instalacion_concretada},${tecnico_trato},${tecnico_puntualidad},${tecnico_claridad},${tecnico_orden},${tecnico_efectividad},${satisfaccion_general},${cleanComments},${facilidad_gestion},${facilidad_motivo || ''}\n`;
+    const csvLine = [
+      timestamp,
+      token,
+      instalacion_concretada,
+      tecnico_trato,
+      tecnico_puntualidad,
+      tecnico_claridad,
+      tecnico_orden,
+      tecnico_efectividad,
+      satisfaccion_general,
+      satisfaccion_comentario || '',
+      facilidad_gestion,
+      facilidad_motivo || ''
+    ].map(sanitizeCsvField).join(',') + '\n';
     await fs.promises.appendFile(csvPath, csvLine, 'utf8');
 
     res.json({ success: true, message: 'Encuesta guardada con éxito' });
@@ -935,15 +953,21 @@ app.post('/api/v1/terceros/reprogramar', verificarTercero, async (req, res) => {
       });
     }
 
-    const expectedPin = orden.pin_token ? String(orden.pin_token).trim() : null;
-    if (expectedPin) {
-      const pinStr = pin !== undefined && pin !== null ? String(pin).trim() : '';
-      if (!pinStr || !safeTimingEqual(pinStr, expectedPin)) {
-        pinAttemptsCache.set(attemptKey, currentFailures + 1, PIN_LOCKOUT_TTL_MS);
-        return res.status(401).json({ success: false, code: 'INVALID_PIN', message: 'El PIN de confirmación es incorrecto o faltante' });
-      }
-      pinAttemptsCache.delete(attemptKey);
+    const expectedPin = orden.pin_token ? String(orden.pin_token).trim() : '';
+    if (!expectedPin || expectedPin.length !== 4) {
+      return res.status(409).json({
+        success: false,
+        code: 'PIN_NOT_AVAILABLE',
+        message: 'La orden aún no tiene un PIN de validación activo. Recarga tu enlace de seguimiento e intenta nuevamente.'
+      });
     }
+
+    const pinStr = pin !== undefined && pin !== null ? String(pin).trim() : '';
+    if (!pinStr || !safeTimingEqual(pinStr, expectedPin)) {
+      pinAttemptsCache.set(attemptKey, currentFailures + 1, PIN_LOCKOUT_TTL_MS);
+      return res.status(401).json({ success: false, code: 'INVALID_PIN', message: 'El PIN de confirmación es incorrecto o faltante' });
+    }
+    pinAttemptsCache.delete(attemptKey);
 
     const formattedDate = formatToDdMmYyyy(fecha);
     const kongHeaders = getKongHeaders();
@@ -1011,11 +1035,13 @@ app.post('/api/v1/terceros/reprogramar', verificarTercero, async (req, res) => {
     try {
       const csvPath = path.join(__dirname, '../server/reprogramaciones.csv');
       const timestamp = new Date().toISOString();
-      const cleanMotivo = reasonText.replace(/,/g, ' ');
       if (!fs.existsSync(csvPath)) {
         await fs.promises.writeFile(csvPath, 'FECHA_REGISTRO,TOKEN,NUEVA_FECHA_SOLICITADA,TURNO,MOTIVO\n', 'utf8');
       }
-      await fs.promises.appendFile(csvPath, `${timestamp},${token},${formattedDate},${turno.trim()},${cleanMotivo}\n`, 'utf8');
+      const csvLine = [timestamp, token, formattedDate, String(turno).trim(), reasonText]
+        .map(sanitizeCsvField)
+        .join(',') + '\n';
+      await fs.promises.appendFile(csvPath, csvLine, 'utf8');
     } catch (csvErr) {
       console.error('[REPROGRAMACION API] Error escribiendo en CSV contingencia:', csvErr);
     }
@@ -1043,13 +1069,14 @@ app.post('/api/reprogramar', verificarTercero, async (req, res) => {
   try {
     const csvPath = path.join(__dirname, '../server/reprogramaciones.csv');
     const timestamp = new Date().toISOString();
-    const cleanMotivo = (motivo || '').replace(/,/g, ' ');
 
     if (!fs.existsSync(csvPath)) {
       await fs.promises.writeFile(csvPath, 'FECHA_REGISTRO,TOKEN,NUEVA_FECHA_SOLICITADA,TURNO,MOTIVO\n', 'utf8');
     }
 
-    const csvLine = `${timestamp},${token},${fecha},${turno},${cleanMotivo}\n`;
+    const csvLine = [timestamp, token, fecha, String(turno).trim(), motivo || '']
+      .map(sanitizeCsvField)
+      .join(',') + '\n';
     await fs.promises.appendFile(csvPath, csvLine, 'utf8');
 
     res.json({ success: true, message: 'Reprogramación guardada con éxito' });

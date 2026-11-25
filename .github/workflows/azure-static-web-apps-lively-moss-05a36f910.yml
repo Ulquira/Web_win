@@ -28,6 +28,10 @@ jobs:
           cache: npm
       - name: Typecheck Frontend
         run: npm ci && npx tsc --noEmit
+      - name: Typecheck Backend
+        run: npx tsc -p tsconfig.server.json --noEmit
+      - name: Contract & Security Tests (MiWIN)
+        run: npx tsx --test server/__tests__/miwinContract.test.ts
       - name: Build And Deploy
         id: builddeploy
         uses: Azure/static-web-apps-deploy@v1
@@ -55,3 +59,4 @@ jobs:
         with:
           azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_LIVELY_MOSS_05A36F910 }}
           action: "close"
+          app_location: "."

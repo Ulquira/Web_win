@@ -22,6 +22,9 @@ import {
 
 const router = Router();
 
+const getClientIp = (req: express.Request): string =>
+  (req.ip || req.socket.remoteAddress || '').replace(/^::ffff:/, '');
+
 // Micro-caché acotado en memoria (LRU + TTL) para mitigar carga masiva en DB y Google APIs sin riesgo de OOM
 const apiCache = new BoundedTtlCache<any>(5000);
 const INST_CACHE_TTL_MS = 8000;
@@ -176,7 +179,7 @@ router.post('/encuesta', writeLimiter, async (req, res) => {
     } = parseAppResult.data;
 
     try {
-      const clientIp = (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() || req.socket.remoteAddress || null;
+      const clientIp = getClientIp(req) || null;
       const userAgent = (req.headers['user-agent'] as string) || null;
 
       const query = `
@@ -207,7 +210,7 @@ router.post('/encuesta', writeLimiter, async (req, res) => {
   // 2. Fallback a formato legado ENCUESTAS
   const parseResult = encuestaSchema.safeParse(req.body);
   if (!parseResult.success) {
-    return res.status(400).json({ success: false, message: 'Faltan datos obligatorios o son inválidos', errors: parseAppResult.error.format() });
+    return res.status(400).json({ success: false, message: 'Faltan datos obligatorios o son inválidos', errors: parseResult.error.format() });
   }
 
   const { 
@@ -360,10 +363,7 @@ router.post('/log', writeLimiter, async (req, res) => {
   const { token, evento, detalles, dispositivo } = parseResult.data;
 
   // Obtener IP real del cliente
-  const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress || '';
-  const ip_address = Array.isArray(ip) 
-    ? ip[0] 
-    : (typeof ip === 'string' ? ip.split(',')[0].trim() : '');
+  const ip_address = getClientIp(req);
 
   // Obtener el User-Agent para detectar Navegador y Sistema Operativo
   const userAgentHeader = req.headers['user-agent'] || '';
@@ -637,14 +637,12 @@ router.get('/instalaciones/:token', readLimiter, async (req, res) => {
     }
 
     if (data && data.data) {
-      // Si la consulta inicial por token arrojó false, pero la orden tiene token_inicio distinto o caso vinculado,
-      // verificar si alguna orden de la misma cadena ya fue reprogramada en BD
-      if (!reprogramadaBD) {
+      // Solo consultar REPROGRAMACIONES por token alterno si existe un token_inicio distinto al consultado
+      if (!reprogramadaBD && data.data.token_inicio && data.data.token_inicio !== token) {
         try {
-          const alternateTokens = [data.data.token_inicio, token].filter(Boolean);
           const [altReprog]: any = await pool.query(
-            `SELECT id FROM REPROGRAMACIONES WHERE token IN (?) LIMIT 1`,
-            [alternateTokens]
+            `SELECT id FROM REPROGRAMACIONES WHERE token = ? LIMIT 1`,
+            [data.data.token_inicio]
           );
           if (altReprog && altReprog.length > 0) {
             reprogramadaBD = true;
@@ -656,35 +654,6 @@ router.get('/instalaciones/:token', readLimiter, async (req, res) => {
 
       data.data.reprogramada = reprogramadaBD;
       data.data.encuesta_completada = encuestaCompletadaBD;
-
-      // Enriquecer metadatos si vinieron de la capa intermedia
-      if (!data.data.tipo_trabajo || !data.data.motivo_postventa) {
-        try {
-          const [omRows]: any = await pool.query(
-            `SELECT w.TipoTraba, w.Producto, ts.Tipo as tipo_servicio
-             FROM VW_WinORdeTraba w
-             LEFT JOIN tiposervicio ts ON UPPER(TRIM(w.Producto)) = UPPER(TRIM(ts.Servicio))
-             WHERE w.token = ? LIMIT 1`,
-            [token]
-          );
-          if (omRows && omRows.length > 0) {
-            const om = omRows[0];
-            const tsCalc = (om.tipo_servicio || '').toUpperCase().trim();
-            const prodUpper = (om.Producto || '').toUpperCase().trim();
-            const isPostventa = tsCalc === 'POSTVENTA' || prodUpper.includes('POSTVENTA');
-
-            data.data.tipo_trabajo = om.TipoTraba || null;
-            data.data.tipo_servicio = isPostventa ? 'POSTVENTA' : (tsCalc || data.data.tipo_servicio);
-            data.data.motivo_postventa = om.TipoTraba || null;
-            data.data.producto = om.Producto || null;
-            if (isPostventa) {
-              data.data.tipo = 'postventa';
-            }
-          }
-        } catch (e) {
-          console.error('Error enriqueciendo orden con metadatos:', e);
-        }
-      }
     }
 
     // Guardar en micro-caché
