@@ -39,26 +39,6 @@ export default function InvitadoInstalacion() {
 
   const currentDocCfg = DOC_CONFIG[tipoDocumento];
 
-  const docMissingCount = Math.max(0, currentDocCfg.minLength - documento.length);
-  const codeMissingCount = Math.max(0, 4 - codigo.length);
-
-  const getDocIncompleteMessage = () => {
-    if (documento.length === 0 || docMissingCount === 0) return null;
-    const unidad = currentDocCfg.numericOnly ? "dígito" : "caracter";
-    const plural = docMissingCount === 1 ? "" : currentDocCfg.numericOnly ? "s" : "es";
-    const rango =
-      currentDocCfg.minLength === currentDocCfg.maxLength
-        ? `${currentDocCfg.minLength} ${currentDocCfg.numericOnly ? "dígitos" : "caracteres"}`
-        : `entre ${currentDocCfg.minLength} y ${currentDocCfg.maxLength} caracteres`;
-    return `El ${tipoDocumento} debe tener ${rango} (te falta${docMissingCount === 1 ? "" : "n"} ${docMissingCount} ${unidad}${plural}).`;
-  };
-
-  const docIncompleteMsg = getDocIncompleteMessage();
-  const codeIncompleteMsg =
-    codigo.length > 0 && codeMissingCount > 0
-      ? `El código de seguimiento debe tener 4 dígitos (te falta${codeMissingCount === 1 ? "" : "n"} ${codeMissingCount}).`
-      : null;
-
   useEffect(() => {
     setDocExists(null);
 
@@ -279,7 +259,7 @@ export default function InvitadoInstalacion() {
           <div className="mb-4">
             <div
               className={`relative h-[56px] rounded-[14px] px-4 flex items-center gap-3 border transition-all ${
-                docError || (!docFocused && docIncompleteMsg)
+                docError
                   ? "bg-[#FFF5F5] border-[#E53935]"
                   : docFocused
                   ? "bg-[#F2F2F2] border-[#FF5A0A]"
@@ -334,7 +314,6 @@ export default function InvitadoInstalacion() {
                   type="text"
                   inputMode={currentDocCfg.numericOnly ? "numeric" : "text"}
                   autoComplete="off"
-                  maxLength={currentDocCfg.maxLength}
                   value={documento}
                   onFocus={() => setDocFocused(true)}
                   onBlur={() => setDocFocused(false)}
@@ -347,35 +326,23 @@ export default function InvitadoInstalacion() {
 
               {isCheckingDoc ? (
                 <Loader2 className="w-4 h-4 text-[#FF5A0A] animate-spin shrink-0" />
-              ) : docError || (!docFocused && docIncompleteMsg) ? (
+              ) : docError ? (
                 <AlertCircle className="w-5 h-5 text-[#E53935] shrink-0 stroke-[1.8]" />
-              ) : showDocFloating ? (
-                <span className="text-[11px] font-medium text-[#6B7280] tabular-nums shrink-0">
-                  {documento.length}/{currentDocCfg.maxLength}
-                </span>
               ) : null}
             </div>
 
-            {docError ? (
+            {docError && (
               <p className="text-[12px] text-[#E53935] mt-1.5 px-1 font-normal">
                 {docError}
               </p>
-            ) : docIncompleteMsg ? (
-              <p
-                className={`text-[12px] mt-1.5 px-1 font-normal ${
-                  docFocused ? "text-[#6B7280]" : "text-[#E53935]"
-                }`}
-              >
-                {docIncompleteMsg}
-              </p>
-            ) : null}
+            )}
           </div>
 
           {/* Input Código de seguimiento */}
           <div className="mb-3.5">
             <div
               className={`relative h-[56px] rounded-[14px] px-4 flex items-center gap-3 border transition-all ${
-                codeError || (!codeFocused && codeIncompleteMsg)
+                codeError
                   ? "bg-[#FFF5F5] border-[#E53935]"
                   : codeFocused
                   ? "bg-[#F2F2F2] border-[#FF5A0A]"
@@ -433,28 +400,16 @@ export default function InvitadoInstalacion() {
                 />
               </div>
 
-              {codeError || (!codeFocused && codeIncompleteMsg) ? (
+              {codeError && (
                 <AlertCircle className="w-5 h-5 text-[#E53935] shrink-0 stroke-[1.8]" />
-              ) : showCodeFloating ? (
-                <span className="text-[11px] font-medium text-[#6B7280] tabular-nums shrink-0">
-                  {codigo.length}/4
-                </span>
-              ) : null}
+              )}
             </div>
 
-            {codeError ? (
+            {codeError && (
               <p className="text-[12px] text-[#E53935] mt-1.5 px-1 font-normal">
                 {codeError}
               </p>
-            ) : codeIncompleteMsg ? (
-              <p
-                className={`text-[12px] mt-1.5 px-1 font-normal ${
-                  codeFocused ? "text-[#6B7280]" : "text-[#E53935]"
-                }`}
-              >
-                {codeIncompleteMsg}
-              </p>
-            ) : null}
+            )}
           </div>
 
           {generalError && (
