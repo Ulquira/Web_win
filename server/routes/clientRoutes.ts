@@ -1077,11 +1077,20 @@ router.post('/route', routeLimiter, async (req, res) => {
 });
 
 
-const guestValidateSchema = z.object({
+const guestDocCheckSchema = z.object({
   tipoDocumento: z.enum(['DNI', 'CE', 'RUC']).default('DNI'),
-  documento: z.string().min(5).max(20),
+  documento: z.string().min(5).max(20)
+});
+
+const guestValidateSchema = guestDocCheckSchema.extend({
   pin: z.string().regex(/^\d{4}$/, 'El código debe tener 4 dígitos')
 });
+
+function isValidGuestDocFormat(tipoDocumento: 'DNI' | 'CE' | 'RUC', cleanDoc: string): boolean {
+  if (tipoDocumento === 'DNI') return /^\d{8}$/.test(cleanDoc);
+  if (tipoDocumento === 'RUC') return /^\d{11}$/.test(cleanDoc);
+  return cleanDoc.length >= 9 && cleanDoc.length <= 12;
+}
 
 function getLimaTodayBounds(): { todayStart: string; tomorrowStart: string } {
   const todayStr = new Intl.DateTimeFormat('en-CA', {
@@ -1101,6 +1110,123 @@ function getLimaTodayBounds(): { todayStart: string; tomorrowStart: string } {
   };
 }
 
+async function findTodayInstallationsByDocument(tipoDocumento: 'DNI' | 'CE' | 'RUC', cleanDoc: string) {
+  const { todayStart, tomorrowStart } = getLimaTodayBounds();
+  const unpaddedDoc = cleanDoc.replace(/^0+/, '') || cleanDoc;
+  const padded8Doc = tipoDocumento === 'DNI' ? cleanDoc.padStart(8, '0') : cleanDoc;
+
+  const querySQL = `
+    SELECT
+      w.OrdenId AS idoperacion,
+      w.Estado,
+      w.token,
+      w.Pin_token AS pin_token,
+      w.CodiSegui AS codisegui,
+      w.CodiSeguiClien AS codiseguiclien,
+      w.Producto AS producto,
+      w.TipoTraba AS tipo_trabajo,
+      ts.Tipo AS tipo_servicio
+    FROM VW_WinORdeTraba w
+    LEFT JOIN tiposervicio ts ON UPPER(TRIM(w.Producto)) = UPPER(TRIM(ts.Servicio))
+    WHERE w.\`F.Visita\` >= ? AND w.\`F.Visita\` < ?
+      AND (
+        TRIM(REPLACE(w.\`Número Documento\`, '*', '')) IN (?, ?, ?)
+        OR TRIM(w.\`Número Documento\`) IN (?, ?, ?)
+      )
+    ORDER BY w.\`F.Soli\` DESC, w.OrdenId DESC
+  `;
+
+  const queryParams = [
+    todayStart,
+    tomorrowStart,
+    cleanDoc,
+    unpaddedDoc,
+    padded8Doc,
+    cleanDoc,
+    unpaddedDoc,
+    padded8Doc
+  ];
+
+  let [rows]: any = await pool.query(querySQL, queryParams);
+  let list = rows as any[];
+
+  if (list.length === 0) {
+    const [testRows]: any = await pool.query(
+      querySQL.replace('VW_WinORdeTraba', 'Testmantra'),
+      queryParams
+    );
+    list = testRows as any[];
+  }
+
+  return list.filter((op: any) => {
+    const { isTicket, isPostventa } = classifyOrderType(op);
+    return !isTicket && !isPostventa && Boolean(op.token);
+  });
+}
+
+// Endpoint Invitado: Verificación inmediata en tiempo real si el documento tiene instalación hoy
+router.post('/invitado/verificar-documento', guestValidateLimiter, async (req, res) => {
+  const parsed = guestDocCheckSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({
+      success: false,
+      exists: false,
+      code: 'DOCUMENT_NOT_FOUND',
+      message: 'El número de documento ingresado no es válido.'
+    });
+  }
+
+  const { tipoDocumento } = parsed.data;
+  const cleanDoc = parsed.data.documento.trim().replace(/[^0-9a-zA-Z]/g, '').toUpperCase();
+
+  if (!isValidGuestDocFormat(tipoDocumento, cleanDoc)) {
+    return res.status(400).json({
+      success: false,
+      exists: false,
+      code: 'DOCUMENT_NOT_FOUND',
+      message: 'El número de documento ingresado no es válido.'
+    });
+  }
+
+  const cacheKey = `guest_doc_exists_${tipoDocumento}_${cleanDoc}`;
+  const cachedExists = apiCache.get(cacheKey);
+  if (typeof cachedExists === 'boolean') {
+    if (!cachedExists) {
+      return res.status(404).json({
+        success: false,
+        exists: false,
+        code: 'DOCUMENT_NOT_FOUND',
+        message: 'El número de documento ingresado no es válido.'
+      });
+    }
+    return res.json({ success: true, exists: true });
+  }
+
+  try {
+    const instalacionesHoy = await findTodayInstallationsByDocument(tipoDocumento, cleanDoc);
+    const exists = instalacionesHoy.length > 0;
+    apiCache.set(cacheKey, exists, 15_000);
+
+    if (!exists) {
+      return res.status(404).json({
+        success: false,
+        exists: false,
+        code: 'DOCUMENT_NOT_FOUND',
+        message: 'El número de documento ingresado no es válido.'
+      });
+    }
+
+    return res.json({ success: true, exists: true });
+  } catch (error) {
+    console.error('Error en /api/invitado/verificar-documento:', error);
+    return res.status(500).json({
+      success: false,
+      exists: false,
+      message: 'Error interno al verificar el documento'
+    });
+  }
+});
+
 // Endpoint Invitado: Valida documento + PIN estrictamente para INSTALACIONES programadas hoy (F.Visita)
 router.post('/invitado/validar', guestValidateLimiter, async (req, res) => {
   const parsed = guestValidateSchema.safeParse(req.body);
@@ -1115,11 +1241,7 @@ router.post('/invitado/validar', guestValidateLimiter, async (req, res) => {
   const { tipoDocumento, pin } = parsed.data;
   const cleanDoc = parsed.data.documento.trim().replace(/[^0-9a-zA-Z]/g, '').toUpperCase();
 
-  if (
-    (tipoDocumento === 'DNI' && !/^\d{8}$/.test(cleanDoc)) ||
-    (tipoDocumento === 'RUC' && !/^\d{11}$/.test(cleanDoc)) ||
-    (tipoDocumento === 'CE' && (cleanDoc.length < 9 || cleanDoc.length > 12))
-  ) {
+  if (!isValidGuestDocFormat(tipoDocumento, cleanDoc)) {
     return res.status(400).json({
       success: false,
       code: 'DOCUMENT_NOT_FOUND',
@@ -1139,58 +1261,7 @@ router.post('/invitado/validar', guestValidateLimiter, async (req, res) => {
   }
 
   try {
-    const { todayStart, tomorrowStart } = getLimaTodayBounds();
-    const unpaddedDoc = cleanDoc.replace(/^0+/, '') || cleanDoc;
-    const padded8Doc = tipoDocumento === 'DNI' ? cleanDoc.padStart(8, '0') : cleanDoc;
-
-    const querySQL = `
-      SELECT
-        w.OrdenId AS idoperacion,
-        w.Estado,
-        w.token,
-        w.Pin_token AS pin_token,
-        w.CodiSegui AS codisegui,
-        w.CodiSeguiClien AS codiseguiclien,
-        w.Producto AS producto,
-        w.TipoTraba AS tipo_trabajo,
-        ts.Tipo AS tipo_servicio
-      FROM VW_WinORdeTraba w
-      LEFT JOIN tiposervicio ts ON UPPER(TRIM(w.Producto)) = UPPER(TRIM(ts.Servicio))
-      WHERE w.\`F.Visita\` >= ? AND w.\`F.Visita\` < ?
-        AND (
-          TRIM(REPLACE(w.\`Número Documento\`, '*', '')) IN (?, ?, ?)
-          OR TRIM(w.\`Número Documento\`) IN (?, ?, ?)
-        )
-      ORDER BY w.\`F.Soli\` DESC, w.OrdenId DESC
-    `;
-
-    const queryParams = [
-      todayStart,
-      tomorrowStart,
-      cleanDoc,
-      unpaddedDoc,
-      padded8Doc,
-      cleanDoc,
-      unpaddedDoc,
-      padded8Doc
-    ];
-
-    let [rows]: any = await pool.query(querySQL, queryParams);
-    let list = rows as any[];
-
-    if (list.length === 0) {
-      const [testRows]: any = await pool.query(
-        querySQL.replace('VW_WinORdeTraba', 'Testmantra'),
-        queryParams
-      );
-      list = testRows as any[];
-    }
-
-    // Filtrar estrictamente altas nuevas / instalaciones (excluye averías y postventa)
-    const instalacionesHoy = list.filter((op: any) => {
-      const { isTicket, isPostventa } = classifyOrderType(op);
-      return !isTicket && !isPostventa && Boolean(op.token);
-    });
+    const instalacionesHoy = await findTodayInstallationsByDocument(tipoDocumento, cleanDoc);
 
     // 1. Verificar si el documento tiene una instalación programada hoy
     if (instalacionesHoy.length === 0) {

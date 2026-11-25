@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { ChevronLeft, ChevronDown, AlertCircle, X } from "lucide-react";
+import { ChevronLeft, ChevronDown, AlertCircle, Loader2, X } from "lucide-react";
 import { API_BASE_URL } from "@/lib/apiUrl";
 import { trackEvent } from "@/lib/firebaseConfig";
 
@@ -32,14 +32,68 @@ export default function InvitadoInstalacion() {
   const [codeError, setCodeError] = useState<string | null>(null);
   const [generalError, setGeneralError] = useState<string | null>(null);
 
+  const [isCheckingDoc, setIsCheckingDoc] = useState(false);
+  const [docExists, setDocExists] = useState<boolean | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isHelpModalOpen, setIsHelpModalOpen] = useState(false);
 
   const currentDocCfg = DOC_CONFIG[tipoDocumento];
 
+  useEffect(() => {
+    setDocExists(null);
+
+    if (
+      documento.length < currentDocCfg.minLength ||
+      documento.length > currentDocCfg.maxLength
+    ) {
+      setIsCheckingDoc(false);
+      return;
+    }
+
+    const controller = new AbortController();
+    const timer = setTimeout(async () => {
+      setIsCheckingDoc(true);
+      try {
+        const res = await fetch(`${API_BASE_URL}/api/invitado/verificar-documento`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ tipoDocumento, documento }),
+          signal: controller.signal,
+        });
+
+        const data = await res.json();
+        if (controller.signal.aborted) return;
+
+        if (res.ok && data.exists) {
+          setDocExists(true);
+          setDocError(null);
+        } else if (res.status === 429) {
+          setGeneralError(
+            data.message || "Demasiados intentos. Por favor espera un minuto."
+          );
+        } else {
+          setDocExists(false);
+          setDocError("El número de documento ingresado no es válido.");
+        }
+      } catch (err: any) {
+        if (err?.name === "AbortError") return;
+      } finally {
+        if (!controller.signal.aborted) {
+          setIsCheckingDoc(false);
+        }
+      }
+    }, 400);
+
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
+  }, [documento, tipoDocumento, currentDocCfg.minLength, currentDocCfg.maxLength]);
+
   const handleTipoChange = (nextTipo: TipoDocumento) => {
     setTipoDocumento(nextTipo);
     setDocumento("");
+    setDocExists(null);
     setDocError(null);
     setGeneralError(null);
   };
@@ -49,6 +103,7 @@ export default function InvitadoInstalacion() {
       ? raw.replace(/\D/g, "")
       : raw.replace(/[^0-9a-zA-Z]/g, "").toUpperCase();
     setDocumento(cleaned.slice(0, currentDocCfg.maxLength));
+    setDocExists(null);
     if (docError) setDocError(null);
     if (generalError) setGeneralError(null);
   };
@@ -60,7 +115,11 @@ export default function InvitadoInstalacion() {
     if (generalError) setGeneralError(null);
   };
 
-  const isFormFilled = documento.trim().length > 0 && codigo.trim().length === 4;
+  const isFormFilled =
+    documento.trim().length >= currentDocCfg.minLength &&
+    codigo.trim().length === 4 &&
+    !isCheckingDoc &&
+    docExists !== false;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -265,9 +324,11 @@ export default function InvitadoInstalacion() {
                 />
               </div>
 
-              {docError && (
+              {isCheckingDoc ? (
+                <Loader2 className="w-4 h-4 text-[#FF5A0A] animate-spin shrink-0" />
+              ) : docError ? (
                 <AlertCircle className="w-5 h-5 text-[#E53935] shrink-0 stroke-[1.8]" />
-              )}
+              ) : null}
             </div>
 
             {docError && (
