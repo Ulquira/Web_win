@@ -112,6 +112,9 @@ export default function InvitadoInstalacion() {
         }
       } catch (err: any) {
         if (err?.name === "AbortError") return;
+        setDocExists(false);
+        setTelefonoMasked(null);
+        setDocError("El número de documento ingresado no es válido.");
       } finally {
         if (!controller.signal.aborted) {
           setIsCheckingDoc(false);
@@ -155,8 +158,7 @@ export default function InvitadoInstalacion() {
   const isFormFilled =
     documento.trim().length >= currentDocCfg.minLength &&
     codigo.trim().length === 4 &&
-    !isCheckingDoc &&
-    docExists === true;
+    !isCheckingDoc;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
