@@ -600,7 +600,7 @@ export default function InvitadoInstalacion() {
                     Te lo reenviamos por WhatsApp.
                   </p>
 
-                  {docExists && telefonoMasked ? (
+                  {docExists ? (
                     <div className="rounded-[16px] bg-[#F7F8FA] px-4 py-3.5 mb-5 flex items-center gap-3.5 text-left">
                       <div className="w-11 h-11 rounded-full bg-[#FFEFE7] flex items-center justify-center shrink-0 text-[#FF5A0A]">
                         <svg
@@ -621,13 +621,18 @@ export default function InvitadoInstalacion() {
                           Lo enviaremos al WhatsApp
                         </p>
                         <p className="text-[16px] font-bold text-[#0F0908] tracking-tight mt-0.5">
-                          {telefonoMasked}
+                          {telefonoMasked || "Registrado en tu instalación"}
                         </p>
                       </div>
                     </div>
+                  ) : docExists === false || docError ? (
+                    <div className="rounded-[16px] bg-[#FFF5F5] border border-[#FFCCC7] px-4 py-3 mb-5 text-[12.5px] text-[#CF1322]">
+                      Ingresa un número de documento válido con una instalación programada
+                      hoy para reenviar tu código.
+                    </div>
                   ) : (
                     <div className="rounded-[16px] bg-[#FFF6ED] border border-[#FFE7D4] px-4 py-3 mb-5 text-[12.5px] text-[#26292E]">
-                      Ingresa primero tu número de documento arriba para validar tu registro
+                      Ingresa un número de documento válido arriba para validar tu registro
                       programado hoy.
                     </div>
                   )}

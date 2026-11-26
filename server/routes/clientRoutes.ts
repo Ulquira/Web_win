@@ -1121,6 +1121,7 @@ async function findTodayInstallationsByDocument(tipoDocumento: 'DNI' | 'CE' | 'R
       w.Estado,
       w.token,
       w.Pin_token AS pin_token,
+      w.TeleMovilNume AS telefono,
       w.CodiSegui AS codisegui,
       w.CodiSeguiClien AS codiseguiclien,
       w.Producto AS producto,
@@ -1189,17 +1190,29 @@ router.post('/invitado/verificar-documento', guestValidateLimiter, async (req, r
   }
 
   const cacheKey = `guest_doc_exists_${tipoDocumento}_${cleanDoc}`;
-  const cachedExists = apiCache.get(cacheKey);
-  if (typeof cachedExists === 'boolean') {
+  const cachedDoc = apiCache.get(cacheKey) as
+    | boolean
+    | { exists?: boolean; telefonoMasked?: string | null }
+    | undefined;
+
+  if (cachedDoc !== undefined) {
+    const cachedExists =
+      typeof cachedDoc === 'boolean' ? cachedDoc : Boolean(cachedDoc?.exists);
+    const cachedPhoneMasked =
+      typeof cachedDoc === 'object' && cachedDoc !== null
+        ? (cachedDoc.telefonoMasked ?? null)
+        : null;
+
     if (!cachedExists) {
       return res.status(404).json({
         success: false,
         exists: false,
+        telefonoMasked: null,
         code: 'DOCUMENT_NOT_FOUND',
         message: 'El número de documento ingresado no es válido.'
       });
     }
-    return res.json({ success: true, exists: true });
+    return res.json({ success: true, exists: true, telefonoMasked: cachedPhoneMasked });
   }
 
   try {
