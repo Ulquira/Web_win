@@ -1,7 +1,7 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { ChevronLeft, ChevronDown, AlertCircle, Loader2, X } from "lucide-react";
+import { ChevronLeft, ChevronDown, AlertCircle, Loader2 } from "lucide-react";
 import { API_BASE_URL } from "@/lib/apiUrl";
 import { trackEvent } from "@/lib/firebaseConfig";
 
@@ -34,13 +34,39 @@ export default function InvitadoInstalacion() {
 
   const [isCheckingDoc, setIsCheckingDoc] = useState(false);
   const [docExists, setDocExists] = useState<boolean | null>(null);
+  const [telefonoMasked, setTelefonoMasked] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isHelpModalOpen, setIsHelpModalOpen] = useState(false);
+  const [codeSentSuccess, setCodeSentSuccess] = useState(false);
+  const [isSendingCode, setIsSendingCode] = useState(false);
+  const [isDocDropdownOpen, setIsDocDropdownOpen] = useState(false);
+
+  const docDropdownRef = useRef<HTMLDivElement>(null);
 
   const currentDocCfg = DOC_CONFIG[tipoDocumento];
+  const availableDocTypes = (["DNI", "CE", "RUC"] as const).filter(
+    (docType) => docType !== tipoDocumento
+  );
+
+  useEffect(() => {
+    if (!isDocDropdownOpen) return;
+
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        docDropdownRef.current &&
+        !docDropdownRef.current.contains(event.target as Node)
+      ) {
+        setIsDocDropdownOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [isDocDropdownOpen]);
 
   useEffect(() => {
     setDocExists(null);
+    setTelefonoMasked(null);
 
     if (
       documento.length < currentDocCfg.minLength ||
@@ -66,13 +92,21 @@ export default function InvitadoInstalacion() {
 
         if (res.ok && data.exists) {
           setDocExists(true);
+          setTelefonoMasked(
+            typeof data.telefonoMasked === "string" && data.telefonoMasked.trim()
+              ? data.telefonoMasked.trim()
+              : null
+          );
           setDocError(null);
         } else if (res.status === 429) {
+          setDocExists(null);
+          setTelefonoMasked(null);
           setGeneralError(
             data.message || "Demasiados intentos. Por favor espera un minuto."
           );
         } else {
           setDocExists(false);
+          setTelefonoMasked(null);
           setDocError("El número de documento ingresado no es válido.");
         }
       } catch (err: any) {
@@ -94,6 +128,7 @@ export default function InvitadoInstalacion() {
     setTipoDocumento(nextTipo);
     setDocumento("");
     setDocExists(null);
+    setTelefonoMasked(null);
     setDocError(null);
     setGeneralError(null);
   };
@@ -104,6 +139,7 @@ export default function InvitadoInstalacion() {
       : raw.replace(/[^0-9a-zA-Z]/g, "").toUpperCase();
     setDocumento(cleaned.slice(0, currentDocCfg.maxLength));
     setDocExists(null);
+    setTelefonoMasked(null);
     if (docError) setDocError(null);
     if (generalError) setGeneralError(null);
   };
@@ -241,18 +277,60 @@ export default function InvitadoInstalacion() {
           </p>
 
           {/* Selector Tipo de Documento */}
-          <div className="relative mb-4">
-            <select
-              value={tipoDocumento}
-              onChange={(e) => handleTipoChange(e.target.value as TipoDocumento)}
+          <div ref={docDropdownRef} className="relative mb-4">
+            <button
+              type="button"
+              onClick={() => setIsDocDropdownOpen((prev) => !prev)}
+              aria-haspopup="listbox"
+              aria-expanded={isDocDropdownOpen}
               aria-label="Tipo de documento"
-              className="w-full h-[54px] rounded-[14px] border border-[#4B5563] bg-white px-4 pr-10 text-[15px] font-normal text-[#0F0908] appearance-none focus:outline-none focus:border-[#FF5A0A] transition-colors cursor-pointer"
+              className={`w-full h-[54px] rounded-[14px] border bg-white px-4 flex items-center justify-between text-[15px] font-normal text-[#0F0908] transition-colors cursor-pointer ${
+                isDocDropdownOpen
+                  ? "border-[#FF5A0A]"
+                  : "border-[#9CA3AF] hover:border-[#6B7280]"
+              }`}
             >
-              <option value="DNI">DNI</option>
-              <option value="CE">CE</option>
-              <option value="RUC">RUC</option>
-            </select>
-            <ChevronDown className="w-5 h-5 text-[#0F0908] pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 stroke-[2]" />
+              <span>{tipoDocumento}</span>
+              <ChevronDown
+                className={`w-5 h-5 text-[#0F0908] stroke-[2] transition-transform duration-200 ${
+                  isDocDropdownOpen ? "rotate-180" : ""
+                }`}
+              />
+            </button>
+
+            <AnimatePresence>
+              {isDocDropdownOpen && (
+                <motion.div
+                  role="listbox"
+                  aria-label="Opciones de tipo de documento"
+                  initial={{ opacity: 0, y: -4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -4 }}
+                  transition={{ duration: 0.14 }}
+                  className="absolute left-0 right-0 top-[calc(100%+4px)] z-30 rounded-[14px] border border-[#E5E7EB] bg-white shadow-[0_8px_24px_rgba(0,0,0,0.08)] overflow-hidden"
+                >
+                  {availableDocTypes.map((docType, idx) => (
+                    <button
+                      key={docType}
+                      type="button"
+                      role="option"
+                      aria-selected={false}
+                      onClick={() => {
+                        handleTipoChange(docType);
+                        setIsDocDropdownOpen(false);
+                      }}
+                      className={`w-full h-[50px] px-4 flex items-center justify-start text-left text-[15px] font-normal text-[#6B7280] hover:bg-[#FFF6ED] hover:text-[#FF5A0A] active:bg-[#FFEDE0] transition-colors cursor-pointer ${
+                        idx < availableDocTypes.length - 1
+                          ? "border-b border-[#F3F4F6]"
+                          : ""
+                      }`}
+                    >
+                      {docType}
+                    </button>
+                  ))}
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
 
           {/* Input Número de documento */}
@@ -426,7 +504,10 @@ export default function InvitadoInstalacion() {
 
           <button
             type="button"
-            onClick={() => setIsHelpModalOpen(true)}
+            onClick={() => {
+              setCodeSentSuccess(false);
+              setIsHelpModalOpen(true);
+            }}
             className="text-[14px] font-bold text-[#FF5A0A] underline underline-offset-2 hover:opacity-85 transition-opacity cursor-pointer"
           >
             ¿No encuentras tu código?
@@ -445,7 +526,7 @@ export default function InvitadoInstalacion() {
         </div>
       </form>
 
-      {/* Bottom Sheet: Recupera tu código de seguimiento */}
+      {/* Bottom Sheet: Reenvío / Recupera tu código de seguimiento */}
       <AnimatePresence>
         {isHelpModalOpen && (
           <div className="fixed inset-0 z-50 flex flex-col justify-end">
@@ -453,7 +534,10 @@ export default function InvitadoInstalacion() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              onClick={() => setIsHelpModalOpen(false)}
+              onClick={() => {
+                setIsHelpModalOpen(false);
+                setCodeSentSuccess(false);
+              }}
               className="absolute inset-0 bg-[#26292E]/45 backdrop-blur-[1px]"
             />
 
@@ -464,60 +548,132 @@ export default function InvitadoInstalacion() {
               transition={{ type: "spring", damping: 28, stiffness: 300 }}
               className="relative w-full max-w-md mx-auto bg-white rounded-t-[28px] px-6 pt-3 pb-8 shadow-2xl z-10 text-center"
             >
-              <div className="w-10 h-1 bg-[#E2E2E2] rounded-full mx-auto mb-4" />
+              <div className="w-10 h-1 bg-[#E2E2E2] rounded-full mx-auto mb-5" />
 
-              <div className="relative flex items-center justify-center mb-4">
-                <h3 className="text-[16px] font-bold text-[#0F0908] pr-6 pl-6">
-                  Recupera tu código de seguimiento
-                </h3>
-                <button
-                  type="button"
-                  onClick={() => setIsHelpModalOpen(false)}
-                  className="absolute right-0 p-1 text-[#0F0908] hover:bg-gray-100 rounded-full transition-colors cursor-pointer"
-                  aria-label="Cerrar"
-                >
-                  <X className="w-5 h-5 stroke-[2]" />
-                </button>
-              </div>
+              {codeSentSuccess ? (
+                <div className="pt-2 pb-1">
+                  <div className="w-14 h-14 rounded-full border-[3px] border-[#FF5A0A] mx-auto mb-4 flex items-center justify-center">
+                    <svg
+                      width="26"
+                      height="20"
+                      viewBox="0 0 26 20"
+                      fill="none"
+                      xmlns="http://www.w3.org/2000/svg"
+                    >
+                      <path
+                        d="M2.5 10.5L9.5 17.5L23.5 2.5"
+                        stroke="#26292E"
+                        strokeWidth="2.8"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </svg>
+                  </div>
 
-              <div className="h-[1px] bg-gray-100 -mx-6 mb-5" />
+                  <h3 className="text-[20px] font-bold text-[#0F0908] mb-2">
+                    ¡Listo! Te enviamos tu código
+                  </h3>
 
-              <p className="text-[14px] text-[#26292E] leading-[1.45] mb-6 max-w-[310px] mx-auto font-normal">
-                Te enviaremos nuevamente tu código de seguimiento al número de WhatsApp
-                registrado al contratar tu plan.
-              </p>
+                  <p className="text-[14px] text-[#26292E] leading-[1.45] mb-6 max-w-[300px] mx-auto font-normal">
+                    Vuelve a la pantalla anterior, ingresa tu código de seguimiento y
+                    descubre cómo va tu instalación.
+                  </p>
 
-              <button
-                type="button"
-                onClick={() => handleOpenWhatsApp("recuperar")}
-                className="w-full h-[50px] rounded-full bg-[#FF5A0A] hover:bg-[#E04E07] text-white font-bold text-[15px] flex items-center justify-center gap-2.5 shadow-md shadow-[#FF5A0A]/20 active:scale-[0.98] transition-all cursor-pointer mb-4"
-              >
-                <svg
-                  width="20"
-                  height="20"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="shrink-0"
-                >
-                  <path
-                    d="M20.52 3.48A11.86 11.86 0 0 0 12.06 0C5.48 0 .14 5.34.14 11.92c0 2.1.55 4.15 1.6 5.96L0 24l6.28-1.65a11.9 11.9 0 0 0 5.77 1.47h.01c6.58 0 11.92-5.34 11.92-11.92 0-3.18-1.24-6.18-3.46-8.42ZM12.06 21.8h-.01a9.87 9.87 0 0 1-5.04-1.38l-.36-.21-3.73.98.99-3.63-.24-.37a9.86 9.86 0 0 1-1.52-5.27c0-5.46 4.44-9.9 9.91-9.9 2.64 0 5.13 1.03 7 2.9a9.84 9.84 0 0 1 2.9 7c0 5.47-4.44 9.88-9.9 9.88Zm5.43-7.42c-.3-.15-1.76-.87-2.03-.97-.27-.1-.47-.15-.67.15-.2.3-.77.97-.94 1.17-.17.2-.35.22-.64.08-.3-.15-1.26-.46-2.4-1.48-.89-.79-1.49-1.77-1.66-2.07-.17-.3-.02-.46.13-.61.13-.13.3-.35.45-.52.15-.17.2-.3.3-.5.1-.2.05-.37-.02-.52-.08-.15-.67-1.62-.92-2.22-.24-.58-.49-.5-.67-.51h-.57c-.2 0-.52.08-.79.37-.27.3-1.04 1.02-1.04 2.48s1.07 2.88 1.22 3.08c.15.2 2.1 3.21 5.09 4.5.71.31 1.27.49 1.7.63.72.23 1.37.2 1.88.12.57-.08 1.76-.72 2.01-1.41.25-.7.25-1.29.17-1.41-.07-.13-.27-.2-.57-.35Z"
-                    fill="currentColor"
-                  />
-                </svg>
-                <span>Recibir código por WhatsApp</span>
-              </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsHelpModalOpen(false);
+                      setCodeSentSuccess(false);
+                    }}
+                    className="w-full h-[50px] rounded-full border border-[#FF5A0A] bg-white hover:bg-[#FFF6ED] text-[#FF5A0A] font-bold text-[15px] transition-all cursor-pointer"
+                  >
+                    Volver
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <h3 className="text-[20px] font-bold text-[#0F0908] mb-1.5">
+                    ¿No encuentras tu código?
+                  </h3>
 
-              <p className="text-[13px] text-[#26292E]">
-                ¿Cambiaste de número?{" "}
-                <button
-                  type="button"
-                  onClick={() => handleOpenWhatsApp("asesor")}
-                  className="font-bold text-[#FF5A0A] underline underline-offset-2 hover:opacity-85 cursor-pointer"
-                >
-                  Habla con un asesor
-                </button>
-              </p>
+                  <p className="text-[14px] text-[#26292E] mb-5 font-normal">
+                    Te lo reenviamos por WhatsApp.
+                  </p>
+
+                  {docExists && telefonoMasked ? (
+                    <div className="rounded-[16px] bg-[#F7F8FA] px-4 py-3.5 mb-5 flex items-center gap-3.5 text-left">
+                      <div className="w-11 h-11 rounded-full bg-[#FFEFE7] flex items-center justify-center shrink-0 text-[#FF5A0A]">
+                        <svg
+                          width="22"
+                          height="22"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          xmlns="http://www.w3.org/2000/svg"
+                        >
+                          <path
+                            d="M20.52 3.48A11.86 11.86 0 0 0 12.06 0C5.48 0 .14 5.34.14 11.92c0 2.1.55 4.15 1.6 5.96L0 24l6.28-1.65a11.9 11.9 0 0 0 5.77 1.47h.01c6.58 0 11.92-5.34 11.92-11.92 0-3.18-1.24-6.18-3.46-8.42ZM12.06 21.8h-.01a9.87 9.87 0 0 1-5.04-1.38l-.36-.21-3.73.98.99-3.63-.24-.37a9.86 9.86 0 0 1-1.52-5.27c0-5.46 4.44-9.9 9.91-9.9 2.64 0 5.13 1.03 7 2.9a9.84 9.84 0 0 1 2.9 7c0 5.47-4.44 9.88-9.9 9.88Zm5.43-7.42c-.3-.15-1.76-.87-2.03-.97-.27-.1-.47-.15-.67.15-.2.3-.77.97-.94 1.17-.17.2-.35.22-.64.08-.3-.15-1.26-.46-2.4-1.48-.89-.79-1.49-1.77-1.66-2.07-.17-.3-.02-.46.13-.61.13-.13.3-.35.45-.52.15-.17.2-.3.3-.5.1-.2.05-.37-.02-.52-.08-.15-.67-1.62-.92-2.22-.24-.58-.49-.5-.67-.51h-.57c-.2 0-.52.08-.79.37-.27.3-1.04 1.02-1.04 2.48s1.07 2.88 1.22 3.08c.15.2 2.1 3.21 5.09 4.5.71.31 1.27.49 1.7.63.72.23 1.37.2 1.88.12.57-.08 1.76-.72 2.01-1.41.25-.7.25-1.29.17-1.41-.07-.13-.27-.2-.57-.35Z"
+                            fill="currentColor"
+                          />
+                        </svg>
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-[12.5px] text-[#6B7280] leading-snug">
+                          Lo enviaremos al WhatsApp
+                        </p>
+                        <p className="text-[16px] font-bold text-[#0F0908] tracking-tight mt-0.5">
+                          {telefonoMasked}
+                        </p>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="rounded-[16px] bg-[#FFF6ED] border border-[#FFE7D4] px-4 py-3 mb-5 text-[12.5px] text-[#26292E]">
+                      Ingresa primero tu número de documento arriba para validar tu registro
+                      programado hoy.
+                    </div>
+                  )}
+
+                  <button
+                    type="button"
+                    disabled={!docExists || isSendingCode}
+                    onClick={async () => {
+                      setIsSendingCode(true);
+                      try {
+                        // TODO: conectar endpoint de envío automático por WhatsApp si aplica
+                        setCodeSentSuccess(true);
+                      } finally {
+                        setIsSendingCode(false);
+                      }
+                    }}
+                    className="w-full h-[50px] rounded-full border border-[#FF5A0A] bg-white hover:bg-[#FFF6ED] disabled:border-[#E5E7EB] disabled:text-[#9CA3AF] text-[#FF5A0A] font-bold text-[15px] flex items-center justify-center gap-2.5 transition-all cursor-pointer disabled:cursor-not-allowed mb-4"
+                  >
+                    <svg
+                      width="20"
+                      height="20"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="shrink-0"
+                    >
+                      <path
+                        d="M20.52 3.48A11.86 11.86 0 0 0 12.06 0C5.48 0 .14 5.34.14 11.92c0 2.1.55 4.15 1.6 5.96L0 24l6.28-1.65a11.9 11.9 0 0 0 5.77 1.47h.01c6.58 0 11.92-5.34 11.92-11.92 0-3.18-1.24-6.18-3.46-8.42ZM12.06 21.8h-.01a9.87 9.87 0 0 1-5.04-1.38l-.36-.21-3.73.98.99-3.63-.24-.37a9.86 9.86 0 0 1-1.52-5.27c0-5.46 4.44-9.9 9.91-9.9 2.64 0 5.13 1.03 7 2.9a9.84 9.84 0 0 1 2.9 7c0 5.47-4.44 9.88-9.9 9.88Zm5.43-7.42c-.3-.15-1.76-.87-2.03-.97-.27-.1-.47-.15-.67.15-.2.3-.77.97-.94 1.17-.17.2-.35.22-.64.08-.3-.15-1.26-.46-2.4-1.48-.89-.79-1.49-1.77-1.66-2.07-.17-.3-.02-.46.13-.61.13-.13.3-.35.45-.52.15-.17.2-.3.3-.5.1-.2.05-.37-.02-.52-.08-.15-.67-1.62-.92-2.22-.24-.58-.49-.5-.67-.51h-.57c-.2 0-.52.08-.79.37-.27.3-1.04 1.02-1.04 2.48s1.07 2.88 1.22 3.08c.15.2 2.1 3.21 5.09 4.5.71.31 1.27.49 1.7.63.72.23 1.37.2 1.88.12.57-.08 1.76-.72 2.01-1.41.25-.7.25-1.29.17-1.41-.07-.13-.27-.2-.57-.35Z"
+                        fill="currentColor"
+                      />
+                    </svg>
+                    <span>{isSendingCode ? "Enviando..." : "Enviar por WhatsApp"}</span>
+                  </button>
+
+                  <p className="text-[13px] text-[#26292E]">
+                    ¿Cambiaste de número?{" "}
+                    <button
+                      type="button"
+                      onClick={() => handleOpenWhatsApp("asesor")}
+                      className="font-bold text-[#FF5A0A] underline underline-offset-2 hover:opacity-85 cursor-pointer"
+                    >
+                      Habla con un asesor
+                    </button>
+                  </p>
+                </>
+              )}
             </motion.div>
           </div>
         )}

@@ -1205,18 +1205,27 @@ router.post('/invitado/verificar-documento', guestValidateLimiter, async (req, r
   try {
     const instalacionesHoy = await findTodayInstallationsByDocument(tipoDocumento, cleanDoc);
     const exists = instalacionesHoy.length > 0;
-    apiCache.set(cacheKey, exists, 15_000);
+
+    const rawPhone = String(instalacionesHoy[0]?.telefono || '').replace(/\D/g, '');
+    const last9 = rawPhone.length >= 9 ? rawPhone.slice(-9) : rawPhone;
+    const telefonoMasked =
+      last9.length === 9
+        ? `+51 ${last9[0]}•• ••• ${last9.slice(-3)}`
+        : null;
+
+    apiCache.set(cacheKey, { exists, telefonoMasked }, 15_000);
 
     if (!exists) {
       return res.status(404).json({
         success: false,
         exists: false,
+        telefonoMasked: null,
         code: 'DOCUMENT_NOT_FOUND',
         message: 'El número de documento ingresado no es válido.'
       });
     }
 
-    return res.json({ success: true, exists: true });
+    return res.json({ success: true, exists: true, telefonoMasked });
   } catch (error) {
     console.error('Error en /api/invitado/verificar-documento:', error);
     return res.status(500).json({
