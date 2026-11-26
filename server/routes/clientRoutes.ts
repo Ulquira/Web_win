@@ -78,6 +78,22 @@ const guestPinAttemptsCache = new BoundedTtlCache<number>(5000);
 const MAX_GUEST_PIN_ATTEMPTS = 5;
 const GUEST_LOCKOUT_TTL_MS = 15 * 60 * 1000;
 
+const guestResendLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: parseInt(process.env.RATE_LIMIT_GUEST_RESEND || '5', 10),
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: rateLimitKeyGenerator,
+  message: {
+    success: false,
+    code: 'RATE_LIMITED',
+    message: 'Demasiadas solicitudes de reenvío. Por favor espera un minuto.'
+  }
+});
+
+const guestResendCooldownCache = new BoundedTtlCache<number>(5000);
+const GUEST_RESEND_COOLDOWN_MS = 60 * 1000;
+
 // Endpoint para consultar disponibilidad de cupos en tiempo real
 router.get('/cupos/:token', readLimiter, async (req, res) => {
   const token = String(req.params.token || '').trim();
@@ -1143,6 +1159,8 @@ async function findTodayInstallationsByDocument(tipoDocumento: 'DNI' | 'CE' | 'R
       w.token,
       w.Pin_token AS pin_token,
       w.TeleMovilNume AS telefono,
+      w.ClienteFinal AS cliente_nombre,
+      w.Zona AS zona,
       w.CodiSegui AS codisegui,
       w.CodiSeguiClien AS codiseguiclien,
       w.Producto AS producto,
@@ -1296,6 +1314,122 @@ router.post('/invitado/verificar-documento', guestValidateLimiter, async (req, r
       success: false,
       exists: false,
       message: 'Error interno al verificar el documento'
+    });
+  }
+});
+
+// Endpoint Invitado: Registra en LOGS_TRAKING la solicitud de reenvío de código por WhatsApp asociada al DNI y orden activa
+router.post('/invitado/solicitar-codigo', guestResendLimiter, async (req, res) => {
+  const parsed = guestDocCheckSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({
+      success: false,
+      code: 'DOCUMENT_NOT_FOUND',
+      message: 'El número de documento ingresado no es válido.'
+    });
+  }
+
+  const { tipoDocumento } = parsed.data;
+  const cleanDoc = parsed.data.documento.trim().replace(/[^0-9a-zA-Z]/g, '').toUpperCase();
+
+  if (!isValidGuestDocFormat(tipoDocumento, cleanDoc)) {
+    return res.status(400).json({
+      success: false,
+      code: 'DOCUMENT_NOT_FOUND',
+      message: 'El número de documento ingresado no es válido.'
+    });
+  }
+
+  const cooldownKey = `guest_resend_${tipoDocumento}_${cleanDoc}`;
+  if (guestResendCooldownCache.get(cooldownKey)) {
+    return res.status(429).json({
+      success: false,
+      code: 'RESEND_COOLDOWN',
+      message: 'Ya solicitaste tu código hace unos segundos. Revisa tu WhatsApp o espera un minuto.'
+    });
+  }
+
+  try {
+    const instalacionesHoy = await findTodayInstallationsByDocument(tipoDocumento, cleanDoc);
+    if (instalacionesHoy.length === 0) {
+      return res.status(404).json({
+        success: false,
+        code: 'DOCUMENT_NOT_FOUND',
+        message: 'El número de documento ingresado no es válido.'
+      });
+    }
+
+    const op = instalacionesHoy[0];
+    const token = String(op.token).trim();
+    const rawPhone = String(op.telefono || '').replace(/\D/g, '');
+    const last9 = rawPhone.length >= 9 ? rawPhone.slice(-9) : rawPhone;
+    const telefonoDestino = last9.length === 9 ? `51${last9}` : (rawPhone || null);
+    const telefonoMasked =
+      last9.length === 9 ? `+51 ${last9[0]}•• ••• ${last9.slice(-3)}` : null;
+
+    const ip_address = getClientIp(req);
+    const userAgentHeader = String(req.headers['user-agent'] || '');
+    const { navegador, sistema_operativo } = parseUserAgent(userAgentHeader);
+    const limaTime = getLimaDateTime();
+    const evento = 'solicitar_reenvio_codigo_wsp';
+
+    const detallesStr = JSON.stringify({
+      origen: 'invitado_instalacion',
+      accion: 'reenvio_codigo_seguimiento_wsp',
+      tipo_documento: tipoDocumento,
+      documento: cleanDoc,
+      orden_id: op.idoperacion ?? null,
+      telefono_destino: telefonoDestino,
+      cliente_nombre: op.cliente_nombre ? String(op.cliente_nombre).trim() : null,
+      estado_orden: op.Estado ? String(op.Estado).trim() : null,
+      tiene_pin: Boolean(op.pin_token && String(op.pin_token).trim().length === 4),
+      navegador
+    });
+
+    const insertQuery = `
+      INSERT INTO LOGS_TRAKING (token, codisegui, zona, producto, evento, ip_address, detalles, sistema_operativo, timestamp, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `;
+
+    const [insertResult]: any = await pool.query(insertQuery, [
+      token,
+      op.codisegui || null,
+      op.zona || null,
+      op.producto || null,
+      evento,
+      ip_address,
+      detallesStr,
+      sistema_operativo,
+      limaTime,
+      limaTime
+    ]);
+
+    replicateChange('LOGS_TRAKING', 'INSERT', {
+      token,
+      codisegui: op.codisegui || null,
+      zona: op.zona || null,
+      producto: op.producto || null,
+      evento,
+      ip_address,
+      detalles: detallesStr,
+      sistema_operativo,
+      timestamp: limaTime,
+      created_at: limaTime
+    });
+
+    guestResendCooldownCache.set(cooldownKey, Date.now(), GUEST_RESEND_COOLDOWN_MS);
+
+    return res.json({
+      success: true,
+      logged: true,
+      logId: insertResult?.insertId ?? null,
+      telefonoMasked
+    });
+  } catch (error) {
+    console.error('Error en /api/invitado/solicitar-codigo:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Error interno al registrar la solicitud de código'
     });
   }
 });

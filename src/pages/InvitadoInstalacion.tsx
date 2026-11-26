@@ -39,6 +39,7 @@ export default function InvitadoInstalacion() {
   const [isHelpModalOpen, setIsHelpModalOpen] = useState(false);
   const [codeSentSuccess, setCodeSentSuccess] = useState(false);
   const [isSendingCode, setIsSendingCode] = useState(false);
+  const [resendError, setResendError] = useState<string | null>(null);
   const [isDocDropdownOpen, setIsDocDropdownOpen] = useState(false);
 
   const docDropdownRef = useRef<HTMLDivElement>(null);
@@ -521,6 +522,7 @@ export default function InvitadoInstalacion() {
             type="button"
             onClick={() => {
               setCodeSentSuccess(false);
+              setResendError(null);
               setIsHelpModalOpen(true);
             }}
             className="text-[14px] font-bold text-[#FF5A0A] underline underline-offset-2 hover:opacity-85 transition-opacity cursor-pointer"
@@ -552,6 +554,7 @@ export default function InvitadoInstalacion() {
               onClick={() => {
                 setIsHelpModalOpen(false);
                 setCodeSentSuccess(false);
+                setResendError(null);
               }}
               className="absolute inset-0 bg-[#26292E]/45 backdrop-blur-[1px]"
             />
@@ -652,14 +655,45 @@ export default function InvitadoInstalacion() {
                     </div>
                   )}
 
+                  {resendError && (
+                    <div className="rounded-[12px] bg-[#FFF5F5] border border-[#FFCCC7] px-3.5 py-2.5 mb-4 text-[12.5px] text-[#CF1322] text-left">
+                      {resendError}
+                    </div>
+                  )}
+
                   <button
                     type="button"
                     disabled={!docExists || isSendingCode}
                     onClick={async () => {
+                      if (!docExists || isSendingCode) return;
                       setIsSendingCode(true);
+                      setResendError(null);
                       try {
-                        // TODO: conectar endpoint de envío automático por WhatsApp si aplica
-                        setCodeSentSuccess(true);
+                        const res = await fetch(`${API_BASE_URL}/api/invitado/solicitar-codigo`, {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ tipoDocumento, documento }),
+                        });
+                        const data = await res.json();
+
+                        if (res.ok && data.success) {
+                          if (typeof data.telefonoMasked === "string" && data.telefonoMasked.trim()) {
+                            setTelefonoMasked(data.telefonoMasked.trim());
+                          }
+                          trackEvent("invitado_solicitar_codigo_wsp", {
+                            tipo_documento: tipoDocumento,
+                          });
+                          setCodeSentSuccess(true);
+                          return;
+                        }
+
+                        setResendError(
+                          data.message || "No pudimos procesar tu solicitud. Intenta nuevamente."
+                        );
+                      } catch {
+                        setResendError(
+                          "Error de conexión. Verifica tu internet e intenta nuevamente."
+                        );
                       } finally {
                         setIsSendingCode(false);
                       }
