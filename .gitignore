@@ -35,3 +35,14 @@ azure_logs/
 Thumbs.db
 # Repomix
 repomix-output.xml
+
+# Skills / configuraciones locales de agentes IA y Repomix
+.agents/
+.agent/
+skills-lock.json
+repomix-output*
+codigo-limpio.txt
+
+# Logs comprimidos y duplicados de sincronización (OneDrive)
+*.zip
+*-DESKTOP-*
