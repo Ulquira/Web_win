@@ -25,6 +25,23 @@ export function isPrefixedTicketCode(token?: string | null): boolean {
   return /^[A-Za-z]{2,10}-\d+$/.test(String(token || '').trim());
 }
 
+export function normalizeClientIp(rawIp?: string | null): string {
+  const trimmed = String(rawIp || '').trim();
+  if (!trimmed) return '';
+
+  const bracketedIpv6 = trimmed.match(/^\[([^\]]+)\](?::\d+)?$/);
+  if (bracketedIpv6) {
+    return bracketedIpv6[1].replace(/^::ffff:/i, '');
+  }
+
+  const withoutMappedPrefix = trimmed.replace(/^::ffff:/i, '');
+  if (/^\d{1,3}(?:\.\d{1,3}){3}:\d+$/.test(withoutMappedPrefix)) {
+    return withoutMappedPrefix.replace(/:\d+$/, '');
+  }
+
+  return withoutMappedPrefix;
+}
+
 const CLOSED_ESTADOS = [
   'ANULADA',
   'REGESTION',

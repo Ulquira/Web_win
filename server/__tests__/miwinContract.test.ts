@@ -11,7 +11,8 @@ import {
   shouldExposePinToClient,
   isPrefixedTicketCode,
   generateSecureFourDigitPin,
-  safeTimingEqual
+  safeTimingEqual,
+  normalizeClientIp
 } from '../shared/orderHelpers.ts';
 import { BoundedTtlCache } from '../shared/ttlCache.ts';
 
@@ -137,6 +138,12 @@ test('Security Helpers: PIN redaction, IDOR ticket filter, CSPRNG PIN, and timin
   assert.equal(safeTimingEqual('M1w1n4pp_secret', 'M1w1n4pp_secret'), true);
   assert.equal(safeTimingEqual('M1w1n4pp_secret', 'M1w1n4pp_wrong'), false);
   assert.equal(safeTimingEqual('short', 'longer_string'), false);
+
+  assert.equal(normalizeClientIp('191.98.191.83:38236'), '191.98.191.83');
+  assert.equal(normalizeClientIp('::ffff:132.251.1.133:27651'), '132.251.1.133');
+  assert.equal(normalizeClientIp('[2001:db8::1]:443'), '2001:db8::1');
+  assert.equal(normalizeClientIp('2001:db8::1'), '2001:db8::1');
+  assert.equal(normalizeClientIp(''), '');
 });
 
 test('BoundedTtlCache: enforces maxEntries eviction and TTL expiration', async () => {

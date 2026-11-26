@@ -105,6 +105,12 @@ export default function InvitadoInstalacion() {
           setGeneralError(
             data.message || "Demasiados intentos. Por favor espera un minuto."
           );
+        } else if (res.status >= 500) {
+          setDocExists(null);
+          setTelefonoMasked(null);
+          setGeneralError(
+            data.message || "No pudimos verificar tu documento en este momento. Intenta nuevamente."
+          );
         } else {
           setDocExists(false);
           setTelefonoMasked(null);

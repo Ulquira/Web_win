@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import express from 'express';
-import rateLimit from 'express-rate-limit';
+import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
 import { z } from 'zod';
 import pool from '../db.ts';
 import { decodeOpaqueToken, createOpaqueToken, isOpaqueTokenExpired } from '../opaqueToken.ts';
@@ -17,13 +17,17 @@ import {
   buildMiWinVisitasPayload,
   safeTimingEqual,
   shouldExposePinToClient,
-  isPrefixedTicketCode
+  isPrefixedTicketCode,
+  normalizeClientIp
 } from '../shared/orderHelpers.ts';
 
 const router = Router();
 
 const getClientIp = (req: express.Request): string =>
-  (req.ip || req.socket.remoteAddress || '').replace(/^::ffff:/, '');
+  normalizeClientIp(req.ip || req.socket.remoteAddress || '');
+
+const rateLimitKeyGenerator = (req: express.Request): string =>
+  ipKeyGenerator(getClientIp(req) || '127.0.0.1');
 
 // Micro-caché acotado en memoria (LRU + TTL) para mitigar carga masiva en DB y Google APIs sin riesgo de OOM
 const apiCache = new BoundedTtlCache<any>(5000);
@@ -39,6 +43,7 @@ const readLimiter = rateLimit({
   max: parseInt(process.env.RATE_LIMIT_READ || '120', 10),
   standardHeaders: true,
   legacyHeaders: false,
+  keyGenerator: rateLimitKeyGenerator,
   message: { success: false, message: 'Demasiadas consultas. Intente nuevamente en un minuto.' }
 });
 
@@ -47,6 +52,7 @@ const writeLimiter = rateLimit({
   max: parseInt(process.env.RATE_LIMIT_WRITE || '60', 10),
   standardHeaders: true,
   legacyHeaders: false,
+  keyGenerator: rateLimitKeyGenerator,
   message: { success: false, message: 'Demasiadas solicitudes enviadas. Intente más tarde.' }
 });
 
@@ -55,6 +61,7 @@ const routeLimiter = rateLimit({
   max: parseInt(process.env.RATE_LIMIT_ROUTE || '30', 10),
   standardHeaders: true,
   legacyHeaders: false,
+  keyGenerator: rateLimitKeyGenerator,
   message: { success: false, message: 'Límite de cálculo de rutas alcanzado. Intente en un minuto.' }
 });
 
@@ -63,6 +70,7 @@ const guestValidateLimiter = rateLimit({
   max: parseInt(process.env.RATE_LIMIT_GUEST || '20', 10),
   standardHeaders: true,
   legacyHeaders: false,
+  keyGenerator: rateLimitKeyGenerator,
   message: { success: false, message: 'Demasiados intentos. Por favor espera un minuto.' }
 });
 
@@ -803,6 +811,7 @@ const followmiwinLimiter = rateLimit({
   max: parseInt(process.env.RATE_LIMIT_FOLLOWMIWIN || '100', 10),
   standardHeaders: true,
   legacyHeaders: false,
+  keyGenerator: rateLimitKeyGenerator,
   message: {
     success: false,
     message: 'Demasiadas solicitudes a la API de FollowMiWIN. Intente más tarde.'
@@ -1114,8 +1123,20 @@ async function findTodayInstallationsByDocument(tipoDocumento: 'DNI' | 'CE' | 'R
   const { todayStart, tomorrowStart } = getLimaTodayBounds();
   const unpaddedDoc = cleanDoc.replace(/^0+/, '') || cleanDoc;
   const padded8Doc = tipoDocumento === 'DNI' ? cleanDoc.padStart(8, '0') : cleanDoc;
+  const docCandidates = Array.from(
+    new Set([
+      cleanDoc,
+      unpaddedDoc,
+      padded8Doc,
+      `*${cleanDoc}`,
+      `${cleanDoc}*`,
+      `*${padded8Doc}`,
+      `${padded8Doc}*`
+    ])
+  );
+  const placeholders = docCandidates.map(() => '?').join(', ');
 
-  const querySQL = `
+  const selectColumnsSQL = `
     SELECT
       w.OrdenId AS idoperacion,
       w.Estado,
@@ -1136,34 +1157,55 @@ async function findTodayInstallationsByDocument(tipoDocumento: 'DNI' | 'CE' | 'R
       END AS es_hoy
     FROM VW_WinORdeTraba w
     LEFT JOIN tiposervicio ts ON UPPER(TRIM(w.Producto)) = UPPER(TRIM(ts.Servicio))
-    WHERE (
-      TRIM(REPLACE(w.\`Número Documento\`, '*', '')) IN (?, ?, ?)
-      OR TRIM(w.\`Número Documento\`) IN (?, ?, ?)
-    )
-    ORDER BY es_hoy DESC, COALESCE(w.\`F.Visita\`, w.\`F.Soli\`) DESC, w.OrdenId DESC
   `;
 
-  const queryParams = [
-    todayStart,
-    tomorrowStart,
-    todayStart,
-    tomorrowStart,
-    cleanDoc,
-    unpaddedDoc,
-    padded8Doc,
-    cleanDoc,
-    unpaddedDoc,
-    padded8Doc
-  ];
+  const caseParams = [todayStart, tomorrowStart, todayStart, tomorrowStart];
 
-  let [rows]: any = await pool.query(querySQL, queryParams);
+  // 1. SARGable fast path using idx_wot_num_documento directly without full table scan
+  const indexedDocSQL = `
+    ${selectColumnsSQL}
+    WHERE w.\`Número Documento\` IN (${placeholders})
+    ORDER BY es_hoy DESC, COALESCE(w.\`F.Visita\`, w.\`F.Soli\`) DESC, w.OrdenId DESC
+    LIMIT 25
+  `;
+
+  let [rows]: any = await pool.query(indexedDocSQL, [...caseParams, ...docCandidates]);
   let list = rows as any[];
 
+  // 2. Date-bounded fallback using idx_f_visita when document value has unexpected whitespace/asterisks
   if (list.length === 0) {
-    const [testRows]: any = await pool.query(
-      querySQL.replace('VW_WinORdeTraba', 'Testmantra'),
-      queryParams
-    );
+    const fallbackTodaySQL = `
+      ${selectColumnsSQL}
+      WHERE w.\`F.Visita\` >= ? AND w.\`F.Visita\` < ?
+        AND TRIM(REPLACE(w.\`Número Documento\`, '*', '')) IN (?, ?, ?)
+      ORDER BY es_hoy DESC, COALESCE(w.\`F.Visita\`, w.\`F.Soli\`) DESC, w.OrdenId DESC
+      LIMIT 25
+    `;
+    const [todayRows]: any = await pool.query(fallbackTodaySQL, [
+      ...caseParams,
+      todayStart,
+      tomorrowStart,
+      cleanDoc,
+      unpaddedDoc,
+      padded8Doc
+    ]);
+    list = todayRows as any[];
+  }
+
+  // 3. QA fallback table (Testmantra)
+  if (list.length === 0) {
+    const testSQL = `
+      ${selectColumnsSQL.replace('VW_WinORdeTraba', 'Testmantra')}
+      WHERE TRIM(REPLACE(w.\`Número Documento\`, '*', '')) IN (?, ?, ?)
+      ORDER BY es_hoy DESC, COALESCE(w.\`F.Visita\`, w.\`F.Soli\`) DESC, w.OrdenId DESC
+      LIMIT 25
+    `;
+    const [testRows]: any = await pool.query(testSQL, [
+      ...caseParams,
+      cleanDoc,
+      unpaddedDoc,
+      padded8Doc
+    ]);
     list = testRows as any[];
   }
 
