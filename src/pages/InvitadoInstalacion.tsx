@@ -108,7 +108,7 @@ export default function InvitadoInstalacion() {
         } else {
           setDocExists(false);
           setTelefonoMasked(null);
-          setDocError(data.message || "El número de documento ingresado no es válido.");
+          setDocError("El número de documento ingresado no es válido.");
         }
       } catch (err: any) {
         if (err?.name === "AbortError") return;
@@ -418,9 +418,9 @@ export default function InvitadoInstalacion() {
               ) : null}
             </div>
 
-            {docError ? (
+            {docError || docExists === false ? (
               <p className="text-[12px] text-[#E53935] mt-1.5 px-1 font-normal">
-                {docError}
+                {docError || "El número de documento ingresado no es válido."}
               </p>
             ) : docExists === true ? (
               <p className="text-[12px] text-[#16A34A] mt-1.5 px-1 font-normal flex items-center gap-1">
