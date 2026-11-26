@@ -350,9 +350,7 @@ export default function InvitadoInstalacion() {
               className={`relative h-[56px] rounded-[14px] px-4 flex items-center gap-3 border transition-all ${
                 docError || docExists === false
                   ? "bg-[#FFF5F5] border-[#E53935]"
-                  : docExists === true
-                  ? "bg-[#F2F2F2] border-[#16A34A]"
-                  : docFocused
+                  : docExists === true || docFocused
                   ? "bg-[#F2F2F2] border-[#FF5A0A]"
                   : "bg-[#F2F2F2] border-transparent"
               }`}
@@ -420,21 +418,17 @@ export default function InvitadoInstalacion() {
               ) : docError || docExists === false ? (
                 <AlertCircle className="w-5 h-5 text-[#E53935] shrink-0 stroke-[1.8]" />
               ) : docExists === true ? (
-                <span className="w-5 h-5 rounded-full bg-[#DCFCE7] text-[#16A34A] flex items-center justify-center shrink-0">
+                <span className="w-5 h-5 rounded-full bg-[#FFEFE7] text-[#FF5A0A] flex items-center justify-center shrink-0">
                   <Check className="w-3.5 h-3.5 stroke-[2.5]" />
                 </span>
               ) : null}
             </div>
 
-            {docError || docExists === false ? (
+            {(docError || docExists === false) && (
               <p className="text-[12px] text-[#E53935] mt-1.5 px-1 font-normal">
                 {docError || "El número de documento ingresado no es válido."}
               </p>
-            ) : docExists === true ? (
-              <p className="text-[12px] text-[#16A34A] mt-1.5 px-1 font-normal flex items-center gap-1">
-                <span>Documento verificado</span>
-              </p>
-            ) : null}
+            )}
           </div>
 
           {/* Input Código de seguimiento */}
