@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { ChevronLeft, ChevronDown, AlertCircle, Loader2 } from "lucide-react";
+import { ChevronLeft, ChevronDown, AlertCircle, Loader2, Check } from "lucide-react";
 import { API_BASE_URL } from "@/lib/apiUrl";
 import { trackEvent } from "@/lib/firebaseConfig";
 
@@ -67,6 +67,7 @@ export default function InvitadoInstalacion() {
   useEffect(() => {
     setDocExists(null);
     setTelefonoMasked(null);
+    setDocError(null);
 
     if (
       documento.length < currentDocCfg.minLength ||
@@ -107,7 +108,7 @@ export default function InvitadoInstalacion() {
         } else {
           setDocExists(false);
           setTelefonoMasked(null);
-          setDocError("El número de documento ingresado no es válido.");
+          setDocError(data.message || "El número de documento ingresado no es válido.");
         }
       } catch (err: any) {
         if (err?.name === "AbortError") return;
@@ -155,7 +156,7 @@ export default function InvitadoInstalacion() {
     documento.trim().length >= currentDocCfg.minLength &&
     codigo.trim().length === 4 &&
     !isCheckingDoc &&
-    docExists !== false;
+    docExists === true;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -204,10 +205,12 @@ export default function InvitadoInstalacion() {
       }
 
       if (result.code === "DOCUMENT_NOT_FOUND") {
+        setDocExists(false);
         setDocError("El número de documento ingresado no es válido.");
       } else if (result.code === "INVALID_PIN") {
         setCodeError("El código de seguimiento ingresado no es válido.");
       } else if (result.code === "BOTH_INVALID") {
+        setDocExists(false);
         setDocError("El número de documento ingresado no es válido.");
         setCodeError("El código de seguimiento ingresado no es válido.");
       } else if (response.status === 429) {
@@ -337,8 +340,10 @@ export default function InvitadoInstalacion() {
           <div className="mb-4">
             <div
               className={`relative h-[56px] rounded-[14px] px-4 flex items-center gap-3 border transition-all ${
-                docError
+                docError || docExists === false
                   ? "bg-[#FFF5F5] border-[#E53935]"
+                  : docExists === true
+                  ? "bg-[#F2F2F2] border-[#16A34A]"
                   : docFocused
                   ? "bg-[#F2F2F2] border-[#FF5A0A]"
                   : "bg-[#F2F2F2] border-transparent"
@@ -404,16 +409,24 @@ export default function InvitadoInstalacion() {
 
               {isCheckingDoc ? (
                 <Loader2 className="w-4 h-4 text-[#FF5A0A] animate-spin shrink-0" />
-              ) : docError ? (
+              ) : docError || docExists === false ? (
                 <AlertCircle className="w-5 h-5 text-[#E53935] shrink-0 stroke-[1.8]" />
+              ) : docExists === true ? (
+                <span className="w-5 h-5 rounded-full bg-[#DCFCE7] text-[#16A34A] flex items-center justify-center shrink-0">
+                  <Check className="w-3.5 h-3.5 stroke-[2.5]" />
+                </span>
               ) : null}
             </div>
 
-            {docError && (
+            {docError ? (
               <p className="text-[12px] text-[#E53935] mt-1.5 px-1 font-normal">
                 {docError}
               </p>
-            )}
+            ) : docExists === true ? (
+              <p className="text-[12px] text-[#16A34A] mt-1.5 px-1 font-normal flex items-center gap-1">
+                <span>Documento verificado</span>
+              </p>
+            ) : null}
           </div>
 
           {/* Input Código de seguimiento */}
