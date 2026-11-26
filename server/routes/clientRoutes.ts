@@ -1126,18 +1126,26 @@ async function findTodayInstallationsByDocument(tipoDocumento: 'DNI' | 'CE' | 'R
       w.CodiSeguiClien AS codiseguiclien,
       w.Producto AS producto,
       w.TipoTraba AS tipo_trabajo,
-      ts.Tipo AS tipo_servicio
+      ts.Tipo AS tipo_servicio,
+      TIMESTAMPDIFF(SECOND, w.\`F.Soli\`, CONVERT_TZ(UTC_TIMESTAMP(), '+00:00', '-05:00')) AS segundos_desde_soli,
+      CASE
+        WHEN (w.\`F.Visita\` >= ? AND w.\`F.Visita\` < ?)
+          OR (w.\`F.Soli\` >= ? AND w.\`F.Soli\` < ?)
+        THEN 1
+        ELSE 0
+      END AS es_hoy
     FROM VW_WinORdeTraba w
     LEFT JOIN tiposervicio ts ON UPPER(TRIM(w.Producto)) = UPPER(TRIM(ts.Servicio))
-    WHERE w.\`F.Visita\` >= ? AND w.\`F.Visita\` < ?
-      AND (
-        TRIM(REPLACE(w.\`Número Documento\`, '*', '')) IN (?, ?, ?)
-        OR TRIM(w.\`Número Documento\`) IN (?, ?, ?)
-      )
-    ORDER BY w.\`F.Soli\` DESC, w.OrdenId DESC
+    WHERE (
+      TRIM(REPLACE(w.\`Número Documento\`, '*', '')) IN (?, ?, ?)
+      OR TRIM(w.\`Número Documento\`) IN (?, ?, ?)
+    )
+    ORDER BY es_hoy DESC, COALESCE(w.\`F.Visita\`, w.\`F.Soli\`) DESC, w.OrdenId DESC
   `;
 
   const queryParams = [
+    todayStart,
+    tomorrowStart,
     todayStart,
     tomorrowStart,
     cleanDoc,
@@ -1161,7 +1169,8 @@ async function findTodayInstallationsByDocument(tipoDocumento: 'DNI' | 'CE' | 'R
 
   return list.filter((op: any) => {
     const { isTicket, isPostventa } = classifyOrderType(op);
-    return !isTicket && !isPostventa && Boolean(op.token);
+    const isVigente = Number(op.es_hoy) === 1 || !isOrderExpired(op.segundos_desde_soli);
+    return !isTicket && !isPostventa && Boolean(op.token) && isVigente;
   });
 }
 

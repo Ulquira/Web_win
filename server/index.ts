@@ -16,10 +16,41 @@ const host = process.env.HOST || '0.0.0.0';
 app.set('trust proxy', 1);
 app.use(helmet());
 
-app.use(cors({ 
-  origin: process.env.FRONTEND_URL || '*', 
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS']
-}));
+const allowedOrigins = Array.from(
+  new Set(
+    [
+      'https://enruta.win.pe',
+      'https://www.enruta.win.pe',
+      'https://lively-moss-05a36f910.7.azurestaticapps.net',
+      'http://localhost:5173',
+      'http://localhost:3000',
+      'http://127.0.0.1:5173',
+      ...(process.env.FRONTEND_URL || '').split(',').map((o) => o.trim()),
+      ...(process.env.CORS_ORIGINS || '').split(',').map((o) => o.trim()),
+    ].filter(Boolean)
+  )
+);
+
+const isAllowedStaticWebAppOrigin = (origin: string): boolean =>
+  /^https:\/\/lively-moss-05a36f910(?:-[a-z0-9]+)?\.\d+\.azurestaticapps\.net$/i.test(origin);
+
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      if (
+        !origin ||
+        allowedOrigins.includes('*') ||
+        allowedOrigins.includes(origin) ||
+        isAllowedStaticWebAppOrigin(origin)
+      ) {
+        return callback(null, true);
+      }
+      return callback(null, false);
+    },
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'x-api-key'],
+  })
+);
 app.use(express.json({ limit: '256kb' }));
 
 app.get('/api/health', (_req, res) => {

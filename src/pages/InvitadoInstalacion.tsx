@@ -112,9 +112,9 @@ export default function InvitadoInstalacion() {
         }
       } catch (err: any) {
         if (err?.name === "AbortError") return;
-        setDocExists(false);
+        setDocExists(null);
         setTelefonoMasked(null);
-        setDocError("El número de documento ingresado no es válido.");
+        setGeneralError("Error de conexión. Verifica tu internet e intenta nuevamente.");
       } finally {
         if (!controller.signal.aborted) {
           setIsCheckingDoc(false);
