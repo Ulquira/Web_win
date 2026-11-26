@@ -1179,35 +1179,43 @@ async function findTodayInstallationsByDocument(tipoDocumento: 'DNI' | 'CE' | 'R
 
   const caseParams = [todayStart, tomorrowStart, todayStart, tomorrowStart];
 
+  const orderByHighestDateSQL = `
+    ORDER BY
+      GREATEST(
+        COALESCE(w.\`F.Visita\`, w.\`F.Soli\`, '1970-01-01 00:00:00'),
+        COALESCE(w.\`F.Soli\`, w.\`F.Visita\`, '1970-01-01 00:00:00')
+      ) DESC,
+      w.OrdenId DESC
+  `;
+
   // 1. SARGable fast path using idx_wot_num_documento directly without full table scan
   const indexedDocSQL = `
     ${selectColumnsSQL}
     WHERE w.\`Número Documento\` IN (${placeholders})
-    ORDER BY es_hoy DESC, COALESCE(w.\`F.Visita\`, w.\`F.Soli\`) DESC, w.OrdenId DESC
+    ${orderByHighestDateSQL}
     LIMIT 25
   `;
 
   let [rows]: any = await pool.query(indexedDocSQL, [...caseParams, ...docCandidates]);
   let list = rows as any[];
 
-  // 2. Date-bounded fallback using idx_f_visita when document value has unexpected whitespace/asterisks
+  // 2. Date-bounded fallback using idx_f_visita (today and future rescheduled visits) when document has unexpected spaces/asterisks
   if (list.length === 0) {
-    const fallbackTodaySQL = `
+    const fallbackFromTodaySQL = `
       ${selectColumnsSQL}
-      WHERE w.\`F.Visita\` >= ? AND w.\`F.Visita\` < ?
+      WHERE w.\`F.Visita\` >= ?
         AND TRIM(REPLACE(w.\`Número Documento\`, '*', '')) IN (?, ?, ?)
-      ORDER BY es_hoy DESC, COALESCE(w.\`F.Visita\`, w.\`F.Soli\`) DESC, w.OrdenId DESC
+      ${orderByHighestDateSQL}
       LIMIT 25
     `;
-    const [todayRows]: any = await pool.query(fallbackTodaySQL, [
+    const [todayAndFutureRows]: any = await pool.query(fallbackFromTodaySQL, [
       ...caseParams,
       todayStart,
-      tomorrowStart,
       cleanDoc,
       unpaddedDoc,
       padded8Doc
     ]);
-    list = todayRows as any[];
+    list = todayAndFutureRows as any[];
   }
 
   // 3. QA fallback table (Testmantra)
@@ -1215,7 +1223,7 @@ async function findTodayInstallationsByDocument(tipoDocumento: 'DNI' | 'CE' | 'R
     const testSQL = `
       ${selectColumnsSQL.replace('VW_WinORdeTraba', 'Testmantra')}
       WHERE TRIM(REPLACE(w.\`Número Documento\`, '*', '')) IN (?, ?, ?)
-      ORDER BY es_hoy DESC, COALESCE(w.\`F.Visita\`, w.\`F.Soli\`) DESC, w.OrdenId DESC
+      ${orderByHighestDateSQL}
       LIMIT 25
     `;
     const [testRows]: any = await pool.query(testSQL, [
